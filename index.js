@@ -24,21 +24,44 @@ const userEmail = document.getElementById('user-email');
 const userAvatar = document.getElementById('user-avatar');
 const memberSince = document.getElementById('member-since');
 
-loginBtn.addEventListener('click', () => signInWithPopup(auth, provider).catch(console.error));
-logoutBtn.addEventListener('click', () => signOut(auth).catch(console.error));
+loginBtn.addEventListener('click', () => {
+  signInWithPopup(auth, provider).catch((err) => {
+    alert("Login failed: " + err.message);
+  });
+});
 
-// Stores ONLY the numeric Unix timestamp (`jt`) per user for minimal storage overhead
+logoutBtn.addEventListener('click', () => signOut(auth));
+
+// Auto-creates missing document or missing fields automatically
 async function syncUserProfile(uid) {
   const userRef = doc(db, 'users', uid);
-  const snap = await getDoc(userRef);
+  
+  try {
+    const snap = await getDoc(userRef);
 
-  if (!snap.exists() || !snap.data()?.jt) {
-    const jt = Date.now();
-    await setDoc(userRef, { jt }, { merge: true });
-    return jt;
+    if (!snap.exists()) {
+      // Document missing entirely: Auto-create
+      const jt = Date.now();
+      await setDoc(userRef, { jt });
+      console.log('Created new user doc in Firestore:', uid);
+      return jt;
+    }
+
+    const data = snap.data();
+    if (!data.jt) {
+      // Document exists but missing 'jt' field: Auto-add field
+      const jt = Date.now();
+      await setDoc(userRef, { jt }, { merge: true });
+      console.log('Added missing jt field to user doc:', uid);
+      return jt;
+    }
+
+    return data.jt;
+  } catch (err) {
+    console.error('Firestore Error:', err);
+    alert('Firestore Error: ' + err.message);
+    throw err;
   }
-
-  return snap.data().jt;
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -46,7 +69,6 @@ onAuthStateChanged(auth, async (user) => {
     loginBtn.classList.add('hidden');
     userProfile.classList.remove('hidden');
     
-    // Auth profile elements (0 database reads/writes)
     userEmail.textContent = user.email || user.displayName;
     userAvatar.src = user.photoURL || 'favicon.png';
 
@@ -55,7 +77,7 @@ onAuthStateChanged(auth, async (user) => {
       const date = new Date(jt);
       memberSince.textContent = `Member since ${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
     } catch (err) {
-      console.error('Firestore Error:', err);
+      memberSince.textContent = 'Member since Today';
     }
   } else {
     loginBtn.classList.remove('hidden');
