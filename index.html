@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlayStash - Instant Web Gaming</title>
+  
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#0A192F] text-white min-h-screen font-sans flex flex-col">
+  
+  <header class="border-b border-gray-800 bg-[#0F223D] px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img src="favicon.png" alt="PlayStash Logo" class="w-8 h-8 rounded-lg" />
+      <span class="text-xl font-bold tracking-wider text-white">PLAY<span class="text-cyan-400">STASH</span></span>
+    </div>
+    
+    <div id="auth-section">
+      <button id="login-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition">
+        <span>Sign in with Google</span>
+      </button>
+      
+      <div id="user-profile" class="hidden flex items-center gap-4">
+        <span id="user-email" class="text-sm text-gray-300"></span>
+        <button id="logout-btn" class="bg-gray-800 hover:bg-gray-700 text-red-400 font-semibold px-3 py-1.5 text-sm rounded-lg transition">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-6xl w-full mx-auto p-6">
+    <h1 class="text-3xl font-extrabold mb-6">Trending Games</h1>
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" id="game-grid">
+      <div class="bg-[#0F223D] border border-gray-800 rounded-xl overflow-hidden hover:border-cyan-500 transition cursor-pointer group">
+        <div class="h-40 bg-gray-900 flex items-center justify-center">
+          <img src="favicon.png" class="w-12 h-12 opacity-40 group-hover:opacity-100 transition" alt="Game Icon" />
+        </div>
+        <div class="p-4">
+          <h2 class="font-bold text-lg">Featured Game</h2>
+          <p class="text-sm text-gray-400 mt-1">Click to Play Instant</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="index.js"></script>
+</body>
+</html>
