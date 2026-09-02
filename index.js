@@ -14,16 +14,22 @@ loginBtn.addEventListener('click', async () => {
   const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: window.location.origin
+      redirectTo: window.location.href // Uses exact current URL path
     }
   });
-  if (error) console.error('Login error:', error.message);
+  if (error) {
+    console.error('Login error:', error.message);
+    alert('Login Error: ' + error.message);
+  }
 });
 
 // Logout Trigger
 logoutBtn.addEventListener('click', async () => {
   const { error } = await supabaseClient.auth.signOut();
-  if (error) console.error('Logout error:', error.message);
+  if (error) {
+    console.error('Logout error:', error.message);
+    alert('Logout Error: ' + error.message);
+  }
 });
 
 // Auth Session Listener
@@ -31,7 +37,7 @@ async function initAuth() {
   const { data: { session } } = await supabaseClient.auth.getSession();
   updateUI(session?.user);
 
-  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
     updateUI(session?.user);
   });
 }
