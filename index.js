@@ -1,83 +1,82 @@
-const SUPABASE_URL = 'https://gmacloctceeksjkufqtf.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtYWNsb2N0Y2Vla3Nqa3VmcXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMzY1MTEsImV4cCI6MjEwMzkxMjUxMX0.BqR3bAO6qKUB28f2tpZfdS4aOC0CgXmvOkl2FMm7Crs';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Initialize Supabase Client
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const firebaseConfig = {
+  apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
+  authDomain: "playstash0.firebaseapp.com",
+  projectId: "playstash0",
+  storageBucket: "playstash0.firebasestorage.app",
+  messagingSenderId: "1015051983836",
+  appId: "1:1015051983836:web:3c89a152ce8c476852cd19",
+  measurementId: "G-6JH69Z3HNQ"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
 
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
 const userProfile = document.getElementById('user-profile');
 const userEmail = document.getElementById('user-email');
+const memberSince = document.getElementById('member-since');
 
-// Google OAuth Trigger
 loginBtn.addEventListener('click', async () => {
-  const { error } = await supabaseClient.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.href
-    }
-  });
-  if (error) {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error) {
     console.error('Login error:', error.message);
-    alert('Login Error: ' + error.message);
   }
 });
 
-// Logout Trigger
 logoutBtn.addEventListener('click', async () => {
-  const { error } = await supabaseClient.auth.signOut();
-  if (error) {
+  try {
+    await signOut(auth);
+  } catch (error) {
     console.error('Logout error:', error.message);
-    alert('Logout Error: ' + error.message);
   }
 });
 
-// Save or Update User Profile in Supabase DB
-async function saveUserProfile(user) {
-  if (!user) return;
-  
-  const { error } = await supabaseClient
-    .from('profiles')
-    .upsert({
-      id: user.id,
+// Auto-creates users/{uid} document with Unix timestamp (jt) on first login
+async function syncUserProfile(user) {
+  const userRef = doc(db, 'users', user.uid);
+  const userSnap = await getDoc(userRef);
+
+  let jt;
+
+  if (!userSnap.exists()) {
+    jt = Date.now(); // Unix timestamp in ms
+    await setDoc(userRef, {
       email: user.email,
-      full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
-      avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'id' });
-
-  if (error) {
-    console.error('Error saving user profile to Supabase:', error.message);
-  }
-}
-
-// Auth Session Listener
-async function initAuth() {
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  updateUI(session?.user);
-
-  if (session?.user) {
-    await saveUserProfile(session.user);
+      displayName: user.displayName || '',
+      photoURL: user.photoURL || '',
+      jt: jt
+    });
+  } else {
+    jt = userSnap.data().jt || Date.now();
   }
 
-  supabaseClient.auth.onAuthStateChange(async (event, session) => {
-    updateUI(session?.user);
-    if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-      await saveUserProfile(session.user);
-    }
-  });
+  return jt;
 }
 
-function updateUI(user) {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     loginBtn.classList.add('hidden');
     userProfile.classList.remove('hidden');
     userEmail.textContent = user.email;
+
+    const jt = await syncUserProfile(user);
+    const joinDate = new Date(jt).toLocaleDateString('en-US', {
+      month: 'short',
+      year: 'numeric'
+    });
+    memberSince.textContent = `Member since ${joinDate}`;
   } else {
     loginBtn.classList.remove('hidden');
     userProfile.classList.add('hidden');
     userEmail.textContent = '';
+    memberSince.textContent = '';
   }
-}
-
-initAuth();
+});

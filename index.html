@@ -5,17 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PlayStash - Instant Web Gaming</title>
   
-  <!-- Favicon Links -->
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  
-  <!-- Supabase JS & Tailwind CSS -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-[#0A192F] text-white min-h-screen font-sans flex flex-col">
   
-  <!-- Header / Navbar -->
   <header class="border-b border-gray-800 bg-[#0F223D] px-6 py-4 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer">
       <img src="favicon.png" alt="PlayStash Logo" class="w-8 h-8 rounded-lg" />
@@ -23,7 +18,6 @@
     </div>
     
     <div id="auth-section">
-      <!-- Google Sign In Button -->
       <button id="login-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-lg shadow-blue-600/20">
         <svg class="w-4 h-4 bg-white rounded-full p-0.5" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -34,20 +28,20 @@
         <span>Sign in with Google</span>
       </button>
       
-      <!-- User Profile Dropdown / Info -->
       <div id="user-profile" class="hidden flex items-center gap-4">
-        <span id="user-email" class="text-sm text-gray-300 font-medium"></span>
+        <div class="flex flex-col text-right">
+          <span id="user-email" class="text-sm text-gray-200 font-medium"></span>
+          <span id="member-since" class="text-xs text-blue-400 font-medium"></span>
+        </div>
         <button id="logout-btn" class="bg-gray-800 hover:bg-gray-700 text-red-400 font-semibold px-3 py-1.5 text-sm rounded-lg border border-gray-700 transition">Sign Out</button>
       </div>
     </div>
   </header>
 
-  <!-- Storefront Shell -->
   <main class="flex-1 max-w-6xl w-full mx-auto p-6">
     <h1 class="text-3xl font-extrabold mb-6 tracking-tight">Trending Games</h1>
     
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" id="game-grid">
-      <!-- Demo Game Card -->
       <div class="bg-[#0F223D] border border-gray-800 rounded-xl overflow-hidden hover:border-blue-500 transition cursor-pointer group shadow-md">
         <div class="h-40 bg-gray-900 flex items-center justify-center">
           <img src="favicon.png" class="w-12 h-12 opacity-50 group-hover:opacity-100 group-hover:scale-110 transition duration-300" alt="Game Icon" />
@@ -60,6 +54,6 @@
     </div>
   </main>
 
-  <script src="index.js"></script>
+  <script type="module" src="index.js"></script>
 </body>
 </html>
