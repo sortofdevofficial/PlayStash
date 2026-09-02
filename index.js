@@ -1,7 +1,8 @@
 const SUPABASE_URL = 'https://gmacloctceeksjkufqtf.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtYWNsb2N0Y2Vla3Nqa3VmcXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMzY1MTEsImV4cCI6MjEwMzkxMjUxMX0.BqR3bAO6qKUB28f2tpZfdS4aOC0CgXmvOkl2FMm7Crs';
 
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Correct client initialization (v2 CDN style)
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
@@ -30,7 +31,7 @@ async function initAuth() {
   const { data: { session } } = await supabaseClient.auth.getSession();
   updateUI(session?.user);
 
-  supabaseClient.auth.onAuthStateChange((_event, session) => {
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
     updateUI(session?.user);
   });
 }
