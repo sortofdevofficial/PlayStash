@@ -5,42 +5,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PlayStash - Instant Web Gaming</title>
   
+  <!-- Favicon Links -->
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   
+  <!-- Supabase JS & Tailwind CSS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-[#0A192F] text-white min-h-screen font-sans flex flex-col">
   
+  <!-- Header / Navbar -->
   <header class="border-b border-gray-800 bg-[#0F223D] px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-3 cursor-pointer">
       <img src="favicon.png" alt="PlayStash Logo" class="w-8 h-8 rounded-lg" />
-      <span class="text-xl font-bold tracking-wider text-white">PLAY<span class="text-cyan-400">STASH</span></span>
+      <span class="text-xl font-bold tracking-wider text-white">PLAY<span class="text-blue-500">STASH</span></span>
     </div>
     
     <div id="auth-section">
-      <button id="login-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition">
+      <!-- Google Sign In Button -->
+      <button id="login-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-lg shadow-blue-600/20">
+        <svg class="w-4 h-4 bg-white rounded-full p-0.5" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
         <span>Sign in with Google</span>
       </button>
       
+      <!-- User Profile Dropdown / Info -->
       <div id="user-profile" class="hidden flex items-center gap-4">
-        <span id="user-email" class="text-sm text-gray-300"></span>
-        <button id="logout-btn" class="bg-gray-800 hover:bg-gray-700 text-red-400 font-semibold px-3 py-1.5 text-sm rounded-lg transition">Sign Out</button>
+        <span id="user-email" class="text-sm text-gray-300 font-medium"></span>
+        <button id="logout-btn" class="bg-gray-800 hover:bg-gray-700 text-red-400 font-semibold px-3 py-1.5 text-sm rounded-lg border border-gray-700 transition">Sign Out</button>
       </div>
     </div>
   </header>
 
+  <!-- Storefront Shell -->
   <main class="flex-1 max-w-6xl w-full mx-auto p-6">
-    <h1 class="text-3xl font-extrabold mb-6">Trending Games</h1>
+    <h1 class="text-3xl font-extrabold mb-6 tracking-tight">Trending Games</h1>
     
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" id="game-grid">
-      <div class="bg-[#0F223D] border border-gray-800 rounded-xl overflow-hidden hover:border-cyan-500 transition cursor-pointer group">
+      <!-- Demo Game Card -->
+      <div class="bg-[#0F223D] border border-gray-800 rounded-xl overflow-hidden hover:border-blue-500 transition cursor-pointer group shadow-md">
         <div class="h-40 bg-gray-900 flex items-center justify-center">
-          <img src="favicon.png" class="w-12 h-12 opacity-40 group-hover:opacity-100 transition" alt="Game Icon" />
+          <img src="favicon.png" class="w-12 h-12 opacity-50 group-hover:opacity-100 group-hover:scale-110 transition duration-300" alt="Game Icon" />
         </div>
         <div class="p-4">
-          <h2 class="font-bold text-lg">Featured Game</h2>
+          <h2 class="font-bold text-lg text-white group-hover:text-blue-400 transition">Featured Game</h2>
           <p class="text-sm text-gray-400 mt-1">Click to Play Instant</p>
         </div>
       </div>
