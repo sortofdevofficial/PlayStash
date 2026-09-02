@@ -21,62 +21,47 @@ const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
 const userProfile = document.getElementById('user-profile');
 const userEmail = document.getElementById('user-email');
+const userAvatar = document.getElementById('user-avatar');
 const memberSince = document.getElementById('member-since');
 
-loginBtn.addEventListener('click', async () => {
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (error) {
-    console.error('Login error:', error.message);
-  }
-});
+loginBtn.addEventListener('click', () => signInWithPopup(auth, provider).catch(console.error));
+logoutBtn.addEventListener('click', () => signOut(auth).catch(console.error));
 
-logoutBtn.addEventListener('click', async () => {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    console.error('Logout error:', error.message);
-  }
-});
+// Stores ONLY the numeric Unix timestamp (`jt`) per user for minimal storage overhead
+async function syncUserProfile(uid) {
+  const userRef = doc(db, 'users', uid);
+  const snap = await getDoc(userRef);
 
-// Auto-creates users/{uid} document with Unix timestamp (jt) on first login
-async function syncUserProfile(user) {
-  const userRef = doc(db, 'users', user.uid);
-  const userSnap = await getDoc(userRef);
-
-  let jt;
-
-  if (!userSnap.exists()) {
-    jt = Date.now(); // Unix timestamp in ms
-    await setDoc(userRef, {
-      email: user.email,
-      displayName: user.displayName || '',
-      photoURL: user.photoURL || '',
-      jt: jt
-    });
-  } else {
-    jt = userSnap.data().jt || Date.now();
+  if (!snap.exists() || !snap.data()?.jt) {
+    const jt = Date.now();
+    await setDoc(userRef, { jt }, { merge: true });
+    return jt;
   }
 
-  return jt;
+  return snap.data().jt;
 }
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     loginBtn.classList.add('hidden');
     userProfile.classList.remove('hidden');
-    userEmail.textContent = user.email;
+    
+    // Auth profile elements (0 database reads/writes)
+    userEmail.textContent = user.email || user.displayName;
+    userAvatar.src = user.photoURL || 'favicon.png';
 
-    const jt = await syncUserProfile(user);
-    const joinDate = new Date(jt).toLocaleDateString('en-US', {
-      month: 'short',
-      year: 'numeric'
-    });
-    memberSince.textContent = `Member since ${joinDate}`;
+    try {
+      const jt = await syncUserProfile(user.uid);
+      const date = new Date(jt);
+      memberSince.textContent = `Member since ${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
+    } catch (err) {
+      console.error('Firestore Error:', err);
+    }
   } else {
     loginBtn.classList.remove('hidden');
     userProfile.classList.add('hidden');
     userEmail.textContent = '';
+    userAvatar.src = '';
     memberSince.textContent = '';
   }
 });
