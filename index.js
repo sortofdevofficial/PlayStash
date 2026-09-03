@@ -15,7 +15,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// Forces Long-Polling transport to bypass COOP and fetch policy blocks
+// Force long-polling to prevent COOP / WebSocket blocks on GitHub Pages
 const db = initializeFirestore(app, {
   experimentalForceLongPolling: true
 });
@@ -33,7 +33,7 @@ loginBtn.addEventListener('click', async () => {
   try {
     await signInWithPopup(auth, provider);
   } catch (err) {
-    alert("LOGIN ERROR: " + err.message);
+    alert("Auth Failed: " + err.message);
   }
 });
 
@@ -47,22 +47,23 @@ onAuthStateChanged(auth, async (user) => {
     userEmail.textContent = user.email || user.displayName;
     userAvatar.src = user.photoURL || 'favicon.png';
 
-    const jt = user.metadata?.creationTime
-      ? new Date(user.metadata.creationTime).getTime()
+    const jt = user.metadata?.creationTime 
+      ? new Date(user.metadata.creationTime).getTime() 
       : Date.now();
 
     const date = new Date(jt);
     memberSince.textContent = `Member since ${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
 
-    // Writes user data to Firestore users/{uid}
     try {
       await setDoc(doc(db, 'users', user.uid), {
         email: user.email || '',
+        displayName: user.displayName || '',
+        photoURL: user.photoURL || '',
         jt: jt
       }, { merge: true });
-      alert("SUCCESS! User saved to Firestore path: users/" + user.uid);
+      console.log("✅ Written to Firestore!");
     } catch (err) {
-      alert("FIRESTORE ERROR: " + err.message);
+      alert("Firestore Error: " + err.message);
     }
   } else {
     loginBtn.classList.remove('hidden');
