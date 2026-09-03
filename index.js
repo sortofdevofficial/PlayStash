@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { initializeFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -14,12 +14,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-
-// Force long-polling to prevent COOP / WebSocket blocks on GitHub Pages
-const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true
-});
-
+const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 const provider = new GoogleAuthProvider();
 
 const loginBtn = document.getElementById('login-btn');
@@ -29,15 +24,12 @@ const userEmail = document.getElementById('user-email');
 const userAvatar = document.getElementById('user-avatar');
 const memberSince = document.getElementById('member-since');
 
-loginBtn.addEventListener('click', async () => {
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (err) {
-    alert("Auth Failed: " + err.message);
-  }
-});
-
+loginBtn.addEventListener('click', () => signInWithRedirect(auth, provider));
 logoutBtn.addEventListener('click', () => signOut(auth));
+
+getRedirectResult(auth).catch((err) => {
+  if (err && err.code) alert("Auth Redirect Error: " + err.message);
+});
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -47,12 +39,8 @@ onAuthStateChanged(auth, async (user) => {
     userEmail.textContent = user.email || user.displayName;
     userAvatar.src = user.photoURL || 'favicon.png';
 
-    const jt = user.metadata?.creationTime 
-      ? new Date(user.metadata.creationTime).getTime() 
-      : Date.now();
-
-    const date = new Date(jt);
-    memberSince.textContent = `Member since ${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
+    const jt = user.metadata?.creationTime ? new Date(user.metadata.creationTime).getTime() : Date.now();
+    memberSince.textContent = `Member since ${new Date(jt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
 
     try {
       await setDoc(doc(db, 'users', user.uid), {
@@ -61,9 +49,9 @@ onAuthStateChanged(auth, async (user) => {
         photoURL: user.photoURL || '',
         jt: jt
       }, { merge: true });
-      console.log("✅ Written to Firestore!");
+      alert("SUCCESS! User written to Firestore.");
     } catch (err) {
-      alert("Firestore Error: " + err.message);
+      alert("FIRESTORE WRITE ERROR: " + err.message);
     }
   } else {
     loginBtn.classList.remove('hidden');
