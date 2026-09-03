@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { initializeFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -9,12 +9,13 @@ const firebaseConfig = {
   storageBucket: "playstash0.firebasestorage.app",
   messagingSenderId: "1015051983836",
   appId: "1:1015051983836:web:3c89a152ce8c476852cd19",
-  measurementId: "G-6JH69Z3HNQ"
+  measurementId: "G-6JH69Z3HNQ",
+  databaseURL: "https://playstash0-default-rtdb.firebaseio.com"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+const db = getDatabase(app);
 const provider = new GoogleAuthProvider();
 
 const loginBtn = document.getElementById('login-btn');
@@ -24,12 +25,15 @@ const userEmail = document.getElementById('user-email');
 const userAvatar = document.getElementById('user-avatar');
 const memberSince = document.getElementById('member-since');
 
-loginBtn.addEventListener('click', () => signInWithRedirect(auth, provider));
-logoutBtn.addEventListener('click', () => signOut(auth));
-
-getRedirectResult(auth).catch((err) => {
-  if (err && err.code) alert("Auth Redirect Error: " + err.message);
+loginBtn.addEventListener('click', async () => {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    alert("Sign In Error: " + err.message);
+  }
 });
+
+logoutBtn.addEventListener('click', () => signOut(auth));
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -39,19 +43,22 @@ onAuthStateChanged(auth, async (user) => {
     userEmail.textContent = user.email || user.displayName;
     userAvatar.src = user.photoURL || 'favicon.png';
 
-    const jt = user.metadata?.creationTime ? new Date(user.metadata.creationTime).getTime() : Date.now();
-    memberSince.textContent = `Member since ${new Date(jt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
+    const creationTime = user.metadata?.creationTime
+      ? new Date(user.metadata.creationTime).getTime()
+      : Date.now();
+
+    memberSince.textContent = `Member since ${new Date(creationTime).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
 
     try {
-      await setDoc(doc(db, 'users', user.uid), {
+      await set(ref(db, 'users/' + user.uid), {
         email: user.email || '',
         displayName: user.displayName || '',
         photoURL: user.photoURL || '',
-        jt: jt
-      }, { merge: true });
-      alert("SUCCESS! User written to Firestore.");
+        jt: creationTime
+      });
+      console.log("✅ Successfully saved to Realtime Database!");
     } catch (err) {
-      alert("FIRESTORE WRITE ERROR: " + err.message);
+      alert("Database Save Error: " + err.message);
     }
   } else {
     loginBtn.classList.remove('hidden');
