@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -14,7 +14,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+
+// Forces Long-Polling transport to bypass COOP and fetch policy blocks
+const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true
+});
+
 const provider = new GoogleAuthProvider();
 
 const loginBtn = document.getElementById('login-btn');
@@ -28,8 +33,7 @@ loginBtn.addEventListener('click', async () => {
   try {
     await signInWithPopup(auth, provider);
   } catch (err) {
-    console.error("Auth error details:", err);
-    alert("Auth Error (" + err.code + "): " + err.message);
+    alert("LOGIN ERROR: " + err.message);
   }
 });
 
@@ -39,28 +43,26 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     loginBtn.classList.add('hidden');
     userProfile.classList.remove('hidden');
-    
+
     userEmail.textContent = user.email || user.displayName;
     userAvatar.src = user.photoURL || 'favicon.png';
 
-    const creationTime = user.metadata?.creationTime 
-      ? new Date(user.metadata.creationTime).getTime() 
+    const jt = user.metadata?.creationTime
+      ? new Date(user.metadata.creationTime).getTime()
       : Date.now();
 
-    const date = new Date(creationTime);
+    const date = new Date(jt);
     memberSince.textContent = `Member since ${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
 
+    // Writes user data to Firestore users/{uid}
     try {
       await setDoc(doc(db, 'users', user.uid), {
         email: user.email || '',
-        displayName: user.displayName || '',
-        photoURL: user.photoURL || '',
-        jt: creationTime
+        jt: jt
       }, { merge: true });
-      console.log("✅ Firestore write succeeded for UID:", user.uid);
+      alert("SUCCESS! User saved to Firestore path: users/" + user.uid);
     } catch (err) {
-      console.error("Firestore write error:", err);
-      alert("Firestore Write Error (" + err.code + "): " + err.message);
+      alert("FIRESTORE ERROR: " + err.message);
     }
   } else {
     loginBtn.classList.remove('hidden');
