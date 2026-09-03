@@ -7,11 +7,16 @@
   
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0a0f1d; color: #ffffff; }
+    .card-bg { background-color: #111827; }
+    .header-bg { background-color: #0f172a; }
+  </style>
 </head>
-<body class="bg-[#0A192F] text-white min-h-screen font-sans flex flex-col">
+<body class="bg-[#0a0f1d] text-white min-h-screen font-sans flex flex-col">
   
-  <header class="border-b border-gray-800 bg-[#0F223D] px-6 py-4 flex items-center justify-between">
+  <header class="header-bg border-b border-gray-800 px-6 py-4 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer">
       <img src="favicon.png" alt="PlayStash Logo" class="w-8 h-8 rounded-lg" />
       <span class="text-xl font-bold tracking-wider text-white">PLAY<span class="text-blue-500">STASH</span></span>
@@ -32,7 +37,7 @@
         <img id="user-avatar" class="w-9 h-9 rounded-full border border-blue-500 object-cover" alt="Profile" />
         <div class="flex flex-col text-right">
           <span id="user-email" class="text-xs text-gray-200 font-medium"></span>
-          <span id="member-since" class="text-xs text-blue-400 font-medium"></span>
+          <span id="member-since" class="text-[10px] text-blue-400 font-medium"></span>
         </div>
         <button id="logout-btn" class="bg-gray-800 hover:bg-gray-700 text-red-400 font-semibold px-3 py-1.5 text-xs rounded-lg border border-gray-700 transition ml-2">Sign Out</button>
       </div>
@@ -40,10 +45,10 @@
   </header>
 
   <main class="flex-1 max-w-6xl w-full mx-auto p-6">
-    <h1 class="text-3xl font-extrabold mb-6 tracking-tight">Trending Games</h1>
+    <h1 class="text-3xl font-extrabold mb-6 tracking-tight text-white">Trending Games</h1>
     
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" id="game-grid">
-      <div class="bg-[#0F223D] border border-gray-800 rounded-xl overflow-hidden hover:border-blue-500 transition cursor-pointer group shadow-md">
+      <div class="card-bg border border-gray-800 rounded-xl overflow-hidden hover:border-blue-500 transition cursor-pointer group shadow-md">
         <div class="h-40 bg-gray-900 flex items-center justify-center">
           <img src="favicon.png" class="w-12 h-12 opacity-50 group-hover:opacity-100 group-hover:scale-110 transition duration-300" alt="Game Icon" />
         </div>

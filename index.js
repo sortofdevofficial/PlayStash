@@ -10,7 +10,7 @@ const firebaseConfig = {
   messagingSenderId: "1015051983836",
   appId: "1:1015051983836:web:3c89a152ce8c476852cd19",
   measurementId: "G-6JH69Z3HNQ",
-  databaseURL: "https://playstash0-default-rtdb.firebaseio.com"
+  databaseURL: "https://playstash0-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -56,7 +56,7 @@ onAuthStateChanged(auth, async (user) => {
         photoURL: user.photoURL || '',
         jt: creationTime
       });
-      console.log("✅ Successfully saved to Realtime Database!");
+      console.log("✅ Written to Realtime Database!");
     } catch (err) {
       alert("Database Save Error: " + err.message);
     }
