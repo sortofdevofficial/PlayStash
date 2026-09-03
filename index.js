@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -24,17 +24,16 @@ const userEmail = document.getElementById('user-email');
 const userAvatar = document.getElementById('user-avatar');
 const memberSince = document.getElementById('member-since');
 
-// Bypasses popup COOP header blocks completely
-loginBtn.addEventListener('click', () => {
-  signInWithRedirect(auth, provider);
+loginBtn.addEventListener('click', async () => {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    console.error("Auth error details:", err);
+    alert("Auth Error (" + err.code + "): " + err.message);
+  }
 });
 
 logoutBtn.addEventListener('click', () => signOut(auth));
-
-// Catch any redirect sign-in errors
-getRedirectResult(auth).catch((err) => {
-  if (err && err.code) alert("Auth Error: " + err.message);
-});
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -44,7 +43,6 @@ onAuthStateChanged(auth, async (user) => {
     userEmail.textContent = user.email || user.displayName;
     userAvatar.src = user.photoURL || 'favicon.png';
 
-    // Derive immutable Unix timestamp directly from Google Auth metadata (Zero database reads required)
     const creationTime = user.metadata?.creationTime 
       ? new Date(user.metadata.creationTime).getTime() 
       : Date.now();
@@ -52,7 +50,6 @@ onAuthStateChanged(auth, async (user) => {
     const date = new Date(creationTime);
     memberSince.textContent = `Member since ${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
 
-    // Direct write/merge to users/{uid}
     try {
       await setDoc(doc(db, 'users', user.uid), {
         email: user.email || '',
@@ -60,10 +57,10 @@ onAuthStateChanged(auth, async (user) => {
         photoURL: user.photoURL || '',
         jt: creationTime
       }, { merge: true });
-      console.log("✅ Data successfully saved in Firestore for user:", user.uid);
+      console.log("✅ Firestore write succeeded for UID:", user.uid);
     } catch (err) {
-      console.error("Firestore Write Failed:", err);
-      alert("Firestore Write Error: " + err.message);
+      console.error("Firestore write error:", err);
+      alert("Firestore Write Error (" + err.code + "): " + err.message);
     }
   } else {
     loginBtn.classList.remove('hidden');
