@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -25,7 +25,22 @@ const userEmail = document.getElementById('user-email');
 const userAvatar = document.getElementById('user-avatar');
 const memberSince = document.getElementById('member-since');
 const userCountEl = document.getElementById('user-count');
+const onlineCountEl = document.getElementById('online-count');
 const usersContainer = document.getElementById('users-container');
+
+// Date Formatter Helper (Includes Day, Month, Year, Hour, Minute, Second)
+function formatDateDetailed(timestamp) {
+  if (!timestamp) return 'N/A';
+  return new Date(timestamp).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+}
 
 loginBtn.addEventListener('click', async () => {
   try {
@@ -42,14 +57,14 @@ onAuthStateChanged(auth, async (user) => {
     loginBtn.classList.add('hidden');
     userProfile.classList.remove('hidden');
 
-    userEmail.textContent = user.email || user.displayName;
+    userEmail.textContent = user.displayName || user.email;
     userAvatar.src = user.photoURL || 'favicon.png';
 
     const creationTime = user.metadata?.creationTime
       ? new Date(user.metadata.creationTime).getTime()
       : Date.now();
 
-    memberSince.textContent = `Member since ${new Date(creationTime).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
+    memberSince.textContent = `Joined ${formatDateDetailed(creationTime)}`;
 
     try {
       await set(ref(db, `users/${user.uid}/info`), {
@@ -58,7 +73,7 @@ onAuthStateChanged(auth, async (user) => {
         pe: user.photoURL || 'favicon.png',
         jt: creationTime
       });
-      console.log("✅ Successfully written to users/" + user.uid + "/info");
+      console.log("✅ Successfully updated profile in Realtime Database!");
     } catch (err) {
       alert("Database Save Error: " + err.message);
     }
@@ -71,27 +86,49 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Realtime sync for total count and active players list
+// Presence System: Tracks real-time online connections
+const connectedRef = ref(db, ".info/connected");
+const presenceRef = ref(db, "presence");
+
+onValue(connectedRef, (snap) => {
+  if (snap.val() === true) {
+    const myPresenceRef = push(presenceRef);
+    onDisconnect(myPresenceRef).remove();
+    set(myPresenceRef, {
+      online: true,
+      ts: serverTimestamp()
+    });
+  }
+});
+
+onValue(presenceRef, (snap) => {
+  const onlineData = snap.val();
+  const onlineTotal = onlineData ? Object.keys(onlineData).length : 0;
+  onlineCountEl.textContent = onlineTotal;
+});
+
+// Realtime User Network Sync
 onValue(ref(db, 'users'), (snapshot) => {
   const data = snapshot.val();
   if (!data) {
     userCountEl.textContent = '0';
-    usersContainer.innerHTML = '<p class="text-gray-400 text-sm">No players yet.</p>';
+    usersContainer.innerHTML = '<div class="card-bg border border-gray-800/80 rounded-xl p-4 text-center text-gray-400 text-sm">No registered players yet.</div>';
     return;
   }
 
   const users = Object.values(data)
     .map(u => u.info)
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a, b) => (b.jt || 0) - (a.jt || 0));
 
   userCountEl.textContent = users.length;
 
   usersContainer.innerHTML = users.map(u => `
-    <div class="card-bg border border-gray-800 rounded-lg p-3 flex items-center gap-3">
-      <img src="${u.pe || 'favicon.png'}" class="w-10 h-10 rounded-full border border-blue-500/50 object-cover" alt="Profile" />
-      <div class="flex flex-col overflow-hidden">
-        <span class="font-bold text-sm text-white truncate">${u.dn || 'Player'}</span>
-        <span class="text-xs text-blue-400">Joined ${new Date(u.jt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+    <div class="card-bg border border-gray-800/80 rounded-xl p-3.5 flex items-center gap-3.5 hover:border-gray-700 transition">
+      <img src="${u.pe || 'favicon.png'}" class="w-10 h-10 rounded-full border border-blue-500/40 object-cover shrink-0" alt="Profile" />
+      <div class="flex flex-col min-w-0 flex-1">
+        <span class="font-bold text-sm text-white truncate">${u.dn || 'Anonymous Player'}</span>
+        <span class="text-[11px] text-blue-400/90 font-medium truncate mt-0.5">Joined ${formatDateDetailed(u.jt)}</span>
       </div>
     </div>
   `).join('');
