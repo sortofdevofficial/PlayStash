@@ -32,35 +32,56 @@ loginBtn.addEventListener('click', () => {
 
 logoutBtn.addEventListener('click', () => signOut(auth));
 
-// Auto-creates missing document or missing fields automatically
-async function syncUserProfile(uid) {
-  const userRef = doc(db, 'users', uid);
+// Automatically syncs user profile to Firestore `users/{uid}`
+async function syncUserProfile(user) {
+  const userRef = doc(db, 'users', user.uid);
   
+  // Calculate join timestamp from Auth metadata or current time
+  const creationTimestamp = user.metadata?.creationTime 
+    ? new Date(user.metadata.creationTime).getTime() 
+    : Date.now();
+
   try {
     const snap = await getDoc(userRef);
 
     if (!snap.exists()) {
-      // Document missing entirely: Auto-create
-      const jt = Date.now();
-      await setDoc(userRef, { jt });
-      console.log('Created new user doc in Firestore:', uid);
-      return jt;
+      // Create document if completely missing
+      await setDoc(userRef, {
+        email: user.email || '',
+        displayName: user.displayName || '',
+        photoURL: user.photoURL || '',
+        jt: creationTimestamp
+      });
+      return creationTimestamp;
     }
 
     const data = snap.data();
-    if (!data.jt) {
-      // Document exists but missing 'jt' field: Auto-add field
-      const jt = Date.now();
-      await setDoc(userRef, { jt }, { merge: true });
-      console.log('Added missing jt field to user doc:', uid);
-      return jt;
+
+    // Auto-patch any missing fields into existing document
+    if (!data.jt || !data.email) {
+      const updatedJt = data.jt || creationTimestamp;
+      await setDoc(userRef, {
+        email: data.email || user.email || '',
+        displayName: data.displayName || user.displayName || '',
+        photoURL: data.photoURL || user.photoURL || '',
+        jt: updatedJt
+      }, { merge: true });
+      return updatedJt;
     }
 
     return data.jt;
   } catch (err) {
-    console.error('Firestore Error:', err);
-    alert('Firestore Error: ' + err.message);
-    throw err;
+    console.warn('Firestore offline or blocked, writing locally:', err.message);
+    
+    // Attempt merge update without waiting for remote sync
+    setDoc(userRef, {
+      email: user.email || '',
+      displayName: user.displayName || '',
+      photoURL: user.photoURL || '',
+      jt: creationTimestamp
+    }, { merge: true }).catch(console.error);
+
+    return creationTimestamp;
   }
 }
 
@@ -72,13 +93,9 @@ onAuthStateChanged(auth, async (user) => {
     userEmail.textContent = user.email || user.displayName;
     userAvatar.src = user.photoURL || 'favicon.png';
 
-    try {
-      const jt = await syncUserProfile(user.uid);
-      const date = new Date(jt);
-      memberSince.textContent = `Member since ${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
-    } catch (err) {
-      memberSince.textContent = 'Member since Today';
-    }
+    const jt = await syncUserProfile(user);
+    const date = new Date(jt);
+    memberSince.textContent = `Member since ${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
   } else {
     loginBtn.classList.remove('hidden');
     userProfile.classList.add('hidden');
