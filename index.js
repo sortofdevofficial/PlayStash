@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -14,7 +14,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+
+// Force Long-Polling to prevent "client is offline" connection drops across regions
+const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true
+});
+
 const provider = new GoogleAuthProvider();
 
 const loginBtn = document.getElementById('login-btn');
@@ -32,11 +37,8 @@ loginBtn.addEventListener('click', () => {
 
 logoutBtn.addEventListener('click', () => signOut(auth));
 
-// Automatically syncs user profile to Firestore `users/{uid}`
 async function syncUserProfile(user) {
   const userRef = doc(db, 'users', user.uid);
-  
-  // Calculate join timestamp from Auth metadata or current time
   const creationTimestamp = user.metadata?.creationTime 
     ? new Date(user.metadata.creationTime).getTime() 
     : Date.now();
@@ -45,19 +47,20 @@ async function syncUserProfile(user) {
     const snap = await getDoc(userRef);
 
     if (!snap.exists()) {
-      // Create document if completely missing
+      // Auto-create user document if missing
       await setDoc(userRef, {
         email: user.email || '',
         displayName: user.displayName || '',
         photoURL: user.photoURL || '',
         jt: creationTimestamp
       });
+      console.log("Successfully created user document in Firestore!");
       return creationTimestamp;
     }
 
     const data = snap.data();
-
-    // Auto-patch any missing fields into existing document
+    
+    // Fill in missing fields if any are absent
     if (!data.jt || !data.email) {
       const updatedJt = data.jt || creationTimestamp;
       await setDoc(userRef, {
@@ -71,16 +74,7 @@ async function syncUserProfile(user) {
 
     return data.jt;
   } catch (err) {
-    console.warn('Firestore offline or blocked, writing locally:', err.message);
-    
-    // Attempt merge update without waiting for remote sync
-    setDoc(userRef, {
-      email: user.email || '',
-      displayName: user.displayName || '',
-      photoURL: user.photoURL || '',
-      jt: creationTimestamp
-    }, { merge: true }).catch(console.error);
-
+    console.error("Firestore sync error:", err);
     return creationTimestamp;
   }
 }
