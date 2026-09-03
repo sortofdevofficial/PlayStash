@@ -50,13 +50,13 @@ onAuthStateChanged(auth, async (user) => {
     memberSince.textContent = `Member since ${new Date(creationTime).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
 
     try {
-      await set(ref(db, 'users/' + user.uid), {
-        email: user.email || '',
-        displayName: user.displayName || '',
-        photoURL: user.photoURL || '',
+      await set(ref(db, `users/${user.uid}/info`), {
+        e: user.email || '',
+        dn: user.displayName || '',
+        pe: user.photoURL || '',
         jt: creationTime
       });
-      console.log("✅ Written to Realtime Database!");
+      console.log("✅ Successfully written to users/" + user.uid + "/info");
     } catch (err) {
       alert("Database Save Error: " + err.message);
     }
