@@ -15,12 +15,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// Force Long-Polling to prevent "client is offline" connection drops across regions
+// Force long polling to bypass network/COOP header restrictions
 const db = initializeFirestore(app, {
   experimentalForceLongPolling: true
 });
 
 const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
 
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
@@ -29,10 +30,13 @@ const userEmail = document.getElementById('user-email');
 const userAvatar = document.getElementById('user-avatar');
 const memberSince = document.getElementById('member-since');
 
-loginBtn.addEventListener('click', () => {
-  signInWithPopup(auth, provider).catch((err) => {
-    alert("Login failed: " + err.message);
-  });
+loginBtn.addEventListener('click', async () => {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    console.error("Sign-in error:", err);
+    alert("Sign-in failed: " + err.message);
+  }
 });
 
 logoutBtn.addEventListener('click', () => signOut(auth));
@@ -47,20 +51,17 @@ async function syncUserProfile(user) {
     const snap = await getDoc(userRef);
 
     if (!snap.exists()) {
-      // Auto-create user document if missing
       await setDoc(userRef, {
         email: user.email || '',
         displayName: user.displayName || '',
         photoURL: user.photoURL || '',
         jt: creationTimestamp
       });
-      console.log("Successfully created user document in Firestore!");
+      console.log("✅ Success! Created new document in Firestore under users/" + user.uid);
       return creationTimestamp;
     }
 
     const data = snap.data();
-    
-    // Fill in missing fields if any are absent
     if (!data.jt || !data.email) {
       const updatedJt = data.jt || creationTimestamp;
       await setDoc(userRef, {
@@ -69,12 +70,14 @@ async function syncUserProfile(user) {
         photoURL: data.photoURL || user.photoURL || '',
         jt: updatedJt
       }, { merge: true });
+      console.log("✅ Success! Updated missing fields in Firestore for users/" + user.uid);
       return updatedJt;
     }
 
+    console.log("✅ Existing user data loaded from Firestore.");
     return data.jt;
   } catch (err) {
-    console.error("Firestore sync error:", err);
+    console.error("❌ Firestore Sync Error:", err.message);
     return creationTimestamp;
   }
 }
