@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { initializeFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -14,14 +14,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-
-// Force long polling to bypass network/COOP header restrictions
-const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true
-});
-
+const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
-provider.setCustomParameters({ prompt: 'select_account' });
 
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
@@ -30,57 +24,17 @@ const userEmail = document.getElementById('user-email');
 const userAvatar = document.getElementById('user-avatar');
 const memberSince = document.getElementById('member-since');
 
-loginBtn.addEventListener('click', async () => {
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (err) {
-    console.error("Sign-in error:", err);
-    alert("Sign-in failed: " + err.message);
-  }
+// Bypasses popup COOP header blocks completely
+loginBtn.addEventListener('click', () => {
+  signInWithRedirect(auth, provider);
 });
 
 logoutBtn.addEventListener('click', () => signOut(auth));
 
-async function syncUserProfile(user) {
-  const userRef = doc(db, 'users', user.uid);
-  const creationTimestamp = user.metadata?.creationTime 
-    ? new Date(user.metadata.creationTime).getTime() 
-    : Date.now();
-
-  try {
-    const snap = await getDoc(userRef);
-
-    if (!snap.exists()) {
-      await setDoc(userRef, {
-        email: user.email || '',
-        displayName: user.displayName || '',
-        photoURL: user.photoURL || '',
-        jt: creationTimestamp
-      });
-      console.log("✅ Success! Created new document in Firestore under users/" + user.uid);
-      return creationTimestamp;
-    }
-
-    const data = snap.data();
-    if (!data.jt || !data.email) {
-      const updatedJt = data.jt || creationTimestamp;
-      await setDoc(userRef, {
-        email: data.email || user.email || '',
-        displayName: data.displayName || user.displayName || '',
-        photoURL: data.photoURL || user.photoURL || '',
-        jt: updatedJt
-      }, { merge: true });
-      console.log("✅ Success! Updated missing fields in Firestore for users/" + user.uid);
-      return updatedJt;
-    }
-
-    console.log("✅ Existing user data loaded from Firestore.");
-    return data.jt;
-  } catch (err) {
-    console.error("❌ Firestore Sync Error:", err.message);
-    return creationTimestamp;
-  }
-}
+// Catch any redirect sign-in errors
+getRedirectResult(auth).catch((err) => {
+  if (err && err.code) alert("Auth Error: " + err.message);
+});
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -90,9 +44,27 @@ onAuthStateChanged(auth, async (user) => {
     userEmail.textContent = user.email || user.displayName;
     userAvatar.src = user.photoURL || 'favicon.png';
 
-    const jt = await syncUserProfile(user);
-    const date = new Date(jt);
+    // Derive immutable Unix timestamp directly from Google Auth metadata (Zero database reads required)
+    const creationTime = user.metadata?.creationTime 
+      ? new Date(user.metadata.creationTime).getTime() 
+      : Date.now();
+
+    const date = new Date(creationTime);
     memberSince.textContent = `Member since ${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
+
+    // Direct write/merge to users/{uid}
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        email: user.email || '',
+        displayName: user.displayName || '',
+        photoURL: user.photoURL || '',
+        jt: creationTime
+      }, { merge: true });
+      console.log("✅ Data successfully saved in Firestore for user:", user.uid);
+    } catch (err) {
+      console.error("Firestore Write Failed:", err);
+      alert("Firestore Write Error: " + err.message);
+    }
   } else {
     loginBtn.classList.remove('hidden');
     userProfile.classList.add('hidden');
