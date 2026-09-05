@@ -21,7 +21,7 @@ import {
 import { state, updateResourceUI, showNotif, showFloatingText, updateCardHighlights, deselectAllModes, addResourceClamped, getResourceCap } from "./ui.js";
 import {
   authReady, loadSave, initAutosave, markDirty, getPlayerId,
-  serializeWorld, RESOURCE_KEY_BY_SHORT, BUILD_CODE, TYPE_BY_CODE
+  serializeWorld, RESOURCE_KEY_BY_SHORT, BUILD_CODE, TYPE_BY_CODE, listOtherWorlds
 } from "./db.js";
 
 // Coarse pointer = finger/stylus rather than mouse. This is the standard way
@@ -522,6 +522,39 @@ document.getElementById("clearBtn").onclick = () => {
   markDirty();
   updateStats();
   showNotif("World Cleared", "warn");
+};
+
+document.getElementById("viewWorldsBtn").onclick = async () => {
+  const panel = document.getElementById("otherWorldsPanel");
+  const list = document.getElementById("otherWorldsList");
+  const isOpen = panel.style.display !== "none";
+
+  if (isOpen) { panel.style.display = "none"; return; }
+
+  panel.style.display = "block";
+  list.textContent = "Loading…";
+
+  const worlds = await listOtherWorlds();
+  if (worlds.length === 0) {
+    list.textContent = "No other players' worlds found yet.";
+    return;
+  }
+
+  list.innerHTML = "";
+  worlds.forEach((w) => {
+    const row = document.createElement("div");
+    row.style.cssText = "background:rgba(255,255,255,0.08); border-radius:6px; padding:6px 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;";
+    row.innerHTML = `
+      <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+        🏘️ ${w.buildingCount} builds · 👤 ${w.npcCount} villagers
+      </span>
+    `;
+    list.appendChild(row);
+  });
+};
+
+document.getElementById("closeOtherWorldsBtn").onclick = () => {
+  document.getElementById("otherWorldsPanel").style.display = "none";
 };
 
 function updateStats() {

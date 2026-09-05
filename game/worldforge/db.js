@@ -37,6 +37,7 @@ let ref = null;
 let get = null;
 let update = null;
 let onAuthStateChanged = null;
+let signInAnonymously = null;
 let db = null;
 let auth = null;
 
@@ -53,6 +54,7 @@ try {
   auth = authMod.getAuth(app);
   db = dbMod.getDatabase(app);
   onAuthStateChanged = authMod.onAuthStateChanged;
+  signInAnonymously = authMod.signInAnonymously;
   ref = dbMod.ref;
   get = dbMod.get;
   update = dbMod.update;
@@ -84,13 +86,28 @@ export function authReady() {
     const timer = setTimeout(settle, AUTH_TIMEOUT_MS);
 
     onAuthStateChanged(auth, (user) => {
-      playerId = user ? user.uid : null;
-      saveRef = playerId ? ref(db, `G/${GAME_ID}/${playerId}`) : null;
+      if (!user) {
+        // No session yet (first visit, or the anonymous user was cleared) — the
+        // rules require auth != null, so without an explicit sign-in call the
+        // listener would just report null forever and every write would 403.
+        if (signInAnonymously) {
+          signInAnonymously(auth).catch((err) => {
+            console.warn("[db] Anonymous sign-in failed:", err);
+            settle();
+          });
+        } else {
+          settle();
+        }
+        return;
+      }
+
+      playerId = user.uid;
+      saveRef = ref(db, `G/${GAME_ID}/${playerId}`);
       settle();
       // Auth outlived the timeout, so boot already committed to a fresh guest
       // world whose ids (tree1, hut1, ...) would collide with a restored save.
       // Autosaving here would overwrite the real save, so ask for a reload instead.
-      if (playerId && sources && !autosaveTimer) onStatus("reload");
+      if (sources && !autosaveTimer) onStatus("reload");
     });
   });
 }
@@ -182,6 +199,45 @@ export function flushNow() {
   if (!dirty || !saveRef) return;
   dirty = false;
   writeWorld();
+}
+
+// Lists other players' saved worlds for this game (read-only, public per the
+// database rules). Returns [{ uid, buildingCount, npcCount }], excluding our
+// own save since that one is already visible locally.
+export async function listOtherWorlds() {
+  if (!get || !ref || !db) return [];
+  try {
+    const snap = await get(ref(db, `G/${GAME_ID}`));
+    if (!snap.exists()) return [];
+
+    const out = [];
+    snap.forEach((childSnap) => {
+      const uid = childSnap.key;
+      if (uid === playerId) return;
+      const val = childSnap.val() || {};
+      out.push({
+        uid,
+        buildingCount: val.b ? Object.keys(val.b).length : 0,
+        npcCount: val.n ? Object.keys(val.n).length : 0
+      });
+    });
+    return out;
+  } catch (err) {
+    console.warn("[db] Listing other worlds failed:", err);
+    return [];
+  }
+}
+
+// Fetches one specific player's saved world by uid (read-only).
+export async function loadWorldByUid(uid) {
+  if (!get || !ref || !db || !uid) return null;
+  try {
+    const snap = await get(ref(db, `G/${GAME_ID}/${uid}`));
+    return snap.exists() ? snap.val() : null;
+  } catch (err) {
+    console.warn("[db] Loading world for", uid, "failed:", err);
+    return null;
+  }
 }
 
 export function initAutosave(worldSources, statusCallback) {

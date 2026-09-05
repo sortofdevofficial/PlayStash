@@ -502,12 +502,24 @@
       <span id="saveStatus" data-state="ready" title="Worlds are backed up automatically while you play. Sign in on the PlayStash homepage to enable cloud saves.">Connecting…</span>
       <button id="removeBtn">Remove Mode</button>
       <button id="dayBtn">Night Mode</button>
+      <button id="viewWorldsBtn">🌍 Other Worlds</button>
       <button id="clearBtn" class="danger">Clear World</button>
+    </div>
+
+    <div id="otherWorldsPanel" class="panel" style="display: none; top: 60px; right: 14px; width: 240px; padding: 12px 14px; max-height: 320px; overflow-y: auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <b style="font-size:12px; color:#fff;">Other Players' Worlds</b>
+        <button id="closeOtherWorldsBtn" title="Close">✕</button>
+      </div>
+      <div id="otherWorldsList" style="font-size:11px; color:#e5e5e5; display:flex; flex-direction:column; gap:6px;">
+        Loading…
+      </div>
     </div>
 
     <div id="controls" class="panel">
       <b style="color: #4ade80;">Move:</b> WASD | <b style="color: #4ade80;">Rotate:</b> R | <b style="color: #4ade80;">Height:</b> Q / E | <b style="color: #4ade80;">Pan:</b> Drag
     </div>
+
 
     <!-- Touch-only controls: replace WASD/Q/E/R since phones have no keyboard.
          Shown/hidden via the .touch-device class toggled by index.js. -->
