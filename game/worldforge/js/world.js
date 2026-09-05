@@ -1,5 +1,3 @@
---- START OF FILE world.js ---
-
 import { createLowPolyHut } from "./models/hut.js";
 import { createCampfire } from "./models/campfire.js";
 import { createFarm } from "./models/farm.js";
