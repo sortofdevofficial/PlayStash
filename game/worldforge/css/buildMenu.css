@@ -13,6 +13,12 @@
   overflow: hidden;
   pointer-events: auto;
   z-index: 999;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 /* ─── Horizontal scroll row ───────────────────────────────────────── */
@@ -70,7 +76,7 @@
 .build-category .cards-row {
   display: flex;
   flex-direction: row;
-  gap: 5px;
+  gap: 6px;
 }
 
 /* ─── Build card ──────────────────────────────────────────────────── */
@@ -78,28 +84,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  background: rgba(30,41,59,0.70);
-  border: 1px solid rgba(255,255,255,0.13);
+  gap: 2px;
+  background: rgba(30, 41, 59, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  padding: 6px 6px 4px;
+  padding: 5px 6px 4px;
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.16,1,0.3,1);
-  width: 72px;
+  width: 76px;
   flex-shrink: 0;
   position: relative;
 }
 .build-card:hover {
-  background: rgba(51,65,85,0.9);
+  background: rgba(51, 65, 85, 0.65);
   border-color: #60a5fa;
   transform: translateY(-3px);
   box-shadow: 0 6px 18px rgba(59,130,246,0.35);
 }
 .build-card.active {
-  background: rgba(37,99,235,0.45);
+  background: rgba(37, 99, 235, 0.4);
   border-color: #60a5fa;
   border-width: 2px;
-  padding: 5px 5px 3px;
+  padding: 4px 5px 3px;
   animation: buildCardPulse 1.8s ease-in-out infinite;
 }
 .build-card:active { transform: translateY(0) scale(0.96); }
@@ -112,32 +120,35 @@
 /* ─── Card internals ──────────────────────────────────────────────── */
 .card-header { display: flex; align-items: center; justify-content: center; width: 100%; }
 .card-title {
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 800;
   color: #f8fafc;
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.1;
   word-break: break-word;
 }
-.card-sub {
+
+/* Resource requirement cost tag */
+.card-cost {
   font-size: 7.5px;
-  color: #94a3b8;
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: center;
-  display: none;           /* hidden by default to keep cards tiny */
-}
-.card-size-badge {
-  display: none;           /* hidden to save space */
+  font-weight: 700;
+  color: #cbd5e1;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 4px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+  margin-top: 1px;
 }
 
 /* ─── 3-D preview canvas ──────────────────────────────────────────── */
 canvas.build-preview {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   display: block;
   border-radius: 6px;
-  background: rgba(0,0,0,0.25);
+  background: rgba(0,0,0,0.18);
   flex-shrink: 0;
 }
 
@@ -149,21 +160,23 @@ canvas.build-preview {
   transform: translateX(-50%);
   display: flex;
   gap: 6px;
-  background: rgba(15,20,28,0.75);
+  background: rgba(15, 23, 42, 0.45);
   padding: 5px;
   border-radius: 30px;
-  border: 1px solid rgba(255,255,255,0.12);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
   z-index: 1000;
 }
 .mode-btn { background: transparent; border: none; padding: 5px 12px; border-radius: 20px; color: #94a3b8; font-weight: 700; box-shadow: none; font-size: 12px; }
-.mode-btn:hover { background: rgba(255,255,255,0.1); color: #fff; transform: none; }
-.mode-btn.active { background: #3b82f6; color: #fff; box-shadow: 0 2px 10px rgba(59,130,246,0.5); }
+.mode-btn:hover { background: rgba(255,255,255,0.15); color: #fff; transform: none; }
+.mode-btn.active { background: rgba(59, 130, 246, 0.65); color: #fff; box-shadow: 0 2px 10px rgba(59,130,246,0.5); }
 
 /* ─── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 600px) {
   #sideMenu { bottom: 48px; padding: 6px 8px 4px; }
-  .build-card { width: 60px; }
-  canvas.build-preview { width: 46px; height: 46px; }
+  .build-card { width: 62px; }
+  canvas.build-preview { width: 44px; height: 44px; }
+  .card-cost { font-size: 6.5px; padding: 1px 2px; }
 }
