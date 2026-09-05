@@ -108,7 +108,6 @@ function createNpc(id, scene, pos, overrides = {}) {
   const root = createLowPolyNPC(id, scene);
   root.position.set(pos.x, 0, pos.z);
 
-  // updateNPCs dereferences npc.bubble unguarded, so restored villagers need one too.
   const bubble = document.createElement("div");
   bubble.className = "thought-bubble";
   document.getElementById("thoughtContainer")?.appendChild(bubble);
@@ -134,14 +133,12 @@ export function restoreNPC(record, activeNPCs, scene) {
   if (Number.isFinite(record.hp)) overrides.happiness = record.hp;
   if (record.n) overrides.name = record.n;
 
-  // If saved state was in the middle of a non-resumable movement or dead target, reset to IDLE so NPC can choose a new task immediately
   overrides.a = "IDLE";
   overrides.actionTimer = 0;
   overrides.path = [];
   overrides.targetObjId = null;
   overrides.pendingAction = null;
 
-  // Center on tile: cx + 0.5, cz + 0.5
   const spawnX = Number.isFinite(cx) ? cx + 0.5 : 0.5;
   const spawnZ = Number.isFinite(cz) ? cz + 0.5 : 0.5;
 
@@ -215,6 +212,17 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
     }
 
     if (npc.a === "CLIMB") {
+      // FACE THE TOWER WHILE CLIMBING
+      if (npc.targetObjId) {
+        const tower = placedObjects.get(npc.targetObjId);
+        if (tower) {
+          const towerPos = gridToWorldCenter(tower.rootX, tower.rootZ, tower.size);
+          const dx = towerPos.x - npc.root.position.x;
+          const dz = towerPos.z - npc.root.position.z;
+          npc.root.rotation.y = Math.atan2(dx, dz);
+        }
+      }
+
       npc.climbProgress += deltaTime * 0.8;
       npc.root.position.y = BABYLON.Scalar.Lerp(0, 3.1, npc.climbProgress);
 
@@ -254,6 +262,17 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
 
     if (npc.actionTimer > 0) {
       npc.actionTimer -= (deltaTime * taskSpeedMult);
+
+      if (npc.targetObjId) {
+        const objData = placedObjects.get(npc.targetObjId);
+        if (objData) {
+          // FACE THE OBJECT WHILE WORKING
+          const targetPos = gridToWorldCenter(objData.rootX, objData.rootZ, objData.size);
+          const dx = targetPos.x - npc.root.position.x;
+          const dz = targetPos.z - npc.root.position.z;
+          npc.root.rotation.y = Math.atan2(dx, dz);
+        }
+      }
 
       if (npc.actionTimer <= 0) {
         if (npc.targetObjId) {
@@ -374,7 +393,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
             }
           }
         } else {
-          // Wander nearby: pick a random adjacent free tile within 3 blocks
           const wanderCandidates = [];
           for (let dx = -3; dx <= 3; dx++) {
             for (let dz = -3; dz <= 3; dz++) {
@@ -398,7 +416,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
       }
     }
 
-    // Stuck detection: if NPC spawned or ended up inside an obstacle tile (e.g. from restored coordinates), teleport to nearest free tile
     const curTile = worldToGrid(npc.root.position);
     const curKey = tileKey(curTile.x, curTile.z);
     if (occupiedGrid.has(curKey)) {
@@ -419,7 +436,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
       const dz = targetWorld.z - npc.root.position.z;
       const dist = Math.hypot(dx, dz);
 
-      // Track movement to prevent infinite walk into a newly placed building
       if (npc.lastPos && Math.hypot(npc.root.position.x - npc.lastPos.x, npc.root.position.z - npc.lastPos.z) < 0.005) {
         npc.stuckTimer = (npc.stuckTimer || 0) + deltaTime;
         if (npc.stuckTimer > 2.0) {
