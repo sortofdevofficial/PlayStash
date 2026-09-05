@@ -3,9 +3,9 @@ export const STORAGE_CAP_BONUS = 150;
 
 // Mapping technical keys to friendly names for UI notifications
 export const RESOURCE_NAMES = {
-  wh: "Wheat",
+  wh: "Wood",
   stone: "Stone",
-  food: "Food",
+  food: "Wheat",
   water: "Water"
 };
 

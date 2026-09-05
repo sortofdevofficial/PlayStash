@@ -7,10 +7,9 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>WorldForge 3D</title>
-  <!-- Inline SVG data-URI favicon: needs no network request and can never
-       404, unlike a linked file that depends on favicon.png actually
-       existing at that path on the server. -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%B2%3C/text%3E%3C/svg%3E" />
+  <!-- favicon.png lives alongside index.html in games/worldforge/ -->
+  <link rel="icon" type="image/png" href="./favicon.png" />
+  <link rel="apple-touch-icon" href="./favicon.png" />
   <link rel="stylesheet" href="./css/base.css" />
   <link rel="stylesheet" href="./css/mainMenu.css" />
   <link rel="stylesheet" href="./css/hudBars.css" />
@@ -59,7 +58,7 @@
         <div>
           <b style="color: #4ade80;">🪓 Gathering Resources:</b>
           <div style="margin-top: 4px; padding-left: 8px;">
-            • Left-click <b>Trees</b> to harvest Wood / Wheat (🌾).<br/>
+            • Left-click <b>Trees</b> to harvest Wood (🪵).<br/>
             • Left-click <b>Boulders</b> to quarry Stone (🪨).<br/>
             • Villagers will also wander and automatically harvest nearby nodes!
           </div>
@@ -69,7 +68,7 @@
           <div style="margin-top: 4px; padding-left: 8px;">
             • <b>Campfire</b>: The heart of your settlement. Attracts villagers to join.<br/>
             • <b>Hut</b>: Expands village population capacity (+2 villagers each).<br/>
-            • <b>Farm</b>: Produces Food (🌽) so your villagers don't starve.<br/>
+            • <b>Farm</b>: Produces Wheat (🌾) so your villagers don't starve.<br/>
             • <b>Well</b>: Provides fresh Water (💧).<br/>
             • <b>Storage</b>: Increases max resource stockpiles (+150 cap).<br/>
             • <b>Watchtower</b>: Villagers climb up to scout, boosting nearby work speed!
@@ -110,9 +109,9 @@
 
   <div id="hud">
     <div id="resourcefsBar">
-      <div class="resourcefs-item" title="Wheat Storage (Current/Max)">
-        <span>🌾</span>
-        <span class="resourcefs-label">Wheat:</span>
+      <div class="resourcefs-item" title="Wood Storage (Current/Max)">
+        <span>🪵</span>
+        <span class="resourcefs-label">Wood:</span>
         <span id="whCount" class="resourcefs-value" style="color:#81C784;">100/200</span>
       </div>
       <div class="resourcefs-divider"></div>
@@ -122,9 +121,9 @@
         <span id="stoneCount" class="resourcefs-value" style="color:#E0E0E0;">80/200</span>
       </div>
       <div class="resourcefs-divider"></div>
-      <div class="resourcefs-item" title="Food Storage (Current/Max)">
-        <span>🌽</span>
-        <span class="resourcefs-label">Food:</span>
+      <div class="resourcefs-item" title="Wheat Storage (Current/Max)">
+        <span>🌾</span>
+        <span class="resourcefs-label">Wheat:</span>
         <span id="foodCount" class="resourcefs-value" style="color:#FFD54F;">30/200</span>
       </div>
       <div class="resourcefs-divider"></div>
@@ -190,12 +189,12 @@
             <div id="cardHut" class="build-card" title="20 Wood, 10 Stone (+2 Pop)">
               <canvas class="build-preview" data-model="hut" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Hut</span></div>
-              <div class="card-cost">🌾20 🪨10</div>
+              <div class="card-cost">🪵20 🪨10</div>
             </div>
             <div id="cardCampfire" class="build-card" title="10 Wood, 10 Stone (Attracts NPCs)">
               <canvas class="build-preview" data-model="campfire" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Campfire</span></div>
-              <div class="card-cost">🌾10 🪨10</div>
+              <div class="card-cost">🪵10 🪨10</div>
             </div>
           </div>
         </div>
@@ -205,42 +204,42 @@
             <div id="cardFarm" class="build-card" title="15 Wood, 5 Stone, 5 Water">
               <canvas class="build-preview" data-model="farm" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Farm</span></div>
-              <div class="card-cost">🌾15 🪨5 💧5</div>
+              <div class="card-cost">🪵15 🪨5 💧5</div>
             </div>
             <div id="cardWell" class="build-card" title="15 Wood, 15 Stone">
               <canvas class="build-preview" data-model="well" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Well</span></div>
-              <div class="card-cost">🌾15 🪨15</div>
+              <div class="card-cost">🪵15 🪨15</div>
             </div>
           </div>
         </div>
         <div class="build-category">
           <div class="build-category-title">Structures</div>
           <div class="cards-row">
-            <div id="cardTower" class="build-card" title="30 Wood, 25 Stone, 10 Food">
+            <div id="cardTower" class="build-card" title="30 Wood, 25 Stone, 10 Wheat">
               <canvas class="build-preview" data-model="tower" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Tower</span></div>
-              <div class="card-cost">🌾30 🪨25 🌽10</div>
+              <div class="card-cost">🪵30 🪨25 🌾10</div>
             </div>
             <div id="cardStorage" class="build-card" title="25 Wood, 10 Stone (+150 Cap)">
               <canvas class="build-preview" data-model="storage" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Storage</span></div>
-              <div class="card-cost">🌾25 🪨10</div>
+              <div class="card-cost">🪵25 🪨10</div>
             </div>
             <div id="cardMarket" class="build-card" title="20 Wood, 20 Stone">
               <canvas class="build-preview" data-model="market" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Market</span></div>
-              <div class="card-cost">🌾20 🪨20</div>
+              <div class="card-cost">🪵20 🪨20</div>
             </div>
             <div id="cardWall" class="build-card" title="8 Wood, 4 Stone">
               <canvas class="build-preview" data-model="wall" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Wall</span></div>
-              <div class="card-cost">🌾8 🪨4</div>
+              <div class="card-cost">🪵8 🪨4</div>
             </div>
             <div id="cardGate" class="build-card" title="12 Wood, 6 Stone">
               <canvas class="build-preview" data-model="gate" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Gate</span></div>
-              <div class="card-cost">🌾12 🪨6</div>
+              <div class="card-cost">🪵12 🪨6</div>
             </div>
           </div>
         </div>
