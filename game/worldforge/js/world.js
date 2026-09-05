@@ -1,8 +1,5 @@
-// World object lifecycle: creating, placing, removing, and restoring the
-// buildings/resources/wilderness nodes that make up the player's village.
-// Shares its core Maps (placedObjects, occupiedGrid) with index.js, which
-// owns them and passes them in via initWorld() so every module works off
-// the same live data rather than each keeping its own copy.
+--- START OF FILE world.js ---
+
 import { createLowPolyHut } from "./models/hut.js";
 import { createCampfire } from "./models/campfire.js";
 import { createFarm } from "./models/farm.js";
@@ -16,7 +13,7 @@ import {
   BOUND_MIN, BOUND_MAX, tileKey, gridToWorldCenter,
   getFootprintTiles, isFootprintValid, isTileNearStructure, restoreNPC, setNpcIdSeed
 } from "./npcBrain.js";
-import { state, showNotif, getResourceCap } from "./ui.js";
+import { state, showNotif, getResourceCap, RESOURCE_NAMES } from "./ui.js";
 import { playSound } from "./audio.js";
 import { RESOURCE_KEY_BY_SHORT, TYPE_BY_CODE, markDirty } from "./db.js";
 
@@ -26,9 +23,6 @@ export function getFootprintSize() { return sizeFor(state.buildType); }
 
 let scene, placedObjects, occupiedGrid, activeNPCs, buildCounters, onStatsChanged, nextBuildKey;
 
-// Called once from index.js with the shared mutable collections this module
-// operates on, plus a couple of small callbacks so this file never needs to
-// import index.js back (that would create a circular import).
 export function initWorld(deps) {
   scene = deps.scene;
   placedObjects = deps.placedObjects;
@@ -53,9 +47,6 @@ export function buildNode(type, objId) {
   return createGate(objId, scene);
 }
 
-// Shared by player placement, wilderness regrowth and save restoration. Every
-// side effect here is load-bearing: mesh metadata drives picking, the material
-// clone stops instances sharing one material, and occupiedGrid drives pathing.
 export function instantiateObject(type, rootX, rootZ, size, rotation = 0, extra = {}) {
   const objId = `${type}_${rootX}_${rootZ}`;
   const node = buildNode(type, objId);
@@ -100,7 +91,12 @@ export function spawnRandomWildernessNode() {
 export function placeObject(rootX, rootZ) {
   const cost = state.BUILD_COSTS[state.buildType];
   const shortfall = Object.keys(cost).find((key) => (state.resources[key] || 0) < cost[key]);
-  if (shortfall) return showNotif(`Not enough ${shortfall}!`, "warn");
+  
+  if (shortfall) {
+    // Convert technical key (e.g., 'wh') to friendly name (e.g., 'Wheat')
+    const friendlyName = RESOURCE_NAMES[shortfall] || shortfall;
+    return showNotif(`Not enough ${friendlyName}!`, "warn");
+  }
 
   const size = getFootprintSize();
   if (!isFootprintValid(rootX, rootZ, size, occupiedGrid)) return showNotif("Tile Blocked!", "warn");
@@ -175,8 +171,6 @@ export function createPoofParticles(position, colorHex) {
 }
 
 export function restoreWorld(data) {
-  // Builds first: getResourceCap depends on how many storage buildings exist,
-  // so restoring resources before them would clamp to the base 200 cap.
   if (data.b) {
     Object.entries(data.b).forEach(([key, node]) => {
       const code = key.replace(/\d+$/, "");
@@ -187,7 +181,6 @@ export function restoreWorld(data) {
       if (!Number.isFinite(cx) || !Number.isFinite(cz)) return;
 
       const extra = { key };
-      // Only damaged nodes carry `hl`; full health is the omitted default.
       if (type === "tree" || type === "stone") extra.health = Number.isFinite(node.hl) ? node.hl : 3;
 
       const quadrant = Number.isFinite(node.r) ? ((Math.round(node.r) % 4) + 4) % 4 : 0;
@@ -197,8 +190,6 @@ export function restoreWorld(data) {
     });
   }
 
-  // Zero resources are omitted from the save, so on an existing save a missing
-  // field means zero - not the fresh-world default still sitting in state.
   const cap = getResourceCap(placedObjects);
   Object.entries(RESOURCE_KEY_BY_SHORT).forEach(([short, internal]) => {
     const value = data.r ? data.r[short] : 0;

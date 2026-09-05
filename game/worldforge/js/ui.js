@@ -1,5 +1,15 @@
+--- START OF FILE ui.js ---
+
 export const RESOURCE_BASE_CAP = 200;
 export const STORAGE_CAP_BONUS = 150;
+
+// Mapping technical keys to friendly names for UI notifications
+export const RESOURCE_NAMES = {
+  wh: "Wheat",
+  stone: "Stone",
+  food: "Food",
+  water: "Water"
+};
 
 export const state = {
   mode: "none",
@@ -36,16 +46,13 @@ export function addResourceClamped(key, amount, placedObjects) {
   return state.resources[key] - before;
 }
 
-// Briefly re-triggers the CSS pop animation on a value span, but only when
-// the displayed text actually changed - calling this every frame regardless
-// would make numbers flash constantly instead of only on real gains/losses.
 function setResourceText(id, text) {
   const el = document.getElementById(id);
   if (!el) return;
   if (el.textContent === text) return;
   el.textContent = text;
   el.classList.remove("value-pop");
-  void el.offsetWidth; // force reflow so the animation can restart immediately
+  void el.offsetWidth; 
   el.classList.add("value-pop");
 }
 
