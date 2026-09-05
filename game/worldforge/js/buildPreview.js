@@ -1,4 +1,4 @@
-// buildPreview.js – renders interactive 3‑D previews for build‑menu cards
+// buildPreview.js – renders interactive 3-D previews for build-menu cards
 import { createLowPolyHut } from "./models/hut.js";
 import { createCampfire } from "./models/campfire.js";
 import { createFarm } from "./models/farm.js";
@@ -9,59 +9,75 @@ import { createMarket } from "./models/market.js";
 import { createWallSegment, createGate } from "./models/wall.js";
 
 const creators = {
-  hut: createLowPolyHut,
+  hut:      createLowPolyHut,
   campfire: createCampfire,
-  farm: createFarm,
-  tower: createWatchtower,
-  well: createWell,
-  storage: createStorage,
-  market: createMarket,
-  wall: createWallSegment,
-  gate: createGate,
+  farm:     createFarm,
+  tower:    createWatchtower,
+  well:     createWell,
+  storage:  createStorage,
+  market:   createMarket,
+  wall:     createWallSegment,
+  gate:     createGate,
 };
 
 function initPreview(canvas, modelKey) {
-  const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
-  const scene = new BABYLON.Scene(engine);
-  const camera = new BABYLON.ArcRotateCamera(
-    "cam",
-    Math.PI / 2,
-    Math.PI / 2.5,
-    5,
-    BABYLON.Vector3.Zero(),
-    scene
-  );
-  camera.attachControl(canvas, true);
-  new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+  // Guard: canvas must have non-zero pixel size
+  if (canvas.width === 0 || canvas.height === 0) {
+    canvas.width  = 56;
+    canvas.height = 56;
+  }
 
   const creator = creators[modelKey];
   if (!creator) {
-    console.warn(`No preview creator for model ${modelKey}`);
+    console.warn(`buildPreview: no creator for "${modelKey}"`);
     return;
   }
-  const root = creator(`preview_${modelKey}`, scene);
-  root.scaling.scaleInPlace(0.5);
 
-  let hover = false;
-  canvas.addEventListener("pointerenter", () => (hover = true));
-  canvas.addEventListener("pointerleave", () => (hover = false));
+  const engine = new BABYLON.Engine(canvas, true, {
+    preserveDrawingBuffer: true,
+    stencil: true,
+    alpha: true,
+  });
+  const scene = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color4(0, 0, 0, 0); // transparent bg
 
+  const camera = new BABYLON.ArcRotateCamera(
+    "cam", -Math.PI / 4, Math.PI / 3, 4,
+    BABYLON.Vector3.Zero(), scene
+  );
+  // Don't attach control – we drive rotation ourselves
+  new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 2, 0), scene);
+
+  const root = creator(`prev_${modelKey}`, scene);
+  // Compute bounding box and auto-fit camera
+  scene.executeWhenReady(() => {
+    const bb = root.getHierarchyBoundingVectors(true);
+    const size = bb.max.subtract(bb.min);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    camera.radius = maxDim * 2.2 || 4;
+    camera.target = new BABYLON.Vector3(0, size.y * 0.3, 0);
+  });
+
+  // Always slowly rotate so the model is clearly visible
   engine.runRenderLoop(() => {
-    if (hover) {
-      root.rotation.y += 0.01;
-    }
+    root.rotation.y += 0.008;
     scene.render();
   });
 
   window.addEventListener("resize", () => engine.resize());
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-  const canvases = document.querySelectorAll("canvas.build-preview");
-  canvases.forEach((c) => {
+// Module scripts run after DOMContentLoaded; just scan directly.
+function initAllPreviews() {
+  document.querySelectorAll("canvas.build-preview").forEach((c) => {
     const model = c.dataset.model;
-    if (model) {
-      initPreview(c, model);
-    }
+    if (model) initPreview(c, model);
   });
-});
+}
+
+// If DOM already ready (likely), run now; otherwise wait.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initAllPreviews);
+} else {
+  initAllPreviews();
+}
