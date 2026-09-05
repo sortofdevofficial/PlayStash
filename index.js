@@ -1,5 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously,
+  linkWithPopup, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
@@ -82,7 +85,26 @@ function formatDateDetailed(timestamp) {
 
 loginBtn.addEventListener('click', async () => {
   try {
-    await signInWithPopup(auth, provider);
+    if (auth.currentUser && auth.currentUser.isAnonymous) {
+      // The visitor may already have an anonymous session (e.g. from playing
+      // WorldForge before signing in). Linking preserves that UID — and with
+      // it, their existing game save — instead of creating a second, separate
+      // signed-in identity with an empty save.
+      try {
+        await linkWithPopup(auth.currentUser, provider);
+      } catch (linkErr) {
+        // Most common case: this Google account is already linked to a
+        // different UID from an earlier session. Fall back to a normal
+        // sign-in with that existing account rather than failing outright.
+        if (linkErr.code === "auth/credential-already-in-use" || linkErr.code === "auth/email-already-in-use") {
+          await signInWithPopup(auth, provider);
+        } else {
+          throw linkErr;
+        }
+      }
+    } else {
+      await signInWithPopup(auth, provider);
+    }
   } catch (err) {
     alert("Sign In Error: " + err.message);
   }
@@ -91,10 +113,21 @@ loginBtn.addEventListener('click', async () => {
 logoutBtn.addEventListener('click', () => signOut(auth));
 
 onAuthStateChanged(auth, async (user) => {
-  if (user) {
+  if (!user) {
+    // No session at all yet — establish an anonymous one immediately so this
+    // page's uid matches whatever uid WorldForge itself will create, letting
+    // "New World" vs "Continue" reflect real save state even before sign-in.
+    try {
+      await signInAnonymously(auth);
+    } catch (err) {
+      console.warn("Anonymous sign-in failed:", err);
+    }
+    return;
+  }
+
+  if (!user.isAnonymous) {
     loginBtn.classList.add('hidden');
     userProfile.classList.remove('hidden');
-    watchGameSave(user.uid);
 
     userEmail.textContent = user.displayName || user.email;
     userAvatar.src = user.photoURL || 'favicon.png';
@@ -124,8 +157,11 @@ onAuthStateChanged(auth, async (user) => {
     userEmail.textContent = '';
     userAvatar.src = '';
     memberSince.textContent = '';
-    watchGameSave(null);
   }
+
+  // Whether anonymous or fully signed in, this uid is the one the game saves
+  // under, so the save-status pill should always reflect it.
+  watchGameSave(user.uid);
 });
 
 // Presence System: Tracks real-time online connections
@@ -175,4 +211,7 @@ onValue(ref(db, 'u'), (snapshot) => {
       </div>
     </div>
   `).join('');
+}, (err) => {
+  userCountEl.textContent = '—';
+  usersContainer.innerHTML = `<div class="card-bg border border-gray-800/80 rounded-xl p-4 text-center text-gray-400 text-sm">Player network unavailable (${err.code || 'error'}).</div>`;
 });
