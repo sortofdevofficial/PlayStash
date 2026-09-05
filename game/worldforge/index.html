@@ -200,9 +200,26 @@
       color: #fff; 
     }
 
-    #topbar { top: 14px; right: 14px; padding: 7px 12px; display: flex; align-items: center; gap: 8px; }
-    #brand { font-size: 15px; font-weight: 900; color: #ffffff; margin-right: 6px; letter-spacing: 0.5px; }
+    #topbar { top: 14px; right: 14px; padding: 6px 10px; display: flex; align-items: center; gap: 6px; max-width: min(70vw, 620px); flex-wrap: wrap; justify-content: flex-end; }
+    #brand { font-size: 14px; font-weight: 900; color: #ffffff; margin-right: 4px; letter-spacing: 0.5px; white-space: nowrap; }
     #brand span { color: #4ade80; }
+    #topbar button { padding: 6px 9px; }
+    .iconBtn { font-size: 13px; padding: 6px 9px; }
+
+    /* Right-side panels stack in a single column below the topbar so they
+       never overlap each other regardless of which are open at once. */
+    #rightStack {
+      position: fixed;
+      top: 68px;
+      right: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-end;
+      pointer-events: none;
+      z-index: 950;
+    }
+    #rightStack > .panel { pointer-events: auto; position: static; }
 
     #saveStatus {
       font-size: 10px;
@@ -220,32 +237,32 @@
     #saveStatus[data-state="offline"] { color: #fbbf24; border-color: rgba(251, 191, 36, 0.35); }
     #saveStatus[data-state="reload"] { color: #fbbf24; border-color: rgba(251, 191, 36, 0.35); }
 
-    #sideMenu { top: 14px; left: 14px; bottom: 14px; width: 175px; display: flex; flex-direction: column; padding: 12px 10px; }
+    #sideMenu { top: 14px; left: 14px; bottom: 14px; width: 160px; display: flex; flex-direction: column; padding: 10px 8px; }
     .menu-title { 
-      font-size: 11px; 
+      font-size: 10px; 
       font-weight: 800; 
       color: #94a3b8; 
       text-transform: uppercase; 
       letter-spacing: 1.2px; 
-      margin-bottom: 10px; 
+      margin-bottom: 8px; 
       border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
-      padding-bottom: 6px; 
+      padding-bottom: 5px; 
       text-align: center; 
     }
     
-    .scroll-frame { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-right: 2px; }
+    .scroll-frame { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding-right: 2px; }
     .scroll-frame::-webkit-scrollbar { width: 4px; }
     .scroll-frame::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
 
     .build-card { 
       background: rgba(255, 255, 255, 0.05); 
       border: 1px solid rgba(255, 255, 255, 0.1); 
-      border-radius: 10px; 
-      padding: 8px 10px; 
+      border-radius: 9px; 
+      padding: 6px 9px; 
       cursor: pointer; 
       display: flex; 
       flex-direction: column; 
-      gap: 3px; 
+      gap: 2px; 
       transition: all 0.15s ease; 
     }
     .build-card:hover { 
@@ -261,10 +278,8 @@
     .card-header { display: flex; justify-content: space-between; align-items: center; }
     .card-title { font-size: 11px; font-weight: 800; color: #ffffff; }
     .card-sub { font-size: 9px; color: #cbd5e1; font-weight: 600; }
-    .card-desc { font-size: 9px; color: #94a3b8; line-height: 1.2; margin-top: 2px; }
 
-    #controls { left: 200px; bottom: 14px; padding: 8px 14px; font-size: 11px; color: #ffffff; border-radius: 20px; }
-    #stats { right: 14px; bottom: 14px; width: 170px; padding: 10px 14px; font-size: 11px; color: #ffffff; line-height: 1.6; }
+    #controls { left: 184px; bottom: 14px; padding: 7px 12px; font-size: 10px; color: #ffffff; border-radius: 20px; }
 
     #mobileControls {
       display: none;
@@ -288,7 +303,7 @@
     body.touch-device #controls { display: none; }
     body.touch-device #mobileControls { display: flex; }
 
-    #npcDetailPanel { top: 62px; right: 14px; width: 210px; padding: 12px 14px; }
+    #npcDetailPanel { width: 210px; padding: 12px 14px; }
     .npc-detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 6px; }
     .npc-detail-name { font-weight: 800; font-size: 13px; color: #ffffff; flex: 1; }
     
@@ -325,26 +340,36 @@
 
       #topbar {
         top: 58px; left: 8px; right: 8px;
+        max-width: none;
         justify-content: space-between;
         flex-wrap: wrap;
         row-gap: 6px;
       }
+      #worldStats { order: 5; flex-basis: 100%; text-align: center; }
       #brand { font-size: 13px; }
       #saveStatus { font-size: 9px; padding: 3px 7px; }
       #topbar button { min-height: 36px; padding: 6px 10px; font-size: 10px; }
 
       #notifContainer { top: 108px; }
 
+      #rightStack { position: static; }
       #npcDetailPanel {
+        position: fixed;
         top: auto;
         bottom: 128px;
         right: 8px;
         left: 8px;
         width: auto;
       }
+      #otherWorldsPanel {
+        position: fixed;
+        top: 108px;
+        right: 8px;
+        left: 8px;
+        width: auto;
+      }
 
       #controls { display: none; }
-      #stats { display: none; }
 
       /* Build menu becomes a horizontally-scrolling bottom strip */
       #sideMenu {
@@ -379,6 +404,7 @@
     @media (max-width: 420px) {
       .resourcefs-item[title="Max Storage Limit"] { display: none; }
       #brand { display: none; }
+      #worldStats { display: none; }
     }
   </style>
 </head>
@@ -427,23 +453,35 @@
     <div id="notifContainer"></div>
     <div id="thoughtContainer"></div>
 
-    <div id="npcDetailPanel" class="panel" style="display: none;">
-      <div class="npc-detail-header">
-        <span class="npc-detail-name" id="npcDetailName">-</span>
-        <div style="display: flex; gap: 4px;">
-          <button id="trackNpcBtn" title="Track Villager">🎥</button>
-          <button id="npcDetailClose" title="Close">✕</button>
+    <div id="rightStack">
+      <div id="npcDetailPanel" class="panel" style="display: none;">
+        <div class="npc-detail-header">
+          <span class="npc-detail-name" id="npcDetailName">-</span>
+          <div style="display: flex; gap: 4px;">
+            <button id="trackNpcBtn" title="Track Villager">🎥</button>
+            <button id="npcDetailClose" title="Close">✕</button>
+          </div>
+        </div>
+        <div class="npc-stat-row">
+          <div class="npc-stat-label"><span>Hunger</span><span id="npcHungerVal">100%</span></div>
+          <div class="npc-bar"><div id="npcHungerFill" class="npc-bar-fill hunger" style="width: 100%;"></div></div>
+        </div>
+        <div class="npc-stat-row">
+          <div class="npc-stat-label"><span>Happiness</span><span id="npcHappyVal">100%</span></div>
+          <div class="npc-bar"><div id="npcHappyFill" class="npc-bar-fill happy" style="width: 100%;"></div></div>
+        </div>
+        <div class="npc-mood" id="npcDetailMood">Happy 😊</div>
+      </div>
+
+      <div id="otherWorldsPanel" class="panel" style="display: none; width: 240px; padding: 12px 14px; max-height: 320px; overflow-y: auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <b style="font-size:12px; color:#fff;">Other Players' Worlds</b>
+          <button id="closeOtherWorldsBtn" title="Close">✕</button>
+        </div>
+        <div id="otherWorldsList" style="font-size:11px; color:#e5e5e5; display:flex; flex-direction:column; gap:6px;">
+          Loading…
         </div>
       </div>
-      <div class="npc-stat-row">
-        <div class="npc-stat-label"><span>Hunger</span><span id="npcHungerVal">100%</span></div>
-        <div class="npc-bar"><div id="npcHungerFill" class="npc-bar-fill hunger" style="width: 100%;"></div></div>
-      </div>
-      <div class="npc-stat-row">
-        <div class="npc-stat-label"><span>Happiness</span><span id="npcHappyVal">100%</span></div>
-        <div class="npc-bar"><div id="npcHappyFill" class="npc-bar-fill happy" style="width: 100%;"></div></div>
-      </div>
-      <div class="npc-mood" id="npcDetailMood">Happy 😊</div>
     </div>
 
     <div id="sideMenu" class="panel">
@@ -452,47 +490,38 @@
         <div id="cardHut" class="build-card">
           <div class="card-header"><span class="card-title">Hut</span><span class="card-sub">2x2</span></div>
           <div class="card-sub">20 Wheat, 10 Stone</div>
-          <div class="card-desc">+2 Max population capacity.</div>
         </div>
         <div id="cardCampfire" class="build-card">
           <div class="card-header"><span class="card-title">Campfire</span><span class="card-sub">1x1</span></div>
           <div class="card-sub">10 Wheat, 10 Stone</div>
-          <div class="card-desc">Spawns new villagers.</div>
         </div>
         <div id="cardFarm" class="build-card">
           <div class="card-header"><span class="card-title">Farm Patch</span><span class="card-sub">2x2</span></div>
           <div class="card-sub">15 Wheat, 5 Stone, 5 Water</div>
-          <div class="card-desc">Grows crop food reserves.</div>
         </div>
         <div id="cardTower" class="build-card">
           <div class="card-header"><span class="card-title">Watchtower</span><span class="card-sub">2x2</span></div>
           <div class="card-sub">30 Wheat, 25 Stone, 10 Food</div>
-          <div class="card-desc">Boosts nearby work speed.</div>
         </div>
         <div id="cardWell" class="build-card">
           <div class="card-header"><span class="card-title">Well</span><span class="card-sub">1x1</span></div>
           <div class="card-sub">15 Wheat, 15 Stone</div>
-          <div class="card-desc">Provides farm water supply.</div>
         </div>
         <div id="cardStorage" class="build-card">
           <div class="card-header"><span class="card-title">Storage</span><span class="card-sub">2x2</span></div>
           <div class="card-sub">25 Wheat, 10 Stone</div>
-          <div class="card-desc">+150 Resource Storage Cap.</div>
         </div>
         <div id="cardMarket" class="build-card">
           <div class="card-header"><span class="card-title">Market</span><span class="card-sub">2x2</span></div>
           <div class="card-sub">20 Wheat, 20 Stone</div>
-          <div class="card-desc">Trades Wheat/Stone for Food/Water.</div>
         </div>
         <div id="cardWall" class="build-card">
           <div class="card-header"><span class="card-title">Wall</span><span class="card-sub">1x1</span></div>
           <div class="card-sub">8 Wheat, 4 Stone</div>
-          <div class="card-desc">Blocks pathing movement.</div>
         </div>
         <div id="cardGate" class="build-card">
           <div class="card-header"><span class="card-title">Gate</span><span class="card-sub">1x1</span></div>
           <div class="card-sub">12 Wheat, 6 Stone</div>
-          <div class="card-desc">Passable wall doorway.</div>
         </div>
       </div>
     </div>
@@ -500,24 +529,15 @@
     <div id="topbar" class="panel">
       <div id="brand">World<span>Forge</span></div>
       <span id="saveStatus" data-state="ready" title="Worlds are backed up automatically while you play. Sign in on the PlayStash homepage to enable cloud saves.">Connecting…</span>
-      <button id="removeBtn">Remove Mode</button>
-      <button id="dayBtn">Night Mode</button>
-      <button id="viewWorldsBtn">🌍 Other Worlds</button>
-      <button id="clearBtn" class="danger">Clear World</button>
-    </div>
-
-    <div id="otherWorldsPanel" class="panel" style="display: none; top: 60px; right: 14px; width: 240px; padding: 12px 14px; max-height: 320px; overflow-y: auto;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <b style="font-size:12px; color:#fff;">Other Players' Worlds</b>
-        <button id="closeOtherWorldsBtn" title="Close">✕</button>
-      </div>
-      <div id="otherWorldsList" style="font-size:11px; color:#e5e5e5; display:flex; flex-direction:column; gap:6px;">
-        Loading…
-      </div>
+      <span id="worldStats" title="Objects placed / Villagers alive" style="font-size: 10px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧱 <span id="itemCount">0</span> · 👤 <span id="npcCount">0</span></span>
+      <button id="removeBtn">Remove</button>
+      <button id="dayBtn">Night</button>
+      <button id="viewWorldsBtn" class="iconBtn" title="See other players' worlds">🌍</button>
+      <button id="clearBtn" class="danger">Clear</button>
     </div>
 
     <div id="controls" class="panel">
-      <b style="color: #4ade80;">Move:</b> WASD | <b style="color: #4ade80;">Rotate:</b> R | <b style="color: #4ade80;">Height:</b> Q / E | <b style="color: #4ade80;">Pan:</b> Drag
+      <b style="color: #4ade80;">WASD</b> Move · <b style="color: #4ade80;">R</b> Rotate · <b style="color: #4ade80;">Q/E</b> Height
     </div>
 
 
@@ -527,13 +547,6 @@
       <button id="mobileUpBtn" title="Raise camera">⬆️</button>
       <button id="mobileDownBtn" title="Lower camera">⬇️</button>
       <button id="mobileRotateBtn" title="Rotate building" style="display: none;">↻ Rotate</button>
-    </div>
-
-    <div id="stats" class="panel">
-      <b style="color:#ffffff; font-size:11px;">World Stats</b><br />
-      Objects: <b id="itemCount" style="color: #4ade80;">0</b><br />
-      Villagers: <b id="npcCount" style="color: #4ade80;">0</b><br />
-      Cursor: <b id="cursorPos" style="color: #4ade80;">-</b>
     </div>
   </div>
 

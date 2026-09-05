@@ -367,8 +367,6 @@ scene.onPointerObservable.add((info) => {
             });
           }
         });
-
-        document.getElementById("cursorPos").textContent = `c: ${g.x},${g.z}`;
       } else if (state.mode === "remove") {
         Object.values(ghosts).forEach((g) => g.setEnabled(false));
         const targetId = pick.pickedMesh?.metadata?.objId;
