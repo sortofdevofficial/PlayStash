@@ -1,4 +1,4 @@
-import { playSound, initAmbientAudio, updateGusts } from "./audio.js";
+import { audioCtx, playSound, initAmbientAudio, updateGusts } from "./audio.js";
 import { createLowPolyHut } from "./models/hut.js";
 import { createCampfire } from "./models/campfire.js";
 import { createFarm, updateFarmWiggle } from "./models/farm.js";
@@ -668,6 +668,11 @@ async function boot() {
   const uid = await authReady();
   const data = uid ? await loadSave() : null;
 
+  // Let the player see the menu with an accurate Continue/New World status
+  // before anything touches the scene — clicking Play is what actually
+  // populates the world, so a slow network never causes a jarring mid-load pop.
+  await waitForPlay(data);
+
   if (data) {
     restoreWorld(data);
     syncNPCs();
@@ -684,6 +689,52 @@ async function boot() {
   initAutosave({ placedObjects, activeNPCs, state }, setSaveStatus);
   setSaveStatus(uid ? "ready" : "offline");
   startRenderLoop();
+}
+
+let pendingPlayResolve = null;
+
+function waitForPlay(data) {
+  return new Promise((resolve) => {
+    pendingPlayResolve = resolve;
+    showMainMenu(data);
+  });
+}
+
+function showMainMenu(data) {
+  const menu = document.getElementById("mainMenu");
+  const statusEl = document.getElementById("menuStatus");
+  const playBtn = document.getElementById("menuPlayBtn");
+  if (!menu || !statusEl || !playBtn) {
+    // Menu markup missing for some reason — don't block the game on it.
+    if (pendingPlayResolve) {
+      pendingPlayResolve();
+      pendingPlayResolve = null;
+    }
+    return;
+  }
+
+  if (data) {
+    const builds = data.b ? Object.keys(data.b).length : 0;
+    const villagers = data.n ? Object.keys(data.n).length : 0;
+    statusEl.textContent = `Welcome back · ${builds} builds · ${villagers} villagers`;
+  } else {
+    statusEl.textContent = "A fresh patch of land awaits";
+  }
+
+  playBtn.disabled = false;
+  playBtn.textContent = data ? "Continue" : "Start Village";
+
+  playBtn.onclick = () => {
+    playBtn.disabled = true;
+    menu.classList.add("hidden");
+    if (pendingPlayResolve) {
+      pendingPlayResolve();
+      pendingPlayResolve = null;
+    }
+    // Audio contexts need a user gesture to unlock on mobile Safari/Chrome —
+    // Play is that gesture, so ambient audio starts right on click.
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  };
 }
 
 updateResourceUI(0, 0, placedObjects);

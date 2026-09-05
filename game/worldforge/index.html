@@ -26,6 +26,152 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
     }
 
+    /* ============================================================
+       MAIN MENU
+       A warm title screen shown before the world loads. Sits above
+       the canvas/HUD and fades out once the player presses Play.
+       ============================================================ */
+    #mainMenu {
+      position: fixed;
+      inset: 0;
+      z-index: 3000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(ellipse 900px 600px at 50% 38%, rgba(251, 191, 90, 0.14), transparent 60%),
+        linear-gradient(180deg, #1b140d 0%, #120d09 55%, #0a0705 100%);
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
+    #mainMenu.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* Slow drifting embers for ambience */
+    #menuEmbers {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .ember {
+      position: absolute;
+      bottom: -10px;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffcf7a 0%, #f59e42 60%, transparent 100%);
+      opacity: 0;
+      animation: emberRise linear infinite;
+    }
+    @keyframes emberRise {
+      0% { transform: translateY(0) translateX(0); opacity: 0; }
+      8% { opacity: 0.9; }
+      100% { transform: translateY(-100vh) translateX(var(--drift, 20px)); opacity: 0; }
+    }
+
+    #menuCard {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 40px 44px 34px;
+      max-width: 420px;
+      width: 90vw;
+      background: rgba(24, 18, 13, 0.55);
+      border: 1px solid rgba(255, 200, 140, 0.18);
+      border-radius: 22px;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 0 60px rgba(251, 146, 60, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      animation: menuCardIn 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes menuCardIn {
+      from { opacity: 0; transform: translateY(14px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    #menuIcon {
+      font-size: 40px;
+      margin-bottom: 6px;
+      filter: drop-shadow(0 4px 14px rgba(251, 146, 60, 0.45));
+      animation: menuFlicker 3s ease-in-out infinite;
+    }
+    @keyframes menuFlicker {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 4px 14px rgba(251, 146, 60, 0.45)); }
+      50% { transform: scale(1.06); filter: drop-shadow(0 4px 20px rgba(251, 146, 60, 0.65)); }
+    }
+
+    #menuTitle {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      color: #fdf6ec;
+      margin: 4px 0 2px;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+    }
+    #menuTitle span { color: #fb923c; }
+
+    #menuTagline {
+      font-size: 12.5px;
+      color: #c9b8a3;
+      font-weight: 600;
+      margin-bottom: 26px;
+      letter-spacing: 0.2px;
+    }
+
+    #menuStatus {
+      font-size: 11px;
+      font-weight: 700;
+      color: #d8c4a8;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 6px 14px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+      min-height: 14px;
+      transition: opacity 0.3s ease;
+    }
+
+    #menuPlayBtn {
+      width: 100%;
+      padding: 14px 20px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      color: #2a1607;
+      background: linear-gradient(180deg, #ffb454 0%, #fb923c 100%);
+      border: 1px solid rgba(255, 220, 170, 0.5);
+      border-radius: 14px;
+      cursor: pointer;
+      box-shadow: 0 10px 26px rgba(251, 146, 60, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      backdrop-filter: none;
+    }
+    #menuPlayBtn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 32px rgba(251, 146, 60, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    }
+    #menuPlayBtn:active { transform: translateY(0); }
+    #menuPlayBtn:disabled {
+      opacity: 0.6;
+      cursor: wait;
+      transform: none;
+      box-shadow: none;
+    }
+
+    #menuFooter {
+      margin-top: 18px;
+      font-size: 10px;
+      color: #7d6a57;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
     #renderCanvas { 
       width: 100%; 
       height: 100%; 
@@ -409,7 +555,41 @@
   </style>
 </head>
 <body>
+  <div id="mainMenu">
+    <div id="menuEmbers"></div>
+    <div id="menuCard">
+      <div id="menuIcon">🔥</div>
+      <div id="menuTitle">World<span>Forge</span></div>
+      <div id="menuTagline">Gather round the fire and build a home.</div>
+      <div id="menuStatus">Waking the village…</div>
+      <button id="menuPlayBtn" disabled>Play</button>
+      <div id="menuFooter">Your progress is saved automatically</div>
+    </div>
+  </div>
+
   <canvas id="renderCanvas"></canvas>
+
+  <script>
+    // Purely decorative ember particles for the main menu — plain DOM/CSS,
+    // runs before the module script so the menu looks alive immediately.
+    (function spawnEmbers() {
+      const container = document.getElementById("menuEmbers");
+      const count = 22;
+      for (let i = 0; i < count; i++) {
+        const ember = document.createElement("div");
+        ember.className = "ember";
+        const left = Math.random() * 100;
+        const duration = 6 + Math.random() * 6;
+        const delay = Math.random() * 8;
+        const drift = (Math.random() - 0.5) * 80;
+        ember.style.left = left + "vw";
+        ember.style.animationDuration = duration + "s";
+        ember.style.animationDelay = delay + "s";
+        ember.style.setProperty("--drift", drift + "px");
+        container.appendChild(ember);
+      }
+    })();
+  </script>
 
   <div id="hud">
     <div id="resourcefsBar">
