@@ -9,6 +9,17 @@ const RESOURCE_KEY_BY_SHORT = Object.fromEntries(
   Object.entries(RESOURCE_KEY_MAP).map(([internal, short]) => [short, internal])
 );
 
+// Build key prefix, so campfire 1 is stored as `c1`. tree/tower, stone/storage
+// and well/wall share a first letter, so those pairs take a second character.
+const BUILD_CODE = {
+  tree: "t", stone: "s", hut: "h", campfire: "c", farm: "f", market: "m", gate: "g",
+  tower: "tw", well: "w", wall: "wl", storage: "st"
+};
+
+const TYPE_BY_CODE = Object.fromEntries(
+  Object.entries(BUILD_CODE).map(([type, code]) => [code, type])
+);
+
 const SAVE_INTERVAL_MS = 3000;
 const AUTH_TIMEOUT_MS = 5000;
 
@@ -96,37 +107,46 @@ export async function loadSave() {
 }
 
 export function serializeWorld(placedObjects, activeNPCs, gameState) {
+  // Anything left at its restore-side default is omitted, so a full-health
+  // unrotated build stores nothing but its coordinates.
   const r = {};
   for (const [internal, short] of Object.entries(RESOURCE_KEY_MAP)) {
-    r[short] = Math.round(gameState.resources[internal] || 0);
+    const amount = Math.round(gameState.resources[internal] || 0);
+    if (amount > 0) r[short] = amount;
   }
 
   const b = {};
   placedObjects.forEach((obj) => {
     if (!obj.key) return;
-    const quadrant = obj.root ? Math.round(obj.root.rotation.y / (Math.PI / 2)) : 0;
-    const node = {
-      c: `${obj.rootX},${obj.rootZ}`,
-      r: ((quadrant % 4) + 4) % 4
-    };
-    if (obj.type === "tree" || obj.type === "stone") node.hl = obj.health ?? 3;
+    const node = { c: `${obj.rootX},${obj.rootZ}` };
+    if (obj.root) {
+      const quadrant = ((Math.round(obj.root.rotation.y / (Math.PI / 2)) % 4) + 4) % 4;
+      if (quadrant) node.r = quadrant;
+    }
+    if (obj.type === "tree" || obj.type === "stone") {
+      const health = obj.health ?? 3;
+      if (health < 3) node.hl = health;
+    }
     b[obj.key] = node;
   });
 
   const n = {};
   activeNPCs.forEach((npc) => {
-    n[npc.id] = {
+    const node = {
       c: `${Math.floor(npc.root.position.x)},${Math.floor(npc.root.position.z)}`,
-      h: Math.round(npc.hunger),
-      hp: Math.round(npc.happiness),
-      a: npc.a,
       n: npc.name
     };
+    const hunger = Math.round(npc.hunger);
+    const happiness = Math.round(npc.happiness);
+    if (hunger < 100) node.h = hunger;
+    if (happiness < 100) node.hp = happiness;
+    if (npc.a && npc.a !== "IDLE") node.a = npc.a;
+    n[npc.id] = node;
   });
 
   // null deletes the subtree, so a cleared world does not leave stale children behind.
   return {
-    r,
+    r: Object.keys(r).length ? r : null,
     b: Object.keys(b).length ? b : null,
     n: Object.keys(n).length ? n : null
   };
@@ -173,4 +193,4 @@ export function initAutosave(worldSources, statusCallback) {
   window.addEventListener("pagehide", flushNow);
 }
 
-export { RESOURCE_KEY_BY_SHORT };
+export { RESOURCE_KEY_BY_SHORT, BUILD_CODE, TYPE_BY_CODE };

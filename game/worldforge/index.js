@@ -21,7 +21,7 @@ import {
 import { state, updateResourceUI, showNotif, showFloatingText, updateCardHighlights, deselectAllModes, addResourceClamped, getResourceCap } from "./ui.js";
 import {
   authReady, loadSave, initAutosave, markDirty, getPlayerId,
-  serializeWorld, RESOURCE_KEY_BY_SHORT
+  serializeWorld, RESOURCE_KEY_BY_SHORT, BUILD_CODE, TYPE_BY_CODE
 } from "./db.js";
 
 const occupiedGrid = new Map();
@@ -37,7 +37,7 @@ let targetGhostPos = new BABYLON.Vector3(0, 0, 0);
 
 function nextBuildKey(type) {
   buildCounters[type] = (buildCounters[type] || 0) + 1;
-  return `${type}${buildCounters[type]}`;
+  return `${BUILD_CODE[type] || type}${buildCounters[type]}`;
 }
 
 function showNpcDetailPanel(npc) {
@@ -103,7 +103,7 @@ if (playableGround) {
   playableGround.isPickable = true;
 }
 
-const ONE_TILE_TYPES = new Set(["campfire", "well", "wall", "gate"]);
+const ONE_TILE_TYPES = new Set(["campfire", "well", "wall", "gate", "stone"]);
 function sizeFor(type) { return ONE_TILE_TYPES.has(type) ? 1 : 2; }
 function getFootprintSize() { return sizeFor(state.buildType); }
 
@@ -214,7 +214,7 @@ function spawnRandomWildernessNode() {
   if (!isFootprintValid(rx, rz, 2, occupiedGrid) || isTileNearStructure(rx, rz, placedObjects, 3)) return;
 
   const type = Math.random() > 0.5 ? "tree" : "stone";
-  instantiateObject(type, rx, rz, type === "tree" ? 2 : 1, 0, { health: 3 });
+  instantiateObject(type, rx, rz, sizeFor(type), 0, { health: 3 });
   markDirty();
   updateStats();
 }
@@ -493,38 +493,36 @@ function updateStats() {
   document.getElementById("npcCount").textContent = activeNPCs.length;
 }
 
-const RESTORABLE_TYPES = new Set([
-  "hut", "campfire", "farm", "tower", "well", "storage", "market", "wall", "gate", "tree", "stone"
-]);
-
 function restoreWorld(data) {
   // Builds first: getResourceCap depends on how many storage buildings exist,
   // so restoring resources before them would clamp to the base 200 cap.
   if (data.b) {
     Object.entries(data.b).forEach(([key, node]) => {
-      const type = key.replace(/\d+$/, "");
-      if (!RESTORABLE_TYPES.has(type)) return;
+      const code = key.replace(/\d+$/, "");
+      const type = TYPE_BY_CODE[code];
+      if (!type) return;
 
       const [cx, cz] = String(node?.c || "").split(",").map(Number);
       if (!Number.isFinite(cx) || !Number.isFinite(cz)) return;
 
       const extra = { key };
+      // Only damaged nodes carry `hl`; full health is the omitted default.
       if (type === "tree" || type === "stone") extra.health = Number.isFinite(node.hl) ? node.hl : 3;
 
       const quadrant = Number.isFinite(node.r) ? ((Math.round(node.r) % 4) + 4) % 4 : 0;
       instantiateObject(type, cx, cz, sizeFor(type), quadrant * (Math.PI / 2), extra);
 
-      buildCounters[type] = Math.max(buildCounters[type] || 0, Number(key.slice(type.length)) || 0);
+      buildCounters[type] = Math.max(buildCounters[type] || 0, Number(key.slice(code.length)) || 0);
     });
   }
 
-  if (data.r) {
-    const cap = getResourceCap(placedObjects);
-    Object.entries(RESOURCE_KEY_BY_SHORT).forEach(([short, internal]) => {
-      const value = data.r[short];
-      if (Number.isFinite(value)) state.resources[internal] = Math.max(0, Math.min(cap, value));
-    });
-  }
+  // Zero resources are omitted from the save, so on an existing save a missing
+  // field means zero - not the fresh-world default still sitting in state.
+  const cap = getResourceCap(placedObjects);
+  Object.entries(RESOURCE_KEY_BY_SHORT).forEach(([short, internal]) => {
+    const value = data.r ? data.r[short] : 0;
+    state.resources[internal] = Number.isFinite(value) ? Math.max(0, Math.min(cap, value)) : 0;
+  });
 
   if (data.n) {
     let maxId = 0;
