@@ -132,16 +132,23 @@ export function restoreNPC(record, activeNPCs, scene) {
   const overrides = {};
   if (Number.isFinite(record.h)) overrides.hunger = record.h;
   if (Number.isFinite(record.hp)) overrides.happiness = record.hp;
-  if (record.a) overrides.a = record.a;
   if (record.n) overrides.name = record.n;
-  // Restore pending action and target object ID for ongoing tasks
-  if (record.p) overrides.pendingAction = record.p;
-  if (record.t) overrides.targetObjId = record.t;
+
+  // If saved state was in the middle of a non-resumable movement or dead target, reset to IDLE so NPC can choose a new task immediately
+  overrides.a = "IDLE";
+  overrides.actionTimer = 0;
+  overrides.path = [];
+  overrides.targetObjId = null;
+  overrides.pendingAction = null;
+
+  // Center on tile: cx + 0.5, cz + 0.5
+  const spawnX = Number.isFinite(cx) ? cx + 0.5 : 0.5;
+  const spawnZ = Number.isFinite(cz) ? cz + 0.5 : 0.5;
 
   const npc = createNpc(
     record.id,
     scene,
-    { x: Number.isFinite(cx) ? cx : 0, z: Number.isFinite(cz) ? cz : 0 },
+    { x: spawnX, z: spawnZ },
     overrides
   );
   activeNPCs.push(npc);
@@ -366,7 +373,42 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
               npc.actionTimer = 3.5;
             }
           }
+        } else {
+          // Wander nearby: pick a random adjacent free tile within 3 blocks
+          const wanderCandidates = [];
+          for (let dx = -3; dx <= 3; dx++) {
+            for (let dz = -3; dz <= 3; dz++) {
+              if (dx === 0 && dz === 0) continue;
+              const tx = currentG.x + dx;
+              const tz = currentG.z + dz;
+              if (tx >= BOUND_MIN && tx <= BOUND_MAX && tz >= BOUND_MIN && tz <= BOUND_MAX && !occupiedGrid.has(tileKey(tx, tz))) {
+                wanderCandidates.push({ x: tx, z: tz });
+              }
+            }
+          }
+          if (wanderCandidates.length > 0) {
+            const wanderTarget = wanderCandidates[Math.floor(Math.random() * wanderCandidates.length)];
+            const rawPath = findPath(currentG, wanderTarget, occupiedGrid);
+            if (rawPath && rawPath.length > 0) {
+              npc.path = rawPath.map((pt) => gridToWorldCenter(pt.x, pt.z, 1));
+              npc.pendingAction = "IDLE";
+            }
+          }
         }
+      }
+    }
+
+    // Stuck detection: if NPC spawned or ended up inside an obstacle tile (e.g. from restored coordinates), teleport to nearest free tile
+    const curTile = worldToGrid(npc.root.position);
+    const curKey = tileKey(curTile.x, curTile.z);
+    if (occupiedGrid.has(curKey)) {
+      const freeTile = findAdjacentFreeTile(curTile.x, curTile.z, 1, occupiedGrid);
+      if (freeTile) {
+        const center = gridToWorldCenter(freeTile.x, freeTile.z, 1);
+        npc.root.position.x = center.x;
+        npc.root.position.z = center.z;
+        npc.path = [];
+        npc.a = "IDLE";
       }
     }
 
@@ -376,6 +418,19 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
       const dx = targetWorld.x - npc.root.position.x;
       const dz = targetWorld.z - npc.root.position.z;
       const dist = Math.hypot(dx, dz);
+
+      // Track movement to prevent infinite walk into a newly placed building
+      if (npc.lastPos && Math.hypot(npc.root.position.x - npc.lastPos.x, npc.root.position.z - npc.lastPos.z) < 0.005) {
+        npc.stuckTimer = (npc.stuckTimer || 0) + deltaTime;
+        if (npc.stuckTimer > 2.0) {
+          npc.path = [];
+          npc.a = "IDLE";
+          npc.stuckTimer = 0;
+        }
+      } else {
+        npc.stuckTimer = 0;
+        npc.lastPos = npc.root.position.clone();
+      }
 
       if (dist < 0.15) {
         npc.path.shift();

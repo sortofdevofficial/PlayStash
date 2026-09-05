@@ -157,11 +157,6 @@ export function serializeWorld(placedObjects, activeNPCs, gameState) {
     const happiness = Math.round(npc.happiness);
     if (hunger < 100) node.h = hunger;
     if (happiness < 100) node.hp = happiness;
-    if (npc.a && npc.a !== "IDLE") node.a = npc.a;
-    // Save pending action to resume work after load
-    if (npc.pendingAction) node.p = npc.pendingAction;
-    // Save target object id for ongoing tasks
-    if (npc.targetObjId) node.t = npc.targetObjId;
     n[npc.id] = node;
   });
 
