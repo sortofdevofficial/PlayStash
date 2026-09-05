@@ -27,6 +27,44 @@ const memberSince = document.getElementById('member-since');
 const userCountEl = document.getElementById('user-count');
 const onlineCountEl = document.getElementById('online-count');
 const usersContainer = document.getElementById('users-container');
+const gameSaveStatusEl = document.getElementById('game-save-status');
+
+const GAME_ID = 1;
+const PILL_CLASSES = 'text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0';
+
+let unsubscribeGameSave = null;
+
+function watchGameSave(uid) {
+  if (unsubscribeGameSave) {
+    unsubscribeGameSave();
+    unsubscribeGameSave = null;
+  }
+  if (!gameSaveStatusEl) return;
+
+  if (!uid) {
+    gameSaveStatusEl.textContent = 'Sign in to save';
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-amber-500/10 text-amber-400 border-amber-500/20`;
+    return;
+  }
+
+  unsubscribeGameSave = onValue(ref(db, `G/${GAME_ID}/${uid}`), (snap) => {
+    const data = snap.val();
+
+    if (!data) {
+      gameSaveStatusEl.textContent = 'New World';
+      gameSaveStatusEl.className = `${PILL_CLASSES} bg-blue-500/10 text-blue-400 border-blue-500/20`;
+      return;
+    }
+
+    const builds = data.b ? Object.keys(data.b).length : 0;
+    const villagers = data.n ? Object.keys(data.n).length : 0;
+    gameSaveStatusEl.textContent = `Continue · ${builds} builds · ${villagers} villagers`;
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-emerald-500/10 text-emerald-400 border-emerald-500/20`;
+  }, () => {
+    gameSaveStatusEl.textContent = 'Save unavailable';
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-gray-800/80 text-gray-400 border-gray-700/80`;
+  });
+}
 
 // Date Formatter Helper (Includes Day, Month, Year, Hour, Minute, Second)
 function formatDateDetailed(timestamp) {
@@ -56,6 +94,7 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     loginBtn.classList.add('hidden');
     userProfile.classList.remove('hidden');
+    watchGameSave(user.uid);
 
     userEmail.textContent = user.displayName || user.email;
     userAvatar.src = user.photoURL || 'favicon.png';
@@ -83,6 +122,7 @@ onAuthStateChanged(auth, async (user) => {
     userEmail.textContent = '';
     userAvatar.src = '';
     memberSince.textContent = '';
+    watchGameSave(null);
   }
 });
 
