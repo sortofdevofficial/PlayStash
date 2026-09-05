@@ -1,5 +1,26 @@
 #sideMenu {
   position: fixed;
+  top: 12%;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  max-height: 80vh;
+  width: clamp(200px, 20vw, 260px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  pointer-events: auto;
+  z-index: 999;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Added canvas size to prevent zero-size framebuffer */
+canvas.build-preview {
+  width: 80px;
+  height: 80px;
+  display: block;
+  margin: 0 auto;
+}
+
   top: 118px;
   bottom: 14px;
   right: 14px;
