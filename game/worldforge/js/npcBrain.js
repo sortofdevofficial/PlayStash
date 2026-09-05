@@ -134,6 +134,9 @@ export function restoreNPC(record, activeNPCs, scene) {
   if (Number.isFinite(record.hp)) overrides.happiness = record.hp;
   if (record.a) overrides.a = record.a;
   if (record.n) overrides.name = record.n;
+  // Restore pending action and target object ID for ongoing tasks
+  if (record.p) overrides.pendingAction = record.p;
+  if (record.t) overrides.targetObjId = record.t;
 
   const npc = createNpc(
     record.id,
