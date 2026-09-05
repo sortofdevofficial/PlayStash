@@ -1,3 +1,5 @@
+--- START OF FILE index.html ---
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,22 +24,16 @@
     <div id="menuCard">
       <div id="menuIcon">🔥</div>
       <div id="menuTitle">World<span>Forge</span></div>
-      <div id="menuTagline">Gather round the fire and build a home.</div>
-      <div id="menuStatus">Waking the village…</div>
-
-      <!-- Village Stats overview card if saved data exists -->
-      <div id="menuStatsCard" style="display: none;">
-        <div class="menu-stats-grid"></div>
-      </div>
+      
+      <!-- Simplified status line: shows loading, then village stats if saved -->
+      <div id="menuStatus">Loading village...</div>
 
       <button id="menuPlayBtn" disabled>Play</button>
 
       <div class="menu-btn-row">
-        <button id="menuGuideBtn" class="menu-sec-btn" type="button">📖 How to Play</button>
+        <button id="menuGuideBtn" class="menu-sec-btn" type="button">📖 Guide</button>
         <button id="menuAudioBtn" class="menu-sec-btn" type="button">🔊 Sound: On</button>
       </div>
-
-      <div id="menuFooter">Auto-saved automatically while you play</div>
     </div>
   </div>
 
@@ -92,8 +88,6 @@
   <canvas id="renderCanvas"></canvas>
 
   <script>
-    // Purely decorative ember particles for the main menu — plain DOM/CSS,
-    // runs before the module script so the menu looks alive immediately.
     (function spawnEmbers() {
       const container = document.getElementById("menuEmbers");
       const count = 22;
@@ -187,100 +181,81 @@
     </div>
 
     <div id="sideMenu" class="panel">
-  <div class="menu-title">Build Menu</div>
-  <div class="scroll-frame">
-
-    <!-- Housing -->
-    <div class="build-category">
-      <div class="build-category-title">Housing</div>
-      <div class="cards-row">
-        <div id="cardHut" class="build-card" title="20 Wood, 10 Stone (+2 Pop)">
-          <canvas class="build-preview" data-model="hut" width="56" height="56"></canvas>
-          <div class="card-header"><span class="card-title">Hut</span></div>
-          <div class="card-cost">🌾20 🪨10</div>
+      <div class="menu-title">Build Menu</div>
+      <div class="scroll-frame">
+        <div class="build-category">
+          <div class="build-category-title">Housing</div>
+          <div class="cards-row">
+            <div id="cardHut" class="build-card" title="20 Wood, 10 Stone (+2 Pop)">
+              <canvas class="build-preview" data-model="hut" width="56" height="56"></canvas>
+              <div class="card-header"><span class="card-title">Hut</span></div>
+              <div class="card-cost">🌾20 🪨10</div>
+            </div>
+            <div id="cardCampfire" class="build-card" title="10 Wood, 10 Stone (Attracts NPCs)">
+              <canvas class="build-preview" data-model="campfire" width="56" height="56"></canvas>
+              <div class="card-header"><span class="card-title">Campfire</span></div>
+              <div class="card-cost">🌾10 🪨10</div>
+            </div>
+          </div>
         </div>
-        <div id="cardCampfire" class="build-card" title="10 Wood, 10 Stone (Attracts NPCs)">
-          <canvas class="build-preview" data-model="campfire" width="56" height="56"></canvas>
-          <div class="card-header"><span class="card-title">Campfire</span></div>
-          <div class="card-cost">🌾10 🪨10</div>
+        <div class="build-category">
+          <div class="build-category-title">Resources</div>
+          <div class="cards-row">
+            <div id="cardFarm" class="build-card" title="15 Wood, 5 Stone, 5 Water">
+              <canvas class="build-preview" data-model="farm" width="56" height="56"></canvas>
+              <div class="card-header"><span class="card-title">Farm</span></div>
+              <div class="card-cost">🌾15 🪨5 💧5</div>
+            </div>
+            <div id="cardWell" class="build-card" title="15 Wood, 15 Stone">
+              <canvas class="build-preview" data-model="well" width="56" height="56"></canvas>
+              <div class="card-header"><span class="card-title">Well</span></div>
+              <div class="card-cost">🌾15 🪨15</div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Resources -->
-    <div class="build-category">
-      <div class="build-category-title">Resources</div>
-      <div class="cards-row">
-        <div id="cardFarm" class="build-card" title="15 Wood, 5 Stone, 5 Water">
-          <canvas class="build-preview" data-model="farm" width="56" height="56"></canvas>
-          <div class="card-header"><span class="card-title">Farm</span></div>
-          <div class="card-cost">🌾15 🪨5 💧5</div>
-        </div>
-        <div id="cardWell" class="build-card" title="15 Wood, 15 Stone">
-          <canvas class="build-preview" data-model="well" width="56" height="56"></canvas>
-          <div class="card-header"><span class="card-title">Well</span></div>
-          <div class="card-cost">🌾15 🪨15</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Structures -->
-    <div class="build-category">
-      <div class="build-category-title">Structures</div>
-      <div class="cards-row">
-        <div id="cardTower" class="build-card" title="30 Wood, 25 Stone, 10 Food">
-          <canvas class="build-preview" data-model="tower" width="56" height="56"></canvas>
-          <div class="card-header"><span class="card-title">Tower</span></div>
-          <div class="card-cost">🌾30 🪨25 🌽10</div>
-        </div>
-        <div id="cardStorage" class="build-card" title="25 Wood, 10 Stone (+150 Cap)">
-          <canvas class="build-preview" data-model="storage" width="56" height="56"></canvas>
-          <div class="card-header"><span class="card-title">Storage</span></div>
-          <div class="card-cost">🌾25 🪨10</div>
-        </div>
-        <div id="cardMarket" class="build-card" title="20 Wood, 20 Stone">
-          <canvas class="build-preview" data-model="market" width="56" height="56"></canvas>
-          <div class="card-header"><span class="card-title">Market</span></div>
-          <div class="card-cost">🌾20 🪨20</div>
-        </div>
-        <div id="cardWall" class="build-card" title="8 Wood, 4 Stone">
-          <canvas class="build-preview" data-model="wall" width="56" height="56"></canvas>
-          <div class="card-header"><span class="card-title">Wall</span></div>
-          <div class="card-cost">🌾8 🪨4</div>
-        </div>
-        <div id="cardGate" class="build-card" title="12 Wood, 6 Stone">
-          <canvas class="build-preview" data-model="gate" width="56" height="56"></canvas>
-          <div class="card-header"><span class="card-title">Gate</span></div>
-          <div class="card-cost">🌾12 🪨6</div>
+        <div class="build-category">
+          <div class="build-category-title">Structures</div>
+          <div class="cards-row">
+            <div id="cardTower" class="build-card" title="30 Wood, 25 Stone, 10 Food">
+              <canvas class="build-preview" data-model="tower" width="56" height="56"></canvas>
+              <div class="card-header"><span class="card-title">Tower</span></div>
+              <div class="card-cost">🌾30 🪨25 🌽10</div>
+            </div>
+            <div id="cardStorage" class="build-card" title="25 Wood, 10 Stone (+150 Cap)">
+              <canvas class="build-preview" data-model="storage" width="56" height="56"></canvas>
+              <div class="card-header"><span class="card-title">Storage</span></div>
+              <div class="card-cost">🌾25 🪨10</div>
+            </div>
+            <div id="cardMarket" class="build-card" title="20 Wood, 20 Stone">
+              <canvas class="build-preview" data-model="market" width="56" height="56"></canvas>
+              <div class="card-header"><span class="card-title">Market</span></div>
+              <div class="card-cost">🌾20 🪨20</div>
+            </div>
+            <div id="cardWall" class="build-card" title="8 Wood, 4 Stone">
+              <canvas class="build-preview" data-model="wall" width="56" height="56"></canvas>
+              <div class="card-header"><span class="card-title">Wall</span></div>
+              <div class="card-cost">🌾8 🪨4</div>
+            </div>
+            <div id="cardGate" class="build-card" title="12 Wood, 6 Stone">
+              <canvas class="build-preview" data-model="gate" width="56" height="56"></canvas>
+              <div class="card-header"><span class="card-title">Gate</span></div>
+              <div class="card-cost">🌾12 🪨6</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-
-  </div>
-</div>
-
-<!-- scripts -->
-<script type="module" src="./js/buildPreview.js"></script>
-
-
-
 
     <div id="topbar" class="panel">
       <div id="brand">World<span>Forge</span></div>
-      <span id="saveStatus" data-state="ready" title="Worlds are backed up automatically while you play. Sign in on the PlayStash homepage to enable cloud saves.">Connecting…</span>
-      <span id="worldStats" title="Objects placed / Villagers alive" style="font-size: 10px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧱 <span id="itemCount">0</span> · 👤 <span id="npcCount">0</span></span>
+      <span id="saveStatus" data-state="ready">Connecting…</span>
+      <span id="worldStats" style="font-size: 10px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧱 <span id="itemCount">0</span> · 👤 <span id="npcCount">0</span></span>
       <button id="removeBtn" title="Remove">🗑️</button>
       <button id="dayBtn" title="Toggle Day / Night">🌙</button>
       <button id="viewWorldsBtn" class="iconBtn" title="See other players' worlds">🌍</button>
       <button id="clearBtn" class="danger">Clear</button>
     </div>
 
-
-
-
-
-    <!-- Touch-only controls: replace WASD/Q/E/R since phones have no keyboard.
-         Shown/hidden via the .touch-device class toggled by index.js. -->
     <div id="mobileControls" class="panel">
       <button id="mobileUpBtn" title="Raise camera">⬆️</button>
       <button id="mobileDownBtn" title="Lower camera">⬇️</button>
@@ -289,6 +264,7 @@
   </div>
 
   <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script type="module" src="./js/buildPreview.js"></script>
   <script type="module" src="./js/index.js"></script>
 </body>
 </html>

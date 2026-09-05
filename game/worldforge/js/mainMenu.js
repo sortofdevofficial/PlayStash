@@ -1,6 +1,5 @@
-// The cozy title screen shown before the world loads. index.js awaits
-// waitForPlay() as part of boot() so nothing touches the scene/render loop
-// until the player has actually clicked in.
+--- START OF FILE mainMenu.js ---
+
 import { audioCtx } from "./audio.js";
 
 let pendingPlayResolve = null;
@@ -17,7 +16,6 @@ function showMainMenu(data) {
   const menu = document.getElementById("mainMenu");
   const statusEl = document.getElementById("menuStatus");
   const playBtn = document.getElementById("menuPlayBtn");
-  const statsCard = document.getElementById("menuStatsCard");
   const guideBtn = document.getElementById("menuGuideBtn");
   const audioBtn = document.getElementById("menuAudioBtn");
   const guideModal = document.getElementById("guideModal");
@@ -31,30 +29,14 @@ function showMainMenu(data) {
     return;
   }
 
+  // Minimal Status Logic: merge everything into one line
   if (data) {
     const builds = data.b ? Object.keys(data.b).length : 0;
     const villagers = data.n ? Object.keys(data.n).length : 0;
-    const woodVal = data.r ? (data.r.wo ?? data.r.wh ?? 0) : 0;
-    const stoneVal = data.r ? (data.r.s ?? 0) : 0;
-
-    statusEl.textContent = `Village saved · ${builds} structures · ${villagers} villagers`;
-
-    if (statsCard) {
-      statsCard.style.display = "flex";
-      const statsGrid = statsCard.querySelector(".menu-stats-grid");
-      if (statsGrid) {
-        statsGrid.innerHTML = `
-          <div class="menu-stat-pill">🛖 <span>${builds} Builds</span></div>
-          <div class="menu-stat-pill">👤 <span>${villagers} Villagers</span></div>
-          <div class="menu-stat-pill">🌾 <span>${woodVal} Wheat</span></div>
-          <div class="menu-stat-pill">🪨 <span>${stoneVal} Stone</span></div>
-        `;
-      }
-    }
+    statusEl.textContent = `Village saved: ${builds} buildings, ${villagers} villagers`;
     playBtn.textContent = "Continue";
   } else {
-    statusEl.textContent = "A fresh wilderness awaits your village";
-    if (statsCard) statsCard.style.display = "none";
+    statusEl.textContent = "A fresh wilderness awaits";
     playBtn.textContent = "Start Village";
   }
 
@@ -67,7 +49,6 @@ function showMainMenu(data) {
       pendingPlayResolve();
       pendingPlayResolve = null;
     }
-    // Unmute & resume audio context
     if (audioCtx && audioCtx.state === "suspended" && !isAudioMuted) {
       audioCtx.resume();
     }
