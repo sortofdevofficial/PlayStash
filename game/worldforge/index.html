@@ -8,551 +8,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>WorldForge 3D</title>
   <link rel="icon" type="image/png" href="./favicon.png" />
-  <style>
-    * { 
-      box-sizing: border-box; 
-      user-select: none; 
-      -webkit-user-select: none; 
-      -webkit-tap-highlight-color: transparent;
-    }
-    
-    html, body { 
-      width: 100%; 
-      height: 100%; 
-      margin: 0; 
-      overflow: hidden; 
-      overscroll-behavior: none;
-      background: #090b0e; 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-    }
-
-    /* ============================================================
-       MAIN MENU
-       A warm title screen shown before the world loads. Sits above
-       the canvas/HUD and fades out once the player presses Play.
-       ============================================================ */
-    #mainMenu {
-      position: fixed;
-      inset: 0;
-      z-index: 3000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background:
-        radial-gradient(ellipse 900px 600px at 50% 38%, rgba(251, 191, 90, 0.14), transparent 60%),
-        linear-gradient(180deg, #1b140d 0%, #120d09 55%, #0a0705 100%);
-      transition: opacity 0.6s ease, visibility 0.6s ease;
-    }
-    #mainMenu.hidden {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-
-    /* Slow drifting embers for ambience */
-    #menuEmbers {
-      position: absolute;
-      inset: 0;
-      overflow: hidden;
-      pointer-events: none;
-    }
-    .ember {
-      position: absolute;
-      bottom: -10px;
-      width: 4px;
-      height: 4px;
-      border-radius: 50%;
-      background: radial-gradient(circle, #ffcf7a 0%, #f59e42 60%, transparent 100%);
-      opacity: 0;
-      animation: emberRise linear infinite;
-    }
-    @keyframes emberRise {
-      0% { transform: translateY(0) translateX(0); opacity: 0; }
-      8% { opacity: 0.9; }
-      100% { transform: translateY(-100vh) translateX(var(--drift, 20px)); opacity: 0; }
-    }
-
-    #menuCard {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      padding: 40px 44px 34px;
-      max-width: 420px;
-      width: 90vw;
-      background: rgba(24, 18, 13, 0.55);
-      border: 1px solid rgba(255, 200, 140, 0.18);
-      border-radius: 22px;
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 0 60px rgba(251, 146, 60, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-      animation: menuCardIn 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    @keyframes menuCardIn {
-      from { opacity: 0; transform: translateY(14px) scale(0.98); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    #menuIcon {
-      font-size: 40px;
-      margin-bottom: 6px;
-      filter: drop-shadow(0 4px 14px rgba(251, 146, 60, 0.45));
-      animation: menuFlicker 3s ease-in-out infinite;
-    }
-    @keyframes menuFlicker {
-      0%, 100% { transform: scale(1); filter: drop-shadow(0 4px 14px rgba(251, 146, 60, 0.45)); }
-      50% { transform: scale(1.06); filter: drop-shadow(0 4px 20px rgba(251, 146, 60, 0.65)); }
-    }
-
-    #menuTitle {
-      font-size: 32px;
-      font-weight: 900;
-      letter-spacing: 0.5px;
-      color: #fdf6ec;
-      margin: 4px 0 2px;
-      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
-    }
-    #menuTitle span { color: #fb923c; }
-
-    #menuTagline {
-      font-size: 12.5px;
-      color: #c9b8a3;
-      font-weight: 600;
-      margin-bottom: 26px;
-      letter-spacing: 0.2px;
-    }
-
-    #menuStatus {
-      font-size: 11px;
-      font-weight: 700;
-      color: #d8c4a8;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 6px 14px;
-      border-radius: 20px;
-      margin-bottom: 20px;
-      min-height: 14px;
-      transition: opacity 0.3s ease;
-    }
-
-    #menuPlayBtn {
-      width: 100%;
-      padding: 14px 20px;
-      font-size: 15px;
-      font-weight: 800;
-      letter-spacing: 0.3px;
-      color: #2a1607;
-      background: linear-gradient(180deg, #ffb454 0%, #fb923c 100%);
-      border: 1px solid rgba(255, 220, 170, 0.5);
-      border-radius: 14px;
-      cursor: pointer;
-      box-shadow: 0 10px 26px rgba(251, 146, 60, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-      backdrop-filter: none;
-    }
-    #menuPlayBtn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 14px 32px rgba(251, 146, 60, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-    }
-    #menuPlayBtn:active { transform: translateY(0); }
-    #menuPlayBtn:disabled {
-      opacity: 0.6;
-      cursor: wait;
-      transform: none;
-      box-shadow: none;
-    }
-
-    #menuFooter {
-      margin-top: 18px;
-      font-size: 10px;
-      color: #7d6a57;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-    }
-
-    #renderCanvas { 
-      width: 100%; 
-      height: 100%; 
-      display: block; 
-      outline: none; 
-      touch-action: none; 
-      cursor: crosshair; 
-    }
-
-    #hud { 
-      position: fixed; 
-      inset: 0; 
-      pointer-events: none; 
-      color: #f0f4f8; 
-    }
-
-    .panel { 
-      pointer-events: auto; 
-      position: absolute; 
-      background: rgba(15, 20, 28, 0.65); 
-      border: 1px solid rgba(255, 255, 255, 0.12); 
-      border-radius: 14px; 
-      backdrop-filter: blur(16px); 
-      -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1); 
-      color: #e2e8f0;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-      transition: all 0.2s ease;
-    }
-
-    #resourcefsBar {
-      position: fixed; 
-      top: 14px; 
-      left: 50%; 
-      transform: translateX(-50%);
-      display: flex; 
-      align-items: center;
-      gap: 16px; 
-      background: rgba(12, 16, 23, 0.75); 
-      padding: 8px 22px;
-      border-radius: 30px; 
-      border: 1px solid rgba(255, 255, 255, 0.18); 
-      color: #ffffff;
-      font-size: 12px; 
-      font-weight: 700; 
-      z-index: 1000;
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4); 
-      backdrop-filter: blur(16px); 
-      -webkit-backdrop-filter: blur(16px);
-    }
-
-    .resourcefs-item { 
-      display: flex; 
-      align-items: center; 
-      gap: 6px; 
-      cursor: help; 
-      padding: 2px 6px;
-      border-radius: 8px;
-      transition: background 0.15s ease, transform 0.15s ease; 
-    }
-
-    .resourcefs-item:hover { 
-      background: rgba(255, 255, 255, 0.08);
-      transform: translateY(-1px); 
-    }
-
-    .resourcefs-label {
-      color: #94a3b8;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .resourcefs-value {
-      font-weight: 800;
-    }
-
-    .resourcefs-divider {
-      width: 1px;
-      height: 16px;
-      background: rgba(255, 255, 255, 0.15);
-    }
-
-    .thought-bubble {
-      position: absolute; 
-      background: rgba(255, 255, 255, 0.92); 
-      color: #0f172a;
-      padding: 6px 12px; 
-      border-radius: 12px; 
-      font-size: 11px; 
-      font-weight: 700;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); 
-      border: 1px solid rgba(255, 255, 255, 0.6);
-      backdrop-filter: blur(8px); 
-      -webkit-backdrop-filter: blur(8px);
-      pointer-events: none; 
-      transform: translate(-50%, -100%); 
-      white-space: nowrap;
-      opacity: 0; 
-      transition: opacity 0.2s ease, transform 0.2s ease; 
-      z-index: 900;
-    }
-    .thought-bubble.show { 
-      opacity: 1; 
-      transform: translate(-50%, -115%); 
-    }
-
-    #notifContainer { 
-      position: fixed; 
-      top: 64px; 
-      left: 50%; 
-      transform: translateX(-50%); 
-      display: flex; 
-      flex-direction: column; 
-      align-items: center; 
-      gap: 6px; 
-      z-index: 1000; 
-      pointer-events: none; 
-    }
-
-    .mobile-notif { 
-      display: flex; 
-      align-items: center; 
-      gap: 8px; 
-      background: rgba(12, 16, 23, 0.8); 
-      backdrop-filter: blur(12px); 
-      -webkit-backdrop-filter: blur(12px); 
-      border: 1px solid rgba(255, 255, 255, 0.18); 
-      color: #ffffff; 
-      padding: 7px 16px; 
-      border-radius: 20px; 
-      font-size: 11px; 
-      font-weight: 600; 
-      opacity: 0; 
-      transform: translateY(-10px); 
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); 
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    }
-    .mobile-notif.show { opacity: 1; transform: translateY(0); }
-    .notif-badge { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; }
-    .notif-badge.warn { background: #f87171; }
-    .notif-badge.info { background: #60a5fa; }
-
-    button { 
-      border: 1px solid rgba(255, 255, 255, 0.2); 
-      color: #f8fafc; 
-      background: rgba(255, 255, 255, 0.08); 
-      border-radius: 8px; 
-      padding: 6px 12px; 
-      cursor: pointer; 
-      font-size: 11px; 
-      font-weight: 700; 
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      transition: all 0.15s ease; 
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    }
-    button:hover { 
-      background: rgba(255, 255, 255, 0.2); 
-      border-color: rgba(255, 255, 255, 0.4); 
-      transform: translateY(-1px); 
-    }
-    button.danger { 
-      background: rgba(239, 68, 68, 0.35); 
-      border-color: rgba(248, 113, 113, 0.4); 
-      color: #fecaca; 
-    }
-    button.danger:hover { 
-      background: rgba(239, 68, 68, 0.65); 
-      border-color: rgba(248, 113, 113, 0.7); 
-      color: #fff; 
-    }
-
-    #topbar { top: 14px; right: 14px; padding: 6px 10px; display: flex; align-items: center; gap: 6px; max-width: min(70vw, 620px); flex-wrap: wrap; justify-content: flex-end; }
-    #brand { font-size: 14px; font-weight: 900; color: #ffffff; margin-right: 4px; letter-spacing: 0.5px; white-space: nowrap; }
-    #brand span { color: #4ade80; }
-    #topbar button { padding: 6px 9px; }
-    .iconBtn { font-size: 13px; padding: 6px 9px; }
-
-    /* Right-side panels stack in a single column below the topbar so they
-       never overlap each other regardless of which are open at once. */
-    #rightStack {
-      position: fixed;
-      top: 68px;
-      right: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      align-items: flex-end;
-      pointer-events: none;
-      z-index: 950;
-    }
-    #rightStack > .panel { pointer-events: auto; position: static; }
-
-    #saveStatus {
-      font-size: 10px;
-      font-weight: 700;
-      color: #94a3b8;
-      padding: 3px 9px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.07);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      white-space: nowrap;
-    }
-    #saveStatus[data-state="saved"] { color: #4ade80; border-color: rgba(74, 222, 128, 0.35); }
-    #saveStatus[data-state="saving"] { color: #60a5fa; border-color: rgba(96, 165, 250, 0.35); }
-    #saveStatus[data-state="error"] { color: #f87171; border-color: rgba(248, 113, 113, 0.4); }
-    #saveStatus[data-state="offline"] { color: #fbbf24; border-color: rgba(251, 191, 36, 0.35); }
-    #saveStatus[data-state="reload"] { color: #fbbf24; border-color: rgba(251, 191, 36, 0.35); }
-
-    #sideMenu { top: 14px; left: 14px; bottom: 14px; width: 160px; display: flex; flex-direction: column; padding: 10px 8px; }
-    .menu-title { 
-      font-size: 10px; 
-      font-weight: 800; 
-      color: #94a3b8; 
-      text-transform: uppercase; 
-      letter-spacing: 1.2px; 
-      margin-bottom: 8px; 
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
-      padding-bottom: 5px; 
-      text-align: center; 
-    }
-    
-    .scroll-frame { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding-right: 2px; }
-    .scroll-frame::-webkit-scrollbar { width: 4px; }
-    .scroll-frame::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
-
-    .build-card { 
-      background: rgba(255, 255, 255, 0.05); 
-      border: 1px solid rgba(255, 255, 255, 0.1); 
-      border-radius: 9px; 
-      padding: 6px 9px; 
-      cursor: pointer; 
-      display: flex; 
-      flex-direction: column; 
-      gap: 2px; 
-      transition: all 0.15s ease; 
-    }
-    .build-card:hover { 
-      background: rgba(255, 255, 255, 0.14); 
-      border-color: rgba(255, 255, 255, 0.3); 
-      transform: translateX(2px); 
-    }
-    .build-card.active { 
-      background: rgba(74, 222, 128, 0.2); 
-      border-color: #4ade80; 
-      box-shadow: 0 0 12px rgba(74, 222, 128, 0.25); 
-    }
-    .card-header { display: flex; justify-content: space-between; align-items: center; }
-    .card-title { font-size: 11px; font-weight: 800; color: #ffffff; }
-    .card-sub { font-size: 9px; color: #cbd5e1; font-weight: 600; }
-
-    #controls { left: 184px; bottom: 14px; padding: 7px 12px; font-size: 10px; color: #ffffff; border-radius: 20px; }
-
-    #mobileControls {
-      display: none;
-      left: 14px;
-      bottom: 14px;
-      padding: 8px;
-      gap: 8px;
-      flex-direction: row;
-      align-items: center;
-    }
-    #mobileControls button {
-      min-width: 48px;
-      min-height: 48px;
-      font-size: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-    }
-    #mobileRotateBtn { min-width: 84px; font-size: 13px; gap: 4px; }
-    body.touch-device #controls { display: none; }
-    body.touch-device #mobileControls { display: flex; }
-
-    #npcDetailPanel { width: 210px; padding: 12px 14px; }
-    .npc-detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 6px; }
-    .npc-detail-name { font-weight: 800; font-size: 13px; color: #ffffff; flex: 1; }
-    
-    .npc-stat-row { margin-bottom: 8px; font-size: 10px; color: #cbd5e1; font-weight: 700; }
-    .npc-stat-row .npc-stat-label { display: flex; justify-content: space-between; margin-bottom: 4px; }
-    .npc-bar { width: 100%; height: 6px; background: rgba(0, 0, 0, 0.5); border-radius: 4px; overflow: hidden; }
-    .npc-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
-    .npc-bar-fill.hunger { background: linear-gradient(90deg, #f97316, #fbbf24); }
-    .npc-bar-fill.happy { background: linear-gradient(90deg, #16a34a, #4ade80); }
-    .npc-mood { text-align: center; font-size: 11px; font-weight: 800; margin-top: 8px; padding: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 6px; color: #ffffff; }
-
-    /* ============================================================
-       MOBILE LAYOUT
-       Triggers on narrow viewports OR touch-primary devices (tablets
-       held in landscape can still be wide, so pointer:coarse alone
-       isn't enough, and phones rotated to landscape are still narrow
-       in height — so this checks both dimensions independently).
-       ============================================================ */
-    @media (max-width: 860px), (pointer: coarse) and (max-height: 500px) {
-      #resourcefsBar {
-        position: fixed;
-        top: 8px; left: 8px; right: 8px;
-        transform: none;
-        width: auto;
-        max-width: none;
-        overflow-x: auto;
-        justify-content: flex-start;
-        padding: 7px 14px;
-        gap: 10px;
-        font-size: 10px;
-        -webkit-overflow-scrolling: touch;
-      }
-      .resourcefs-label { display: none; } /* icon + value is enough at this width */
-
-      #topbar {
-        top: 58px; left: 8px; right: 8px;
-        max-width: none;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        row-gap: 6px;
-      }
-      #worldStats { order: 5; flex-basis: 100%; text-align: center; }
-      #brand { font-size: 13px; }
-      #saveStatus { font-size: 9px; padding: 3px 7px; }
-      #topbar button { min-height: 36px; padding: 6px 10px; font-size: 10px; }
-
-      #notifContainer { top: 108px; }
-
-      #rightStack { position: static; }
-      #npcDetailPanel {
-        position: fixed;
-        top: auto;
-        bottom: 128px;
-        right: 8px;
-        left: 8px;
-        width: auto;
-      }
-      #otherWorldsPanel {
-        position: fixed;
-        top: 108px;
-        right: 8px;
-        left: 8px;
-        width: auto;
-      }
-
-      #controls { display: none; }
-
-      /* Build menu becomes a horizontally-scrolling bottom strip */
-      #sideMenu {
-        top: auto;
-        left: 8px;
-        right: 8px;
-        bottom: 8px;
-        height: 108px;
-        width: auto;
-        padding: 8px;
-      }
-      #sideMenu .menu-title { display: none; }
-      #sideMenu .scroll-frame {
-        flex-direction: row;
-        overflow-x: auto;
-        overflow-y: hidden;
-        gap: 8px;
-        -webkit-overflow-scrolling: touch;
-      }
-      #sideMenu .build-card {
-        min-width: 118px;
-        flex: 0 0 auto;
-        min-height: 44px;
-        justify-content: center;
-      }
-      .card-desc { display: none; } /* saves vertical space in the strip */
-
-      #mobileControls { bottom: 128px; }
-    }
-
-    /* Extra-narrow phones: shrink further and drop cursor/help text */
-    @media (max-width: 420px) {
-      .resourcefs-item[title="Max Storage Limit"] { display: none; }
-      #brand { display: none; }
-      #worldStats { display: none; }
-    }
-  </style>
+  <link rel="stylesheet" href="./css/base.css" />
+  <link rel="stylesheet" href="./css/mainMenu.css" />
+  <link rel="stylesheet" href="./css/hudBars.css" />
+  <link rel="stylesheet" href="./css/topbar.css" />
+  <link rel="stylesheet" href="./css/panels.css" />
+  <link rel="stylesheet" href="./css/buildMenu.css" />
+  <link rel="stylesheet" href="./css/responsive.css" />
 </head>
 <body>
   <div id="mainMenu">
@@ -562,8 +24,68 @@
       <div id="menuTitle">World<span>Forge</span></div>
       <div id="menuTagline">Gather round the fire and build a home.</div>
       <div id="menuStatus">Waking the village…</div>
+
+      <!-- Village Stats overview card if saved data exists -->
+      <div id="menuStatsCard" style="display: none;">
+        <div class="menu-stats-grid"></div>
+      </div>
+
       <button id="menuPlayBtn" disabled>Play</button>
-      <div id="menuFooter">Your progress is saved automatically</div>
+
+      <div class="menu-btn-row">
+        <button id="menuGuideBtn" class="menu-sec-btn" type="button">📖 How to Play</button>
+        <button id="menuAudioBtn" class="menu-sec-btn" type="button">🔊 Sound: On</button>
+      </div>
+
+      <div id="menuFooter">Auto-saved automatically while you play</div>
+    </div>
+  </div>
+
+  <!-- Guide / How to Play Modal -->
+  <div id="guideModal" class="game-modal hidden">
+    <div class="game-modal-card">
+      <h2>
+        <span>📖 How to Play WorldForge</span>
+        <button id="closeGuideBtn" class="close-btn" title="Close">✕</button>
+      </h2>
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 12px; line-height: 1.5; color: #cbd5e1;">
+        <div>
+          <b style="color: #60a5fa;">🕹️ Camera & Controls:</b>
+          <div style="margin-top: 4px; padding-left: 8px;">
+            • <b>WASD</b>: Pan camera across the world.<br/>
+            • <b>Right Mouse Button + Drag</b>: Rotate and tilt camera angle.<br/>
+            • <b>Mouse Wheel / Q & E</b>: Adjust zoom and camera height.<br/>
+            • <b>R Key</b>: Rotate building ghost before placing.<br/>
+            • <b>Right-Click / Esc</b>: Cancel active building placement.
+          </div>
+        </div>
+        <div>
+          <b style="color: #4ade80;">🪓 Gathering Resources:</b>
+          <div style="margin-top: 4px; padding-left: 8px;">
+            • Left-click <b>Trees</b> to harvest Wood / Wheat (🌾).<br/>
+            • Left-click <b>Boulders</b> to quarry Stone (🪨).<br/>
+            • Villagers will also wander and automatically harvest nearby nodes!
+          </div>
+        </div>
+        <div>
+          <b style="color: #fbbf24;">🛖 Building Your Village:</b>
+          <div style="margin-top: 4px; padding-left: 8px;">
+            • <b>Campfire</b>: The heart of your settlement. Attracts villagers to join.<br/>
+            • <b>Hut</b>: Expands village population capacity (+2 villagers each).<br/>
+            • <b>Farm</b>: Produces Food (🌽) so your villagers don't starve.<br/>
+            • <b>Well</b>: Provides fresh Water (💧).<br/>
+            • <b>Storage</b>: Increases max resource stockpiles (+150 cap).<br/>
+            • <b>Watchtower</b>: Villagers climb up to scout, boosting nearby work speed!
+          </div>
+        </div>
+        <div>
+          <b style="color: #f472b6;">👤 Villagers & Management:</b>
+          <div style="margin-top: 4px; padding-left: 8px;">
+            • Click any villager in default mode to inspect their Hunger and Happiness.<br/>
+            • Press the 🎥 camera icon to follow them as they work and explore!
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -668,40 +190,40 @@
       <div class="menu-title">Build Menu</div>
       <div class="scroll-frame">
         <div id="cardHut" class="build-card">
-          <div class="card-header"><span class="card-title">Hut</span><span class="card-sub">2x2</span></div>
-          <div class="card-sub">20 Wheat, 10 Stone</div>
+          <div class="card-header"><span class="card-title">🛖 Hut</span><span class="card-size-badge">2x2</span></div>
+          <div class="card-sub">20 Wheat · 10 Stone (+2 Pop)</div>
         </div>
         <div id="cardCampfire" class="build-card">
-          <div class="card-header"><span class="card-title">Campfire</span><span class="card-sub">1x1</span></div>
-          <div class="card-sub">10 Wheat, 10 Stone</div>
+          <div class="card-header"><span class="card-title">🔥 Campfire</span><span class="card-size-badge">1x1</span></div>
+          <div class="card-sub">10 Wheat · 10 Stone (Attracts NPCs)</div>
         </div>
         <div id="cardFarm" class="build-card">
-          <div class="card-header"><span class="card-title">Farm Patch</span><span class="card-sub">2x2</span></div>
-          <div class="card-sub">15 Wheat, 5 Stone, 5 Water</div>
+          <div class="card-header"><span class="card-title">🌾 Farm</span><span class="card-size-badge">2x2</span></div>
+          <div class="card-sub">15 Wheat · 5 Stone · 5 Water</div>
         </div>
         <div id="cardTower" class="build-card">
-          <div class="card-header"><span class="card-title">Watchtower</span><span class="card-sub">2x2</span></div>
-          <div class="card-sub">30 Wheat, 25 Stone, 10 Food</div>
+          <div class="card-header"><span class="card-title">🗼 Watchtower</span><span class="card-size-badge">2x2</span></div>
+          <div class="card-sub">30 Wheat · 25 Stone · 10 Food</div>
         </div>
         <div id="cardWell" class="build-card">
-          <div class="card-header"><span class="card-title">Well</span><span class="card-sub">1x1</span></div>
-          <div class="card-sub">15 Wheat, 15 Stone</div>
+          <div class="card-header"><span class="card-title">⛲ Well</span><span class="card-size-badge">1x1</span></div>
+          <div class="card-sub">15 Wheat · 15 Stone</div>
         </div>
         <div id="cardStorage" class="build-card">
-          <div class="card-header"><span class="card-title">Storage</span><span class="card-sub">2x2</span></div>
-          <div class="card-sub">25 Wheat, 10 Stone</div>
+          <div class="card-header"><span class="card-title">📦 Storage</span><span class="card-size-badge">2x2</span></div>
+          <div class="card-sub">25 Wheat · 10 Stone (+150 Cap)</div>
         </div>
         <div id="cardMarket" class="build-card">
-          <div class="card-header"><span class="card-title">Market</span><span class="card-sub">2x2</span></div>
-          <div class="card-sub">20 Wheat, 20 Stone</div>
+          <div class="card-header"><span class="card-title">🏪 Market</span><span class="card-size-badge">2x2</span></div>
+          <div class="card-sub">20 Wheat · 20 Stone (Trade)</div>
         </div>
         <div id="cardWall" class="build-card">
-          <div class="card-header"><span class="card-title">Wall</span><span class="card-sub">1x1</span></div>
-          <div class="card-sub">8 Wheat, 4 Stone</div>
+          <div class="card-header"><span class="card-title">🧱 Wall</span><span class="card-size-badge">1x1</span></div>
+          <div class="card-sub">8 Wheat · 4 Stone</div>
         </div>
         <div id="cardGate" class="build-card">
-          <div class="card-header"><span class="card-title">Gate</span><span class="card-sub">1x1</span></div>
-          <div class="card-sub">12 Wheat, 6 Stone</div>
+          <div class="card-header"><span class="card-title">🚪 Gate</span><span class="card-size-badge">1x1</span></div>
+          <div class="card-sub">12 Wheat · 6 Stone</div>
         </div>
       </div>
     </div>
@@ -710,14 +232,14 @@
       <div id="brand">World<span>Forge</span></div>
       <span id="saveStatus" data-state="ready" title="Worlds are backed up automatically while you play. Sign in on the PlayStash homepage to enable cloud saves.">Connecting…</span>
       <span id="worldStats" title="Objects placed / Villagers alive" style="font-size: 10px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧱 <span id="itemCount">0</span> · 👤 <span id="npcCount">0</span></span>
-      <button id="removeBtn">Remove</button>
-      <button id="dayBtn">Night</button>
+      <button id="removeBtn" title="Remove">🗑️</button>
+      <button id="dayBtn" title="Toggle Day / Night">🌙</button>
       <button id="viewWorldsBtn" class="iconBtn" title="See other players' worlds">🌍</button>
       <button id="clearBtn" class="danger">Clear</button>
     </div>
 
     <div id="controls" class="panel">
-      <b style="color: #4ade80;">WASD</b> Move · <b style="color: #4ade80;">R</b> Rotate · <b style="color: #4ade80;">Q/E</b> Height
+      <span style="color: #4ade80; font-weight: 800;">WASD</span> Move · <span style="color: #60a5fa; font-weight: 800;">Right-Drag</span> Look · <span style="color: #fbbf24; font-weight: 800;">R</span> Rotate · <span style="color: #a78bfa; font-weight: 800;">Q/E</span> Height
     </div>
 
 

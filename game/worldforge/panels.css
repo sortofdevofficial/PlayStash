@@ -1,0 +1,204 @@
+#rightStack {
+  position: fixed;
+  top: 118px;
+  right: clamp(190px, 22vw, 235px);
+  width: clamp(200px, 22vw, 250px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+  z-index: 2000;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+}
+.stack-panel {
+  width: 100%;
+  pointer-events: auto;
+  background: rgba(15, 20, 28, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.3s ease;
+  overflow: hidden;
+}
+.stack-panel.hidden {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  max-height: 0;
+  padding: 0;
+  border-width: 0;
+  margin-bottom: -12px;
+}
+.stack-panel-header {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.stack-panel-content { display: flex; flex-direction: column; gap: 8px; }
+.stack-panel-close { background: none; border: none; color: #94a3b8; font-size: 14px; cursor: pointer; padding: 0 4px; box-shadow: none; }
+.stack-panel-close:hover { background: none; color: #fff; transform: none; }
+
+#controlsPanelContent p { margin: 4px 0; font-size: 11px; color: #cbd5e1; display: flex; justify-content: space-between; }
+#controlsPanelContent strong { color: #fff; background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 4px; }
+
+#envPanelContent .env-row { display: flex; flex-direction: column; gap: 4px; }
+#envPanelContent label { font-size: 10px; color: #cbd5e1; display: flex; justify-content: space-between; }
+#envPanelContent input[type="range"] { width: 100%; appearance: none; -webkit-appearance: none; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; outline: none; }
+#envPanelContent input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #60a5fa; cursor: pointer; }
+
+.npc-stat { font-size: 11px; color: #cbd5e1; display: flex; justify-content: space-between; padding: 2px 0; }
+.npc-stat span:first-child { color: #94a3b8; }
+.npc-action-btn { width: 100%; margin-top: 4px; background: rgba(59, 130, 246, 0.3); border-color: rgba(96, 165, 250, 0.4); }
+.npc-action-btn:hover { background: rgba(59, 130, 246, 0.6); }
+
+/* Villager Detail Inspector Panel */
+#npcDetailPanel {
+  width: 100%;
+  pointer-events: auto;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.npc-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.npc-detail-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #60a5fa;
+  letter-spacing: 0.3px;
+}
+
+.npc-detail-header button {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.npc-stat-row {
+  margin-bottom: 8px;
+}
+
+.npc-stat-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.npc-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.npc-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.npc-bar-fill.hunger {
+  background: linear-gradient(90deg, #f97316, #fbbf24);
+}
+
+.npc-bar-fill.happy {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.npc-mood {
+  margin-top: 10px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #cbd5e1;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+/* Modal Window for Guide / Controls */
+.game-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.game-modal.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.game-modal-card {
+  position: relative;
+  background: rgba(24, 20, 16, 0.92);
+  border: 1px solid rgba(255, 200, 140, 0.25);
+  border-radius: 20px;
+  padding: 24px 28px;
+  max-width: 520px;
+  width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(251, 146, 60, 0.1);
+  color: #e2e8f0;
+}
+
+.game-modal-card h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.game-modal-card .close-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 16px;
+  padding: 4px 8px;
+  cursor: pointer;
+  box-shadow: none;
+}
+.game-modal-card .close-btn:hover {
+  color: #fff;
+  transform: none;
+}

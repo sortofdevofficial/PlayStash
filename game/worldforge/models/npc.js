@@ -123,7 +123,7 @@ export function updateNPCAnimation(npc, delta) {
 
   const { leftLegRoot, rightLegRoot, leftArmRoot, rightArmRoot } = meta;
 
-  switch (npc.action) {
+  switch (npc.a || npc.action) {
     case "WALK":
       npc.root.position.y = Math.abs(Math.sin(t * 1.5)) * 0.08;
       if (leftLegRoot) leftLegRoot.rotation.x = Math.sin(t) * 0.7;

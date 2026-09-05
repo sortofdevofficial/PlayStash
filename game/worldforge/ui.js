@@ -36,13 +36,26 @@ export function addResourceClamped(key, amount, placedObjects) {
   return state.resources[key] - before;
 }
 
+// Briefly re-triggers the CSS pop animation on a value span, but only when
+// the displayed text actually changed - calling this every frame regardless
+// would make numbers flash constantly instead of only on real gains/losses.
+function setResourceText(id, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.textContent === text) return;
+  el.textContent = text;
+  el.classList.remove("value-pop");
+  void el.offsetWidth; // force reflow so the animation can restart immediately
+  el.classList.add("value-pop");
+}
+
 export function updateResourceUI(activeNPCsLength, maxCap, placedObjects) {
   const cap = getResourceCap(placedObjects);
 
-  if (document.getElementById("whCount")) document.getElementById("whCount").textContent = `${state.resources.wh}/${cap}`;
-  if (document.getElementById("stoneCount")) document.getElementById("stoneCount").textContent = `${state.resources.stone}/${cap}`;
-  if (document.getElementById("foodCount")) document.getElementById("foodCount").textContent = `${state.resources.food}/${cap}`;
-  if (document.getElementById("waterCount")) document.getElementById("waterCount").textContent = `${state.resources.water}/${cap}`;
+  setResourceText("whCount", `${state.resources.wh}/${cap}`);
+  setResourceText("stoneCount", `${state.resources.stone}/${cap}`);
+  setResourceText("foodCount", `${state.resources.food}/${cap}`);
+  setResourceText("waterCount", `${state.resources.water}/${cap}`);
   if (document.getElementById("storageCap")) document.getElementById("storageCap").textContent = cap;
   if (document.getElementById("popCount")) document.getElementById("popCount").textContent = `${activeNPCsLength}/${maxCap}`;
 }
@@ -58,7 +71,10 @@ export function showNotif(msg, type = "success") {
   notif.innerHTML = `<div class="notif-badge ${badgeClass}"></div><span>${msg}</span>`;
 
   container.appendChild(notif);
-  requestAnimationFrame(() => notif.classList.add("show"));
+  requestAnimationFrame(() => {
+    notif.classList.add("show");
+    if (type === "warn") notif.classList.add("warn-shake");
+  });
   setTimeout(() => notif.remove(), 1600);
 }
 

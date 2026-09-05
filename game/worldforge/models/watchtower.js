@@ -203,6 +203,7 @@ export function updateWatchtowerHover(scene, placedObjects, gridToWorldCenter) {
     mat.zOffset = -10;
     mat.backFaceCulling = false;
     watchtowerRangeRing.material = mat;
+    watchtowerRangeRing.isPickable = false;
     watchtowerRangeRing.isVisible = false;
   }
 

@@ -359,7 +359,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
               npc.path = rawPath.map((pt) => gridToWorldCenter(pt.x, pt.z, 1));
             } else {
               npc.path = [];
-              npc.a = "w";
+              npc.a = npc.pendingAction || "IDLE";
               npc.actionTimer = 3.5;
             }
           }
@@ -381,7 +381,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
             npc.a = "CLIMB";
             npc.climbProgress = 0;
           } else {
-            npc.a = "w";
+            npc.a = npc.pendingAction || "IDLE";
             npc.actionTimer = 3.5;
           }
         }
