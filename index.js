@@ -106,7 +106,9 @@ onAuthStateChanged(auth, async (user) => {
     memberSince.textContent = `Joined ${formatDateDetailed(creationTime)}`;
 
     try {
-      await set(ref(db, `users/${user.uid}/info`), {
+      // Path: u/{uid}/i (was users/{uid}/info) - shorter path, matches the
+      // terse schema used everywhere else (G/{gameId}/{uid}/r,b,n,ts etc).
+      await set(ref(db, `u/${user.uid}/i`), {
         e: user.email || '',
         dn: user.displayName || 'Player',
         pe: user.photoURL || 'favicon.png',
@@ -148,7 +150,8 @@ onValue(presenceRef, (snap) => {
 });
 
 // Realtime User Network Sync
-onValue(ref(db, 'users'), (snapshot) => {
+// Path: u/{uid}/i (was users/{uid}/info)
+onValue(ref(db, 'u'), (snapshot) => {
   const data = snapshot.val();
   if (!data) {
     userCountEl.textContent = '0';
@@ -157,7 +160,7 @@ onValue(ref(db, 'users'), (snapshot) => {
   }
 
   const users = Object.values(data)
-    .map(u => u.info)
+    .map(u => u.i)
     .filter(Boolean)
     .sort((a, b) => (b.jt || 0) - (a.jt || 0));
 

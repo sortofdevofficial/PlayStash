@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>WorldForge 3D</title>
   <link rel="icon" type="image/png" href="./favicon.png" />
   <style>
@@ -10,6 +13,7 @@
       box-sizing: border-box; 
       user-select: none; 
       -webkit-user-select: none; 
+      -webkit-tap-highlight-color: transparent;
     }
     
     html, body { 
@@ -17,6 +21,7 @@
       height: 100%; 
       margin: 0; 
       overflow: hidden; 
+      overscroll-behavior: none;
       background: #090b0e; 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
     }
@@ -261,6 +266,28 @@
     #controls { left: 200px; bottom: 14px; padding: 8px 14px; font-size: 11px; color: #ffffff; border-radius: 20px; }
     #stats { right: 14px; bottom: 14px; width: 170px; padding: 10px 14px; font-size: 11px; color: #ffffff; line-height: 1.6; }
 
+    #mobileControls {
+      display: none;
+      left: 14px;
+      bottom: 14px;
+      padding: 8px;
+      gap: 8px;
+      flex-direction: row;
+      align-items: center;
+    }
+    #mobileControls button {
+      min-width: 48px;
+      min-height: 48px;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    #mobileRotateBtn { min-width: 84px; font-size: 13px; gap: 4px; }
+    body.touch-device #controls { display: none; }
+    body.touch-device #mobileControls { display: flex; }
+
     #npcDetailPanel { top: 62px; right: 14px; width: 210px; padding: 12px 14px; }
     .npc-detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 6px; }
     .npc-detail-name { font-weight: 800; font-size: 13px; color: #ffffff; flex: 1; }
@@ -272,6 +299,87 @@
     .npc-bar-fill.hunger { background: linear-gradient(90deg, #f97316, #fbbf24); }
     .npc-bar-fill.happy { background: linear-gradient(90deg, #16a34a, #4ade80); }
     .npc-mood { text-align: center; font-size: 11px; font-weight: 800; margin-top: 8px; padding: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 6px; color: #ffffff; }
+
+    /* ============================================================
+       MOBILE LAYOUT
+       Triggers on narrow viewports OR touch-primary devices (tablets
+       held in landscape can still be wide, so pointer:coarse alone
+       isn't enough, and phones rotated to landscape are still narrow
+       in height — so this checks both dimensions independently).
+       ============================================================ */
+    @media (max-width: 860px), (pointer: coarse) and (max-height: 500px) {
+      #resourcefsBar {
+        position: fixed;
+        top: 8px; left: 8px; right: 8px;
+        transform: none;
+        width: auto;
+        max-width: none;
+        overflow-x: auto;
+        justify-content: flex-start;
+        padding: 7px 14px;
+        gap: 10px;
+        font-size: 10px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .resourcefs-label { display: none; } /* icon + value is enough at this width */
+
+      #topbar {
+        top: 58px; left: 8px; right: 8px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        row-gap: 6px;
+      }
+      #brand { font-size: 13px; }
+      #saveStatus { font-size: 9px; padding: 3px 7px; }
+      #topbar button { min-height: 36px; padding: 6px 10px; font-size: 10px; }
+
+      #notifContainer { top: 108px; }
+
+      #npcDetailPanel {
+        top: auto;
+        bottom: 128px;
+        right: 8px;
+        left: 8px;
+        width: auto;
+      }
+
+      #controls { display: none; }
+      #stats { display: none; }
+
+      /* Build menu becomes a horizontally-scrolling bottom strip */
+      #sideMenu {
+        top: auto;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        height: 108px;
+        width: auto;
+        padding: 8px;
+      }
+      #sideMenu .menu-title { display: none; }
+      #sideMenu .scroll-frame {
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        gap: 8px;
+        -webkit-overflow-scrolling: touch;
+      }
+      #sideMenu .build-card {
+        min-width: 118px;
+        flex: 0 0 auto;
+        min-height: 44px;
+        justify-content: center;
+      }
+      .card-desc { display: none; } /* saves vertical space in the strip */
+
+      #mobileControls { bottom: 128px; }
+    }
+
+    /* Extra-narrow phones: shrink further and drop cursor/help text */
+    @media (max-width: 420px) {
+      .resourcefs-item[title="Max Storage Limit"] { display: none; }
+      #brand { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -399,6 +507,14 @@
 
     <div id="controls" class="panel">
       <b style="color: #4ade80;">Move:</b> WASD | <b style="color: #4ade80;">Rotate:</b> R | <b style="color: #4ade80;">Height:</b> Q / E | <b style="color: #4ade80;">Pan:</b> Drag
+    </div>
+
+    <!-- Touch-only controls: replace WASD/Q/E/R since phones have no keyboard.
+         Shown/hidden via the .touch-device class toggled by index.js. -->
+    <div id="mobileControls" class="panel">
+      <button id="mobileUpBtn" title="Raise camera">⬆️</button>
+      <button id="mobileDownBtn" title="Lower camera">⬇️</button>
+      <button id="mobileRotateBtn" title="Rotate building" style="display: none;">↻ Rotate</button>
     </div>
 
     <div id="stats" class="panel">
