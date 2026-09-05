@@ -58,14 +58,27 @@ export function isTileNearStructure(rootX, rootZ, placedObjects, minDistance = 3
   return false;
 }
 
-export function findAdjacentFreeTile(rootX, rootZ, size, occupiedGrid) {
+// UPDATED: Now takes npcPos to find the closest adjacent tile instead of just any tile
+export function findAdjacentFreeTile(rootX, rootZ, size, occupiedGrid, npcPos = { x: 0, z: 0 }) {
   const candidates = [
-    { x: rootX - 1, z: rootZ }, { x: rootX + size, z: rootZ },
-    { x: rootX, z: rootZ - 1 }, { x: rootX, z: rootZ + size }
+    { x: rootX - 1, z: rootZ }, // Left
+    { x: rootX + size, z: rootZ }, // Right
+    { x: rootX, z: rootZ - 1 }, // North
+    { x: rootX, z: rootZ + size } // South
   ];
-  return candidates.find(
+
+  const validTiles = candidates.filter(
     (n) => n.x >= BOUND_MIN && n.x <= BOUND_MAX && n.z >= BOUND_MIN && n.z <= BOUND_MAX && !occupiedGrid.has(tileKey(n.x, n.z))
   );
+
+  if (validTiles.length === 0) return null;
+
+  // Return the tile closest to the NPC's current grid position
+  return validTiles.reduce((prev, curr) => {
+    const distPrev = Math.abs(prev.x - npcPos.x) + Math.abs(prev.z - npcPos.z);
+    const distCurr = Math.abs(curr.x - npcPos.x) + Math.abs(curr.z - npcPos.z);
+    return distCurr < distPrev ? curr : prev;
+  });
 }
 
 export function findPath(start, goal, occupiedGrid) {
@@ -212,7 +225,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
     }
 
     if (npc.a === "CLIMB") {
-      // FACE THE TOWER WHILE CLIMBING
       if (npc.targetObjId) {
         const tower = placedObjects.get(npc.targetObjId);
         if (tower) {
@@ -266,7 +278,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
       if (npc.targetObjId) {
         const objData = placedObjects.get(npc.targetObjId);
         if (objData) {
-          // FACE THE OBJECT WHILE WORKING
           const targetPos = gridToWorldCenter(objData.rootX, objData.rootZ, objData.size);
           const dx = targetPos.x - npc.root.position.x;
           const dz = targetPos.z - npc.root.position.z;
@@ -322,6 +333,8 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
     }
 
     if (npc.a === "IDLE" && (!npc.path || npc.path.length === 0)) {
+      const currentG = worldToGrid(npc.root.position);
+      
       let targetTower = null;
       placedObjects.forEach((obj, id) => {
         if (obj.type === "tower" && !obj.isManned && !targetTower) {
@@ -331,8 +344,8 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
       });
 
       if (targetTower) {
-        const currentG = worldToGrid(npc.root.position);
-        const freeTile = findAdjacentFreeTile(targetTower.obj.rootX, targetTower.obj.rootZ, targetTower.obj.size, occupiedGrid);
+        // Pass currentG to find the closest adjacent tile
+        const freeTile = findAdjacentFreeTile(targetTower.obj.rootX, targetTower.obj.rootZ, targetTower.obj.size, occupiedGrid, currentG);
         if (freeTile) {
           const rawPath = findPath(currentG, freeTile, occupiedGrid);
           if (rawPath !== null) {
@@ -348,7 +361,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
       }
 
       if (Math.random() < 0.05) {
-        const currentG = worldToGrid(npc.root.position);
         let bestCandidate = null;
         let minDist = Infinity;
         const reserved = new Set(activeNPCs.map((o) => o.targetObjId).filter(Boolean));
@@ -359,7 +371,8 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
           if (reserved.has(id)) return;
           if (obj.type === "farm" && (!obj.isReady || obj.growthTimer > 0)) return;
 
-          const freeTile = findAdjacentFreeTile(obj.rootX, obj.rootZ, obj.size, occupiedGrid);
+          // Pass currentG to find the closest adjacent tile
+          const freeTile = findAdjacentFreeTile(obj.rootX, obj.rootZ, obj.size, occupiedGrid, currentG);
           if (freeTile) {
             const dist = Math.abs(freeTile.x - currentG.x) + Math.abs(freeTile.z - currentG.z);
             if (dist < minDist) {
