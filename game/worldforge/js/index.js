@@ -30,7 +30,7 @@ import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
 import { initNpcPanel, tickNpcPanel, getTrackedNpcId, clearTrackedNpc } from "./npcPanel.js";
 import { isTouchDevice, initMobileControls, applyMobileHeightHold } from "./mobileControls.js";
 import { waitForPlay } from "./mainMenu.js";
-import { setSaveStatus, initOtherWorldsPanel } from "./saveSystem.js";
+import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
 
 const occupiedGrid = new Map();
 const placedObjects = new Map();

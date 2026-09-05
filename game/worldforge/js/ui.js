@@ -1,5 +1,3 @@
---- START OF FILE ui.js ---
-
 export const RESOURCE_BASE_CAP = 200;
 export const STORAGE_CAP_BONUS = 150;
 

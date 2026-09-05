@@ -1,5 +1,3 @@
---- START OF FILE mainMenu.js ---
-
 import { audioCtx } from "./audio.js";
 
 let pendingPlayResolve = null;
