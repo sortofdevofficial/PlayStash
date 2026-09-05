@@ -182,14 +182,30 @@ function startRenderLoop() {
   });
 }
 
-async function boot() {
-  const uid = await authReady();
-  const data = uid ? await loadSave() : null;
+// Races a promise against a timeout so a hung/blocked network call can never
+// strand the player on the static "Loading village..." HTML forever - it
+// falls back to `fallback` and lets the game continue offline instead.
+function withTimeout(promise, ms, fallback) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallback), ms))
+  ]);
+}
 
-  // Let the player see the menu with an accurate Continue/New World status
-  // before anything touches the scene — clicking Play is what actually
-  // populates the world, so a slow network never causes a jarring mid-load pop.
-  await waitForPlay(data);
+async function boot() {
+  let uid = null;
+  let data = null;
+  try {
+    // authReady()/loadSave() previously had no try/catch here at all, so any
+    // Firebase error or hang would stop boot() dead before it ever reached
+    // waitForPlay() - the menu's Play button would stay disabled forever
+    // with no error visible anywhere. This guarantees we always proceed.
+    uid = await withTimeout(authReady(), 6000, null);
+    data = uid ? await withTimeout(loadSave(), 6000, null) : null;
+  } catch (err) {
+    console.warn("[boot] Cloud save unavailable, continuing offline:", err);
+  }
+
   try { initAmbientAudio(); } catch (e) {}
 
   if (data) {
@@ -202,12 +218,20 @@ async function boot() {
   updateStats();
   updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
 
-  // Ticks and the render loop start only now: firing them mid-restore would
-  // mutate placedObjects and resources while they are still being populated.
+  // Rendering starts now, before the menu is even shown - the world is
+  // already alive (fire flickering, villagers walking) behind the overlay,
+  // which is what makes the menu read as a cozy window into the village
+  // rather than a blank loading wall with nothing happening underneath it.
+  startRenderLoop();
+
+  await waitForPlay(data);
+
+  // Everything that mutates the world/economy waits until after Play is
+  // clicked, so nothing ticks away unseen while the player is still reading
+  // the menu.
   startWorldTicks();
   initAutosave({ placedObjects, activeNPCs, state }, setSaveStatus);
   setSaveStatus(uid ? "ready" : "offline");
-  startRenderLoop();
 }
 
 updateResourceUI(0, 0, placedObjects);
