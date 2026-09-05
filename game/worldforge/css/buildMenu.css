@@ -1,16 +1,16 @@
-﻿/* ─── Build Menu ──────────────────────────────────────────────────── */
+/* ─── Build Menu ──────────────────────────────────────────────────── */
 #sideMenu {
   position: fixed;
-  bottom: 70px;
+  bottom: 54px;           /* just above the action-mode toolbar           */
   left: 50%;
   right: auto;
   transform: translateX(-50%);
-  width: clamp(220px, 28vw, 300px);
-  max-height: 60vh;
+  width: clamp(600px, 70vw, 860px);  /* wide, city-skylines style         */
+  max-height: 42vh;
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 10px 10px 6px;
+  padding: 10px 14px 8px;
   overflow: hidden;
   pointer-events: auto;
   z-index: 999;
@@ -21,14 +21,15 @@
 /* ─── Scroll container ────────────────────────────────────────────── */
 .scroll-frame {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  flex-direction: row;      /* horizontal bar of category groups */
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  padding-right: 2px;
+  padding-bottom: 4px;
+  align-items: flex-start;
 }
-.scroll-frame::-webkit-scrollbar { width: 3px; }
+.scroll-frame::-webkit-scrollbar { height: 4px; }
 .scroll-frame::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 2px; }
 
 /* ─── Menu title ──────────────────────────────────────────────────── */
@@ -49,7 +50,14 @@
 .build-category {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255,255,255,0.1);
+  padding-right: 14px;
+}
+.build-category:last-child {
+  border-right: none;
+  padding-right: 0;
 }
 .build-category-title {
   font-size: 9px;
@@ -57,10 +65,12 @@
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: #60a5fa;
-  padding: 2px 2px 4px;
+  padding: 0 0 4px;
   border-bottom: 1px solid rgba(96,165,250,0.25);
   margin-bottom: 2px;
+  white-space: nowrap;
 }
+
 
 /* ─── Build cards ─────────────────────────────────────────────────── */
 .build-card {

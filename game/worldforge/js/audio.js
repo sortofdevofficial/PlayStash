@@ -59,7 +59,7 @@ export function initAmbientAudio() {
   windFilter.frequency.value = 280;
 
   windGain = audioCtx.createGain();
-  windGain.gain.value = 0.035;
+  windGain.gain.value = 0; // wind disabled by user request
 
   const lfo = audioCtx.createOscillator();
   lfo.frequency.value = 0.3;
@@ -74,8 +74,8 @@ export function initAmbientAudio() {
   windGain.connect(audioCtx.destination);
   whiteNoise.start();
 
-  // Frequent Wind Gust Events
-  setInterval(() => {
+  // Wind Gust Events – disabled
+  /* setInterval(() => {
     if (Math.random() > 0.35) {
       gustIntensity = 1.0;
       const now = audioCtx.currentTime;
@@ -84,7 +84,8 @@ export function initAmbientAudio() {
       windFilter.frequency.setValueAtTime(650, now);
       windFilter.frequency.exponentialRampToValueAtTime(280, now + 2.5);
     }
-  }, 3500);
+  }, 3500); */
+
 
   // Procedural Bird Chirps
   setInterval(() => {
