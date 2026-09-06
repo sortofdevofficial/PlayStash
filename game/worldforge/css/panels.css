@@ -58,61 +58,71 @@
 #envPanelContent input[type="range"] { width: 100%; appearance: none; -webkit-appearance: none; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; outline: none; }
 #envPanelContent input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #60a5fa; cursor: pointer; }
 
-.npc-stat { font-size: 11px; color: #cbd5e1; display: flex; justify-content: space-between; padding: 2px 0; }
-.npc-stat span:first-child { color: #94a3b8; }
-.npc-action-btn { width: 100%; margin-top: 4px; background: rgba(59, 130, 246, 0.3); border-color: rgba(96, 165, 250, 0.4); }
-.npc-action-btn:hover { background: rgba(59, 130, 246, 0.6); }
-
-/* Villager Detail Inspector Panel */
-#npcDetailPanel {
-  width: 100%;
-  pointer-events: auto;
-  padding: 12px;
-  background: rgba(15, 23, 42, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+/* ============================================================
+   VILLAGER ROSTER
+   One row per active NPC (name, activity, latest thought, hunger/
+   happiness bars), rendered inside a .stack-panel via #npcListRows.
+   Replaces the old single-NPC click-to-inspect #npcDetailPanel.
+   ============================================================ */
+.npc-row {
+  padding: 8px 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
-
-.npc-detail-header {
+.npc-row.tracked {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(96, 165, 250, 0.4);
+}
+.npc-row-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 6px;
+  margin-bottom: 4px;
 }
-
-.npc-detail-name {
-  font-size: 13px;
+.npc-row-name {
+  font-size: 12px;
   font-weight: 800;
-  color: #60a5fa;
-  letter-spacing: 0.3px;
+  color: #f8fafc;
+  letter-spacing: 0.2px;
 }
-
-.npc-detail-header button {
-  padding: 3px 8px;
-  font-size: 11px;
+.npc-row-track {
+  padding: 2px 7px;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.npc-row-activity {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+.npc-row-activity em {
+  color: #cbd5e1;
+  font-style: normal;
 }
 
 .npc-stat-row {
-  margin-bottom: 8px;
+  margin-bottom: 5px;
 }
+.npc-stat-row:last-child { margin-bottom: 0; }
 
 .npc-stat-label {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: #94a3b8;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 
 .npc-bar {
   width: 100%;
-  height: 6px;
+  height: 5px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
   overflow: hidden;
@@ -130,17 +140,6 @@
 
 .npc-bar-fill.happy {
   background: linear-gradient(90deg, #3b82f6, #60a5fa);
-}
-
-.npc-mood {
-  margin-top: 10px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #cbd5e1;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
 }
 
 /* Modal Window for Guide / Controls */

@@ -21,6 +21,15 @@ export function getTrackedNpcId() { return trackedNpcId; }
 export function clearTrackedNpc() { trackedNpcId = null; }
 export function toggleTrackNpc(id) { trackedNpcId = trackedNpcId === id ? null : id; }
 
+// Called by npcBrain.js whenever an NPC starts a new activity or has
+// something worth saying - replaces the old floating DOM thought-bubble
+// system entirely (no element to create, show, hide, or clean up on
+// despawn). The roster row below just reads npc.lastThought on its next
+// tick, so this is a plain data write with no DOM work of its own.
+export function setThought(npc, text) {
+  npc.lastThought = text;
+}
+
 function moodFor(happiness) {
   return happiness < 40 ? "😞" : happiness < 75 ? "🙂" : "😊";
 }
