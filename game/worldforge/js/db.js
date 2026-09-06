@@ -20,7 +20,7 @@ const TYPE_BY_CODE = Object.fromEntries(
   Object.entries(BUILD_CODE).map(([type, code]) => [code, type])
 );
 
-const SAVE_INTERVAL_MS = 3000;
+const SAVE_INTERVAL_MS = 120000; // 2 minutes — was 3s, way too chatty for a Realtime Database write
 const AUTH_TIMEOUT_MS = 5000;
 
 const firebaseConfig = {
@@ -36,6 +36,7 @@ const firebaseConfig = {
 let ref = null;
 let get = null;
 let update = null;
+let onDisconnect = null;
 let onAuthStateChanged = null;
 let signInAnonymously = null;
 let db = null;
@@ -58,6 +59,7 @@ try {
   ref = dbMod.ref;
   get = dbMod.get;
   update = dbMod.update;
+  onDisconnect = dbMod.onDisconnect;
 } catch (err) {
   console.warn("[db] Firebase unavailable - playing without cloud saves.", err);
 }
@@ -174,10 +176,26 @@ async function writeWorld() {
   try {
     await update(saveRef, serializeWorld(sources.placedObjects, sources.activeNPCs, sources.state));
     onStatus("saved");
+    registerDisconnectSave();
   } catch (err) {
     console.warn("[db] Save failed:", err);
     dirty = true;
     onStatus("error");
+  }
+}
+
+// Tells the Realtime Database server itself to write this payload the moment
+// our connection drops - tab crash, network loss, force-quit, anything that
+// never gives our own JS a chance to run. This is the actual "on disconnect"
+// save; browser events like pagehide only cover a clean, in-app tab close.
+// Re-registered after every successful save so the disconnect payload never
+// goes stale and writes back outdated progress from an earlier session.
+function registerDisconnectSave() {
+  if (!onDisconnect || !saveRef || !sources) return;
+  try {
+    onDisconnect(saveRef).update(serializeWorld(sources.placedObjects, sources.activeNPCs, sources.state));
+  } catch (err) {
+    console.warn("[db] Registering disconnect save failed:", err);
   }
 }
 
@@ -243,7 +261,11 @@ export function initAutosave(worldSources, statusCallback) {
   sources = worldSources;
   if (statusCallback) onStatus = statusCallback;
   startTimer();
+  registerDisconnectSave();
 
+  // pagehide/visibilitychange are a same-tab best-effort flush for a clean
+  // close; onDisconnect (registered above and refreshed on every save) is
+  // what actually covers crashes, lost network, or force-quitting the tab.
   document.addEventListener("visibilitychange", () => { if (document.hidden) flushNow(); });
   window.addEventListener("pagehide", flushNow);
 }
