@@ -7,9 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>WorldForge 3D</title>
-  <!-- favicon.png lives alongside index.html in games/worldforge/ -->
-  <link rel="icon" type="image/png" href="./favicon.png" />
-  <link rel="apple-touch-icon" href="./favicon.png" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%B2%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./css/base.css" />
   <link rel="stylesheet" href="./css/mainMenu.css" />
   <link rel="stylesheet" href="./css/hudBars.css" />
@@ -24,9 +22,9 @@
     <div id="menuCard">
       <div id="menuIcon">🔥</div>
       <div id="menuTitle">World<span>Forge</span></div>
-      
-      <!-- Simplified status line: shows loading, then village stats if saved -->
-      <div id="menuStatus">Loading village...</div>
+
+      <!-- Simplified status line: shows loading, then world stats if saved -->
+      <div id="menuStatus">Loading world...</div>
 
       <button id="menuPlayBtn" disabled>Play</button>
 
@@ -58,27 +56,28 @@
         <div>
           <b style="color: #4ade80;">🪓 Gathering Resources:</b>
           <div style="margin-top: 4px; padding-left: 8px;">
-            • Left-click <b>Trees</b> to harvest Wood (🪵).<br/>
+            • Left-click <b>Trees</b> to harvest Wood / Wheat (🌾).<br/>
             • Left-click <b>Boulders</b> to quarry Stone (🪨).<br/>
-            • Villagers will also wander and automatically harvest nearby nodes!
+            • NPCs will also wander and automatically harvest nearby nodes!
           </div>
         </div>
         <div>
-          <b style="color: #fbbf24;">🛖 Building Your Village:</b>
+          <b style="color: #fbbf24;">🛖 Building Your World:</b>
           <div style="margin-top: 4px; padding-left: 8px;">
-            • <b>Campfire</b>: The heart of your settlement. Attracts villagers to join.<br/>
-            • <b>Hut</b>: Expands village population capacity (+2 villagers each).<br/>
-            • <b>Farm</b>: Produces Food (🌽) so your villagers don't starve.<br/>
+            • <b>Campfire</b>: The heart of your settlement. Attracts NPCs to join.<br/>
+            • <b>Hut</b>: Expands world population capacity (+2 NPCs each).<br/>
+            • <b>Farm</b>: Produces Food (🌽) so your NPCs don't starve.<br/>
             • <b>Well</b>: Provides fresh Water (💧).<br/>
             • <b>Storage</b>: Increases max resource stockpiles (+150 cap).<br/>
-            • <b>Watchtower</b>: Villagers climb up to scout, boosting nearby work speed!
+            • <b>Watchtower</b>: NPCs climb up to scout, boosting nearby work speed!
           </div>
         </div>
         <div>
-          <b style="color: #f472b6;">👤 Villagers & Management:</b>
+          <b style="color: #f472b6;">👤 NPCs & Management:</b>
           <div style="margin-top: 4px; padding-left: 8px;">
-            • Click any villager in default mode to inspect their Hunger and Happiness.<br/>
-            • Press the 🎥 camera icon to follow them as they work and explore!
+            • Press the 👥 button to open the NPC panel and see everyone's mood.<br/>
+            • Each NPC shows their hunger, happiness, and current thought about the world.<br/>
+            • Press the 🎥 camera icon on any NPC to follow them as they work and explore!
           </div>
         </div>
       </div>
@@ -109,49 +108,54 @@
 
   <div id="hud">
     <div id="resourcefsBar">
-      <div class="resourcefs-item" title="Wood Storage (Current/Max)">
-        <span>🪵</span>
-        <span class="resourcefs-label">Wood</span>
+      <div class="resourcefs-item" title="Wheat Storage (Current/Max)">
+        <span>🌾</span>
+        <span class="resourcefs-label">Wheat:</span>
         <span id="whCount" class="resourcefs-value" style="color:#81C784;">100/200</span>
       </div>
+      <div class="resourcefs-divider"></div>
       <div class="resourcefs-item" title="Stone Storage (Current/Max)">
         <span>🪨</span>
-        <span class="resourcefs-label">Stone</span>
+        <span class="resourcefs-label">Stone:</span>
         <span id="stoneCount" class="resourcefs-value" style="color:#E0E0E0;">80/200</span>
       </div>
+      <div class="resourcefs-divider"></div>
       <div class="resourcefs-item" title="Food Storage (Current/Max)">
         <span>🌽</span>
-        <span class="resourcefs-label">Food</span>
+        <span class="resourcefs-label">Food:</span>
         <span id="foodCount" class="resourcefs-value" style="color:#FFD54F;">30/200</span>
       </div>
+      <div class="resourcefs-divider"></div>
       <div class="resourcefs-item" title="Water Storage (Current/Max)">
         <span>💧</span>
-        <span class="resourcefs-label">Water</span>
+        <span class="resourcefs-label">Water:</span>
         <span id="waterCount" class="resourcefs-value" style="color:#5CC7E6;">20/200</span>
       </div>
+      <div class="resourcefs-divider"></div>
       <div class="resourcefs-item" title="Max Storage Limit">
         <span>📦</span>
-        <span class="resourcefs-label">Cap</span>
+        <span class="resourcefs-label">Cap:</span>
         <span id="storageCap" class="resourcefs-value" style="color:#FFB74D;">200</span>
       </div>
-      <div class="resourcefs-item" title="Villagers / Max Population Capacity">
+      <div class="resourcefs-divider"></div>
+      <div class="resourcefs-item" title="NPCs / Max Population Capacity">
         <span>🛖</span>
-        <span class="resourcefs-label">Pop</span>
+        <span class="resourcefs-label">Pop:</span>
         <span id="popCount" class="resourcefs-value" style="color:#64B5F6;">0/0</span>
       </div>
     </div>
 
     <div id="notifContainer"></div>
+    <div id="thoughtContainer"></div>
 
     <div id="rightStack">
-      <div id="npcListPanel" class="panel" style="padding: 10px; max-height: 340px; display: flex; flex-direction: column;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-          <b style="font-size:12px; color:#fff;">Villagers</b>
-          <span id="npcListCount" style="font-size:10px; color:#94a3b8;">0</span>
+      <!-- NPC roster: hidden until opened via the 👥 topbar button -->
+      <div id="npcListPanel" class="stack-panel hidden">
+        <div class="stack-panel-header">
+          <span>NPCs (<span id="npcListCount">0</span>)</span>
+          <button id="npcListClose" class="stack-panel-close" title="Close">✕</button>
         </div>
-        <div id="npcListRows" style="overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:11px; color:#94a3b8; text-align:center; padding:10px 0;">No villagers yet</div>
-        </div>
+        <div id="npcListRows" class="stack-panel-content"></div>
       </div>
 
       <div id="otherWorldsPanel" class="panel" style="display: none; width: 240px; padding: 12px 14px; max-height: 320px; overflow-y: auto;">
@@ -165,13 +169,6 @@
       </div>
     </div>
 
-      <div id="npcListPanel" class="stack-panel">
-    <div class="stack-panel-header">
-      <span>Villagers (<span id="npcListCount">0</span>)</span>
-    </div>
-    <div id="npcListRows" class="stack-panel-content"></div>
-  </div>
-
     <div id="sideMenu" class="panel">
       <div class="menu-title">Build Menu</div>
       <div class="scroll-frame">
@@ -181,12 +178,12 @@
             <div id="cardHut" class="build-card" title="20 Wood, 10 Stone (+2 Pop)">
               <canvas class="build-preview" data-model="hut" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Hut</span></div>
-              <div class="card-cost">🪵20 🪨10</div>
+              <div class="card-cost">🌾20 🪨10</div>
             </div>
             <div id="cardCampfire" class="build-card" title="10 Wood, 10 Stone (Attracts NPCs)">
               <canvas class="build-preview" data-model="campfire" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Campfire</span></div>
-              <div class="card-cost">🪵10 🪨10</div>
+              <div class="card-cost">🌾10 🪨10</div>
             </div>
           </div>
         </div>
@@ -196,32 +193,32 @@
             <div id="cardFarm" class="build-card" title="15 Wood, 5 Stone, 5 Water">
               <canvas class="build-preview" data-model="farm" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Farm</span></div>
-              <div class="card-cost">🪵15 🪨5 💧5</div>
+              <div class="card-cost">🌾15 🪨5 💧5</div>
             </div>
             <div id="cardWell" class="build-card" title="15 Wood, 15 Stone">
               <canvas class="build-preview" data-model="well" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Well</span></div>
-              <div class="card-cost">🪵15 🪨15</div>
+              <div class="card-cost">🌾15 🪨15</div>
             </div>
           </div>
         </div>
         <div class="build-category">
           <div class="build-category-title">Structures</div>
           <div class="cards-row">
-            <div id="cardTower" class="build-card" title="30 Wood, 25 Stone">
+            <div id="cardTower" class="build-card" title="30 Wood, 25 Stone, 10 Food">
               <canvas class="build-preview" data-model="tower" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Tower</span></div>
-              <div class="card-cost">🪵30 🪨25</div>
+              <div class="card-cost">🌾30 🪨25 🌽10</div>
             </div>
             <div id="cardStorage" class="build-card" title="25 Wood, 10 Stone (+150 Cap)">
               <canvas class="build-preview" data-model="storage" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Storage</span></div>
-              <div class="card-cost">🪵25 🪨10</div>
+              <div class="card-cost">🌾25 🪨10</div>
             </div>
             <div id="cardMarket" class="build-card" title="20 Wood, 20 Stone">
               <canvas class="build-preview" data-model="market" width="56" height="56"></canvas>
               <div class="card-header"><span class="card-title">Market</span></div>
-              <div class="card-cost">🪵20 🪨20</div>
+              <div class="card-cost">🌾20 🪨20</div>
             </div>
           </div>
         </div>
@@ -232,6 +229,7 @@
       <div id="brand">World<span>Forge</span></div>
       <span id="saveStatus" data-state="ready">Connecting…</span>
       <span id="worldStats" style="font-size: 10px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧱 <span id="itemCount">0</span> · 👤 <span id="npcCount">0</span></span>
+      <button id="npcListBtn" class="iconBtn" title="View NPCs">👥</button>
       <button id="removeBtn" title="Remove">🗑️</button>
       <button id="dayBtn" title="Toggle Day / Night">🌙</button>
       <button id="viewWorldsBtn" class="iconBtn" title="See other players' worlds">🌍</button>

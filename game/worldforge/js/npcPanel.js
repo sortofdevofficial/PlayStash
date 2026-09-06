@@ -1,8 +1,7 @@
-// The always-visible "Villagers" roster in the right stack: one row per
-// active NPC showing name, hunger/happiness bars, current activity, and
-// their latest thought. Replaces the old click-to-inspect single panel and
-// the floating thought bubbles - everything lives in one scannable list
-// instead of requiring a click or a tooltip that vanishes after 3 seconds.
+// The "NPCs" roster panel, opened via a topbar button: one row per active
+// NPC showing name, hunger/happiness bars, current activity, and their
+// latest thought about the world. Hidden by default - toggled open/closed
+// rather than always visible.
 let trackedNpcId = null;
 
 const ACTIVITY_LABELS = {
@@ -60,8 +59,22 @@ function rowHtml(npc) {
   `;
 }
 
+// Wires up the open button (topbar), close button (panel header), and the
+// per-row "follow with camera" click delegation. The panel itself starts
+// with the "hidden" class already applied in the HTML.
 export function initNpcPanel() {
+  const panel = document.getElementById("npcListPanel");
+  const openBtn = document.getElementById("npcListBtn");
+  const closeBtn = document.getElementById("npcListClose");
   const rows = document.getElementById("npcListRows");
+
+  if (openBtn && panel) {
+    openBtn.onclick = () => panel.classList.toggle("hidden");
+  }
+  if (closeBtn && panel) {
+    closeBtn.onclick = () => panel.classList.add("hidden");
+  }
+
   if (!rows) return;
 
   // Event delegation: rows are re-rendered wholesale each tick, so binding to
@@ -75,7 +88,7 @@ export function initNpcPanel() {
 
 // Called every render frame by index.js. Rebuilding the whole list each call
 // is simple and cheap at the population sizes this game supports (a handful
-// of villagers, capped by hut count) - no need for incremental DOM diffing.
+// of NPCs, capped by hut count) - no need for incremental DOM diffing.
 export function tickNpcPanel(activeNPCs) {
   const rows = document.getElementById("npcListRows");
   const countEl = document.getElementById("npcListCount");
@@ -84,7 +97,7 @@ export function tickNpcPanel(activeNPCs) {
   if (countEl) countEl.textContent = String(activeNPCs.length);
 
   if (activeNPCs.length === 0) {
-    rows.innerHTML = `<div style="font-size:11px; color:#94a3b8; text-align:center; padding:10px 0;">No villagers yet</div>`;
+    rows.innerHTML = `<div style="font-size:11px; color:#94a3b8; text-align:center; padding:10px 0;">No NPCs yet</div>`;
     return;
   }
 

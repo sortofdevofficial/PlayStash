@@ -30,12 +30,12 @@ function showMainMenu(data) {
   // Minimal Status Logic: merge everything into one line
   if (data) {
     const builds = data.b ? Object.keys(data.b).length : 0;
-    const villagers = data.n ? Object.keys(data.n).length : 0;
-    statusEl.textContent = `Village saved: ${builds} buildings, ${villagers} villagers`;
+    const npcs = data.n ? Object.keys(data.n).length : 0;
+    statusEl.textContent = `World saved: ${builds} buildings, ${npcs} NPCs`;
     playBtn.textContent = "Continue";
   } else {
     statusEl.textContent = "A fresh wilderness awaits";
-    playBtn.textContent = "Start Village";
+    playBtn.textContent = "Start World";
   }
 
   playBtn.disabled = false;
