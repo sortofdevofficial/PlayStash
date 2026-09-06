@@ -14,6 +14,11 @@ export const state = {
   buildType: null,
   buildRotation: 0,
   isNight: false,
+  // Set true by index.js when the page was opened with ?view={uid} - every
+  // mutating action (build, remove, harvest) checks this and bails out, so
+  // visiting someone else's world is guaranteed read-only everywhere at once
+  // rather than needing a guard duplicated in every handler individually.
+  isSpectating: false,
   resources: { wh: 100, stone: 80, food: 30, water: 20 },
   BUILD_COSTS: {
     hut: { wh: 20, stone: 10, food: 0, water: 0 },

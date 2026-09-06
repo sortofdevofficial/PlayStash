@@ -60,6 +60,12 @@ function bindPointerEvents() {
     const groundPickFilter = (m) => m === playableGround || m.metadata?.objId;
 
     if (info.type === BABYLON.PointerEventTypes.POINTERMOVE) {
+      // Spectators get no build/remove ghost feedback at all - state.mode
+      // never actually becomes "plant"/"remove" for them (see bindBuildMenu/
+      // bindTopbarButtons below), but skipping this early avoids wasted work
+      // and any chance of a ghost mesh flashing on screen for a visitor.
+      if (state.isSpectating) return;
+
       const pick = scene.pick(scene.pointerX, scene.pointerY, groundPickFilter);
 
       if (pick.hit && pick.pickedPoint) {
@@ -121,12 +127,23 @@ function bindPointerEvents() {
           if (npcRoot) {
             const clickedNpc = activeNPCs.find((n) => n.id === npcRoot.name);
             if (clickedNpc) {
+              // Inspecting an NPC is read-only by nature, so this stays
+              // available even while spectating someone else's world.
               toggleTrackNpc(clickedNpc.id);
               return;
             }
           }
         }
+      }
 
+      // Everything below this point mutates the world (harvesting, placing,
+      // removing) - a visitor must never be able to do any of it, no matter
+      // how state.mode got set. This is the single choke point that
+      // guarantees that, rather than relying on every branch below to
+      // remember its own check.
+      if (state.isSpectating) return;
+
+      if (evt.button === 0 && state.mode === "none") {
         // Direct tree chopping & stone mining in default explore mode
         const targetMesh = pick.pickedMesh;
         if (targetMesh && targetMesh.metadata?.objId) {
@@ -203,6 +220,7 @@ function bindPointerEvents() {
 }
 
 function rotateActiveGhost() {
+  if (state.isSpectating) return;
   state.buildRotation = (state.buildRotation + Math.PI / 2) % (Math.PI * 2);
   const activeGhost = ghosts[state.buildType];
   if (activeGhost) activeGhost.rotation.y = state.buildRotation;
@@ -210,6 +228,7 @@ function rotateActiveGhost() {
 
 function bindKeyboardShortcuts() {
   window.addEventListener("keydown", (e) => {
+    if (state.isSpectating) return;
     if (e.key.toLowerCase() === "r") rotateActiveGhost();
     if (e.key === "Escape") deselectAllModes(ghosts, removeGhostBox);
   });
@@ -219,6 +238,7 @@ function bindKeyboardShortcuts() {
 }
 
 function setBuildType(type) {
+  if (state.isSpectating) return;
   if (state.mode === "plant" && state.buildType === type) deselectAllModes(ghosts, removeGhostBox);
   else {
     state.buildType = type;
@@ -240,6 +260,7 @@ function bindBuildMenu() {
 
 function bindTopbarButtons() {
   document.getElementById("removeBtn").onclick = () => {
+    if (state.isSpectating) return;
     if (state.mode === "remove") deselectAllModes(ghosts, removeGhostBox);
     else {
       state.mode = "remove";
@@ -250,6 +271,8 @@ function bindTopbarButtons() {
   };
 
   document.getElementById("dayBtn").onclick = () => {
+    // Day/night is a local viewing preference, not a world mutation - fine
+    // to leave enabled for spectators.
     state.isNight = !state.isNight;
     setEnvironmentLighting(state.isNight);
     const dayBtn = document.getElementById("dayBtn");
@@ -281,6 +304,7 @@ function bindTopbarButtons() {
   };
 
   document.getElementById("clearBtn").onclick = () => {
+    if (state.isSpectating) return;
     if (!confirm("Clear the entire world? This also erases your saved world.")) return;
     Array.from(placedObjects.keys()).forEach((id) => removeObjectById(id, (removedId) => {
       if (hoveredObjId === removedId) { hoveredObjId = null; removeGhostBox.isVisible = false; }

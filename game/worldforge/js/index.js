@@ -23,14 +23,20 @@ import {
   getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs
 } from "./npcBrain.js";
 import { state, updateResourceUI, addResourceClamped } from "./ui.js";
-import { authReady, loadSave, initAutosave, markDirty, getPlayerId, getPlayerName, setPlayerName, serializeWorld, BUILD_CODE } from "./db.js";
+import { authReady, loadSave, loadWorldByUid, initAutosave, markDirty, getPlayerId, serializeWorld, BUILD_CODE } from "./db.js";
 import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById } from "./world.js";
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
 import { initNpcPanel, tickNpcPanel, getTrackedNpcId, clearTrackedNpc } from "./npcPanel.js";
 import { isTouchDevice, initMobileControls, applyMobileHeightHold } from "./mobileControls.js";
 import { waitForPlay } from "./mainMenu.js";
 import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
-import { initVisitWorld } from "./visitWorld.js";
+
+// ?view={uid} in the URL means "load this player's world read-only" - set by
+// the "Visit" button in the other-worlds panel. This was previously handled
+// here but got dropped somewhere during the split into separate modules,
+// which is why visiting silently did nothing: the button could navigate to
+// the right URL, but nothing on this end ever looked at the parameter.
+const spectateUid = new URLSearchParams(window.location.search).get("view");
 
 const occupiedGrid = new Map();
 const placedObjects = new Map();
@@ -56,7 +62,24 @@ function onWorldChanged() {
 
 function syncNPCs() {
   checkCampfireNPCSymmetry(activeNPCs, placedObjects, scene, undefined, updateStats);
-  markDirty();
+  if (!state.isSpectating) markDirty();
+}
+
+// Shows a small fixed banner while spectating, created on the fly so no HTML
+// changes are required elsewhere to get this working.
+function showSpectateBanner(uid) {
+  const banner = document.createElement("div");
+  banner.id = "spectateBanner";
+  banner.textContent = `👁️ Viewing another player's world (read-only)`;
+  banner.style.cssText = `
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 5000; background: rgba(37, 99, 235, 0.9); color: #fff;
+    font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 20px;
+    border: 1px solid rgba(147, 197, 253, 0.5); backdrop-filter: blur(12px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4); pointer-events: none; white-space: nowrap;
+  `;
+  document.body.appendChild(banner);
+  document.body.classList.add("spectating");
 }
 
 scene.ambientColor = new BABYLON.Color3(0.5, 0.55, 0.6);
@@ -116,8 +139,7 @@ removeGhostBox.isVisible = false;
 initWorld({ scene, placedObjects, occupiedGrid, activeNPCs, buildCounters, onStatsChanged: onWorldChanged, nextBuildKey });
 initInputHandlers({ placedObjects, occupiedGrid, activeNPCs, ghosts, removeGhostBox, onWorldChanged, onSyncNPCs: syncNPCs });
 initNpcPanel();
-initOtherWorldsPanel(placedObjects, activeNPCs);
-initVisitWorld(placedObjects, activeNPCs);
+initOtherWorldsPanel();
 if (isTouchDevice) initMobileControls();
 
 function startWorldTicks() {
@@ -150,14 +172,7 @@ function startRenderLoop() {
     if (trackedNpcId) {
       const tNpc = activeNPCs.find((n) => n.id === trackedNpcId);
       if (tNpc) {
-        // camera.target must go through setTarget() on an ArcRotateCamera -
-        // plain assignment (camera.target = ...) swaps in a new Vector3 but
-        // doesn't invalidate Babylon's cached view matrix/inertial state, so
-        // the camera's actual rendered position never visibly moved even
-        // though .target itself had the right value. setTarget() forces the
-        // recompute that raw assignment skips.
-        const lerped = BABYLON.Vector3.Lerp(camera.target, tNpc.root.position, 0.05);
-        camera.setTarget(lerped);
+        camera.target = BABYLON.Vector3.Lerp(camera.target, tNpc.root.position, 0.05);
       } else {
         clearTrackedNpc();
       }
@@ -189,7 +204,7 @@ function startRenderLoop() {
 }
 
 // Races a promise against a timeout so a hung/blocked network call can never
-// strand the player on the static "Loading village..." HTML forever - it
+// strand the player on the static "Loading world..." HTML forever - it
 // falls back to `fallback` and lets the game continue offline instead.
 function withTimeout(promise, ms, fallback) {
   return Promise.race([
@@ -201,13 +216,18 @@ function withTimeout(promise, ms, fallback) {
 async function boot() {
   let uid = null;
   let data = null;
+
   try {
-    // authReady()/loadSave() previously had no try/catch here at all, so any
-    // Firebase error or hang would stop boot() dead before it ever reached
-    // waitForPlay() - the menu's Play button would stay disabled forever
-    // with no error visible anywhere. This guarantees we always proceed.
     uid = await withTimeout(authReady(), 6000, null);
-    data = uid ? await withTimeout(loadSave(), 6000, null) : null;
+
+    if (spectateUid) {
+      // Read-only path: fetch someone else's save directly by uid. Never
+      // touches loadSave()/our own saveRef, so there is no chance of this
+      // accidentally reading or writing the visitor's own world.
+      data = await withTimeout(loadWorldByUid(spectateUid), 6000, null);
+    } else {
+      data = uid ? await withTimeout(loadSave(), 6000, null) : null;
+    }
   } catch (err) {
     console.warn("[boot] Cloud save unavailable, continuing offline:", err);
   }
@@ -217,32 +237,29 @@ async function boot() {
   if (data) {
     restoreWorld(data);
     syncNPCs();
-  } else {
+  } else if (!spectateUid) {
     for (let i = 0; i < 25; i++) spawnRandomWildernessNode();
   }
+  // If spectating and the fetch failed/came back empty, we deliberately
+  // don't fall back to generating wilderness - an empty result should read
+  // as "this player has no saved world yet", not manufacture one for them.
 
   updateStats();
   updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
 
-  // Rendering starts now, before the menu is even shown - the world is
-  // already alive (fire flickering, villagers walking) behind the overlay,
-  // which is what makes the menu read as a cozy window into the village
-  // rather than a blank loading wall with nothing happening underneath it.
   startRenderLoop();
+
+  if (spectateUid) {
+    // Spectators skip the main menu and autosave entirely - this is a
+    // read-only peek, not a session of their own to "start" or "continue".
+    state.isSpectating = true;
+    showSpectateBanner(spectateUid);
+    setSaveStatus("spectating");
+    return;
+  }
 
   await waitForPlay(data);
 
-  // First-time players have no name saved anywhere yet; prompting right
-  // after Play (rather than blocking the main menu itself) means a slow
-  // network never delays this, and it only ever fires once per browser.
-  if (!getPlayerName()) {
-    const entered = window.prompt("What should other players call you?", "");
-    if (entered && entered.trim()) setPlayerName(entered);
-  }
-
-  // Everything that mutates the world/economy waits until after Play is
-  // clicked, so nothing ticks away unseen while the player is still reading
-  // the menu.
   startWorldTicks();
   initAutosave({ placedObjects, activeNPCs, state }, setSaveStatus);
   setSaveStatus(uid ? "ready" : "offline");

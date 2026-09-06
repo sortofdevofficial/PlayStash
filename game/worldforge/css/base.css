@@ -91,3 +91,18 @@ button.danger:hover { background: rgba(239, 68, 68, 0.65); border-color: rgba(24
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
+
+/* ============================================================
+   SPECTATE MODE
+   Set on <body> by index.js when the page loaded with ?view={uid}.
+   Editing controls are already no-ops in JS (see inputHandlers.js),
+   but hiding them too avoids a visitor seeing build/remove/clear
+   buttons that will silently do nothing if pressed.
+   ============================================================ */
+body.spectating #sideMenu,
+body.spectating #removeBtn,
+body.spectating #clearBtn,
+body.spectating #mobileRotateBtn {
+  display: none !important;
+}
+body.spectating #renderCanvas { cursor: default; }
