@@ -1,5 +1,6 @@
-/* Vertical resource column docked to the right edge - stripped down to bare
-   icon + value pairs, no background box, no labels, no dividers. */
+/* Vertical resource column docked to the right edge - icon + name + value,
+   with the resource name visible per the player's request (previously
+   stripped down to icon+value only). */
 #resourcefsBar {
   position: fixed;
   top: 14px;
@@ -7,10 +8,10 @@
   bottom: 14px;
   left: auto;
   transform: none;
-  width: clamp(90px, 10vw, 120px);
+  width: clamp(130px, 14vw, 160px);
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: stretch;
   gap: 10px;
   background: none;
   padding: 0;
@@ -36,6 +37,14 @@
   cursor: help;
   pointer-events: auto; /* restore hover/tooltip on the item itself */
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.resourcefs-label {
+  flex: 1;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #cbd5e1;
 }
 .resourcefs-value { font-weight: 800; display: inline-block; text-align: right; }
 .resourcefs-value.value-pop { animation: valuePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }

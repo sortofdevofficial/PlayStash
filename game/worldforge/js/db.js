@@ -1,9 +1,9 @@
 export const GAME_ID = 1;
 
-// Game-internal resource name -> database field.
-// `wh` is harvested from trees and spent on every building, so it is wood; the
-// HUD label "Wheat" is wrong. `food` comes from farms and is eaten by villagers.
-export const RESOURCE_KEY_MAP = { wh: "wo", food: "w", stone: "s", water: "wa" };
+// Game-internal resource name -> database field. Saved under short codes to
+// keep the Realtime Database payload small (wo/w/s/wa instead of the full
+// words), not because the resource itself has a different name anywhere.
+export const RESOURCE_KEY_MAP = { wood: "wo", food: "w", stone: "s", water: "wa" };
 
 const RESOURCE_KEY_BY_SHORT = Object.fromEntries(
   Object.entries(RESOURCE_KEY_MAP).map(([internal, short]) => [short, internal])
@@ -225,7 +225,7 @@ function registerDisconnectSave() {
 function startTimer() {
   if (autosaveTimer || !saveRef) return;
   autosaveTimer = setInterval(() => {
-    // Throttle, not debounce: villagers drift every frame, so a debounce would never fire.
+    // Throttle, not debounce: NPCs drift every frame, so a debounce would never fire.
     if (sources && sources.activeNPCs.length > 0) dirty = true;
     if (!dirty) return;
     dirty = false;

@@ -1,9 +1,9 @@
 // Small presentational bits tied to cloud save: the topbar's save-status
 // pill text, and the "Other Worlds" panel that lets a player browse and
-// visit other players' saved villages (read-only, via db.js's public
-// G/{gameId} read).
+// visit other players' saved worlds. Visiting works by navigating to this
+// same page with ?view={uid} in the URL - index.js reads that on boot and
+// switches into a fully read-only spectate mode (see state.isSpectating).
 import { listOtherWorlds } from "./db.js";
-import { startVisit } from "./visitWorld.js";
 
 export function setSaveStatus(status) {
   const pill = document.getElementById("saveStatus");
@@ -16,13 +16,20 @@ export function setSaveStatus(status) {
     : status === "error" ? "Save failed"
     : status === "offline" ? "Sign in to save"
     : status === "reload" ? "Reload to save"
+    : status === "spectating" ? "Spectating (read-only)"
     : "Cloud save on";
 }
 
-// index.js passes its live placedObjects/activeNPCs through so the Visit
-// button can hand them to visitWorld.js without this module needing to own
-// or import that state itself.
-export function initOtherWorldsPanel(placedObjects, activeNPCs) {
+// Builds a ?view={uid} URL against the current page, preserving no other
+// query params - a visit link should always start clean rather than
+// inheriting whatever params happened to be on the page that opened it.
+function visitUrlFor(uid) {
+  const url = new URL(window.location.href);
+  url.search = `?view=${encodeURIComponent(uid)}`;
+  return url.toString();
+}
+
+export function initOtherWorldsPanel() {
   const viewBtn = document.getElementById("viewWorldsBtn");
   const closeBtn = document.getElementById("closeOtherWorldsBtn");
   if (!viewBtn || !closeBtn) return;
@@ -51,21 +58,13 @@ export function initOtherWorldsPanel(placedObjects, activeNPCs) {
       row.innerHTML = `
         <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">
           <b style="color:#fff;">${displayName}</b><br/>
-          <span style="font-size:10px; color:#94a3b8;">🏘️ ${w.buildingCount} builds · 👤 ${w.npcCount} villagers</span>
+          <span style="font-size:10px; color:#94a3b8;">🏘️ ${w.buildingCount} builds · 👤 ${w.npcCount} NPCs</span>
         </span>
-        <button class="visit-world-btn" data-uid="${w.uid}" data-name="${displayName}" style="padding:4px 10px; font-size:11px; flex-shrink:0;">Visit</button>
+        <a class="visit-world-btn" href="${visitUrlFor(w.uid)}" target="_blank" rel="noopener"
+           style="padding:4px 10px; font-size:11px; flex-shrink:0; text-decoration:none; display:inline-block;">Visit</a>
       `;
       list.appendChild(row);
     });
-
-    // Delegated click: rows are rebuilt each time the panel opens, so binding
-    // once on the list container survives that rebuild.
-    list.onclick = (e) => {
-      const btn = e.target.closest(".visit-world-btn");
-      if (!btn) return;
-      panel.style.display = "none";
-      startVisit(btn.dataset.uid, btn.dataset.name, placedObjects, activeNPCs);
-    };
   };
 
   closeBtn.onclick = () => {

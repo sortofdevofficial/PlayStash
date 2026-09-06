@@ -145,7 +145,7 @@ function createNpc(id, scene, pos, overrides = {}) {
 
 export function spawnNPCFromCampfire(cfPos, activeNPCs, scene, shadowGen) {
   activeNPCs.push(createNpc(nextNpcId(), scene, cfPos));
-  showNotif("Villager Joined!", "info");
+  showNotif("NPC Joined!", "info");
 }
 
 export function restoreNPC(record, activeNPCs, scene) {
@@ -188,7 +188,7 @@ export function checkCampfireNPCSymmetry(activeNPCs, placedObjects, scene, shado
     const removed = activeNPCs.pop();
     if (removed) {
       removed.root.dispose();
-      showNotif("Villager Left", "warn");
+      showNotif("NPC Left", "warn");
     }
   }
 

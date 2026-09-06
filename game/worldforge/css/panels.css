@@ -200,3 +200,17 @@
   color: #fff;
   transform: none;
 }
+/* "Visit" link in the Other Worlds panel - an <a> tag (so it can open the
+   ?view={uid} URL natively) styled to match the rest of the button set. */
+.visit-world-btn {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+  background: rgba(96, 165, 250, 0.25);
+  border-radius: 8px;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+.visit-world-btn:hover {
+  background: rgba(96, 165, 250, 0.45);
+  border-color: rgba(96, 165, 250, 0.6);
+}
