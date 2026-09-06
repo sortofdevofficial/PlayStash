@@ -22,9 +22,7 @@ export const state = {
     tower: { wh: 30, stone: 25, food: 0, water: 0 },
     well: { wh: 15, stone: 15, food: 0, water: 0 },
     storage: { wh: 25, stone: 10, food: 0, water: 0 },
-    market: { wh: 20, stone: 20, food: 0, water: 0 },
-    wall: { wh: 8, stone: 4, food: 0, water: 0 },
-    gate: { wh: 12, stone: 6, food: 0, water: 0 }
+    market: { wh: 20, stone: 20, food: 0, water: 0 }
   }
 };
 
@@ -107,7 +105,7 @@ export function showFloatingText(text, worldPos, color = "#81C784", scene, camer
 }
 
 export function updateCardHighlights() {
-  ["hut", "campfire", "farm", "tower", "well", "storage", "market", "wall", "gate"].forEach((type) => {
+  ["hut", "campfire", "farm", "tower", "well", "storage", "market"].forEach((type) => {
     const el = document.getElementById(`card${type.charAt(0).toUpperCase() + type.slice(1)}`);
     if (el) el.classList.toggle("active", state.mode === "plant" && state.buildType === type);
   });

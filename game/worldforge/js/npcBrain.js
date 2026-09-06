@@ -24,6 +24,18 @@ function getRandomThought(cat) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
+// Thoughts now live in the Villagers roster panel rather than floating
+// bubbles over each NPC's head, and are throttled per-NPC so the roster
+// isn't rewriting itself constantly - a new thought only "sticks" if enough
+// real time has passed since that NPC's last one.
+const THOUGHT_COOLDOWN_SECONDS = 12;
+function setThought(npc, category) {
+  const now = performance.now() / 1000;
+  if (npc.lastThoughtAt && now - npc.lastThoughtAt < THOUGHT_COOLDOWN_SECONDS) return;
+  npc.lastThought = getRandomThought(category);
+  npc.lastThoughtAt = now;
+}
+
 export function tileKey(x, z) { return `c: ${x},${z}`; }
 export function worldToGrid(pos) { return { x: Math.floor(pos.x), z: Math.floor(pos.z) }; }
 export function gridToWorldCenter(x, z, size = 1) { return new BABYLON.Vector3(x + size * 0.5, 0, z + size * 0.5); }
@@ -121,15 +133,12 @@ function createNpc(id, scene, pos, overrides = {}) {
   const root = createLowPolyNPC(id, scene);
   root.position.set(pos.x, 0, pos.z);
 
-  const bubble = document.createElement("div");
-  bubble.className = "thought-bubble";
-  document.getElementById("thoughtContainer")?.appendChild(bubble);
-
   return {
-    id, root, bubble, path: [], speed: 0.045, a: "IDLE", actionTimer: 0,
+    id, root, path: [], speed: 0.045, a: "IDLE", actionTimer: 0,
     targetObjId: null, stuckTimer: 0, climbProgress: 0, lastPos: root.position.clone(),
     name: NPC_NAMES[Math.floor(Math.random() * NPC_NAMES.length)],
     hunger: 100, happiness: 100, isStarving: false,
+    lastThought: null, lastThoughtAt: 0,
     ...overrides
   };
 }
@@ -178,7 +187,6 @@ export function checkCampfireNPCSymmetry(activeNPCs, placedObjects, scene, shado
   while (activeNPCs.length > maxCap) {
     const removed = activeNPCs.pop();
     if (removed) {
-      if (removed.bubble) removed.bubble.remove();
       removed.root.dispose();
       showNotif("Villager Left", "warn");
     }
@@ -242,9 +250,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
         npc.a = "MANNING_WATCHTOWER";
         const tower = placedObjects.get(npc.targetObjId);
         if (tower) tower.isManned = true;
-        npc.bubble.textContent = `"${getRandomThought("WATCH")}"`;
-        npc.bubble.classList.add("show");
-        setTimeout(() => npc.bubble.classList.remove("show"), 3000);
+        setThought(npc, "WATCH");
       }
       updateNPCAnimation(npc, deltaTime);
       return;
@@ -352,9 +358,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
             npc.targetObjId = targetTower.id;
             npc.pendingAction = "CLIMB";
             npc.path = rawPath.map((pt) => gridToWorldCenter(pt.x, pt.z, 1));
-            npc.bubble.textContent = `"${getRandomThought("CLIMB")}"`;
-            npc.bubble.classList.add("show");
-            setTimeout(() => npc.bubble.classList.remove("show"), 3000);
+            setThought(npc, "CLIMB");
             return;
           }
         }
@@ -393,9 +397,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
               : type === "market" ? "TRADE"
               : "CHOP";
 
-            npc.bubble.textContent = `"${getRandomThought(npc.pendingAction)}"`;
-            npc.bubble.classList.add("show");
-            setTimeout(() => npc.bubble.classList.remove("show"), 3000);
+            setThought(npc, npc.pendingAction);
 
             if (rawPath.length > 0) {
               npc.path = rawPath.map((pt) => gridToWorldCenter(pt.x, pt.z, 1));
@@ -477,17 +479,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
         npc.root.position.z += (dz / dist) * npc.speed;
         npc.root.rotation.y = Math.atan2(dx, dz);
       }
-    }
-
-    if (npc.bubble && camera && engine) {
-      const proj = BABYLON.Vector3.Project(
-        npc.root.position.add(new BABYLON.Vector3(0, 1.8, 0)),
-        BABYLON.Matrix.Identity(),
-        scene.getTransformMatrix(),
-        camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight())
-      );
-      npc.bubble.style.left = `${proj.x}px`;
-      npc.bubble.style.top = `${proj.y}px`;
     }
 
     updateNPCAnimation(npc, deltaTime);

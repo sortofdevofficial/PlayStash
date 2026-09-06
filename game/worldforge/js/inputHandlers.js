@@ -9,7 +9,7 @@ import { state, showNotif, showFloatingText, updateCardHighlights, deselectAllMo
 import { playSound } from "./audio.js";
 import { markDirty } from "./db.js";
 import { getFootprintSize, placeObject, removeObjectById } from "./world.js";
-import { showNpcDetailPanel } from "./npcPanel.js";
+import { toggleTrackNpc } from "./npcPanel.js";
 
 let placedObjects, occupiedGrid, activeNPCs, ghosts, removeGhostBox;
 let hoveredObjId = null;
@@ -121,7 +121,7 @@ function bindPointerEvents() {
           if (npcRoot) {
             const clickedNpc = activeNPCs.find((n) => n.id === npcRoot.name);
             if (clickedNpc) {
-              showNpcDetailPanel(clickedNpc);
+              toggleTrackNpc(clickedNpc.id);
               return;
             }
           }
@@ -230,7 +230,7 @@ function setBuildType(type) {
 }
 
 function bindBuildMenu() {
-  const types = ["hut", "campfire", "farm", "tower", "well", "storage", "market", "wall", "gate"];
+  const types = ["hut", "campfire", "farm", "tower", "well", "storage", "market"];
   types.forEach((type) => {
     const id = "card" + type.charAt(0).toUpperCase() + type.slice(1);
     const el = document.getElementById(id);

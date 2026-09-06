@@ -5,17 +5,16 @@ import { createWatchtower } from "./models/watchtower.js";
 import { createWell } from "./models/well.js";
 import { createStorage } from "./models/storage.js";
 import { createMarket } from "./models/market.js";
-import { createWallSegment, createGate } from "./models/wall.js";
 import { envMaterials, createLowPolyTree, createLowPolyStone, shadowGen } from "./environment.js";
 import {
   BOUND_MIN, BOUND_MAX, tileKey, gridToWorldCenter,
   getFootprintTiles, isFootprintValid, isTileNearStructure, restoreNPC, setNpcIdSeed
 } from "./npcBrain.js";
-import { state, showNotif, getResourceCap, RESOURCE_NAMES } from "./ui.js";
+import { state, showNotif, getResourceCap, RESOURCE_NAMES, addResourceClamped } from "./ui.js";
 import { playSound } from "./audio.js";
 import { RESOURCE_KEY_BY_SHORT, TYPE_BY_CODE, markDirty } from "./db.js";
 
-const ONE_TILE_TYPES = new Set(["campfire", "well", "wall", "gate", "stone"]);
+const ONE_TILE_TYPES = new Set(["campfire", "well", "stone"]);
 export function sizeFor(type) { return ONE_TILE_TYPES.has(type) ? 1 : 2; }
 export function getFootprintSize() { return sizeFor(state.buildType); }
 
@@ -40,9 +39,7 @@ export function buildNode(type, objId) {
   if (type === "tower") return createWatchtower(objId, scene);
   if (type === "well") return createWell(objId, scene);
   if (type === "storage") return createStorage(objId, scene);
-  if (type === "market") return createMarket(objId, scene);
-  if (type === "wall") return createWallSegment(objId, scene);
-  return createGate(objId, scene);
+  return createMarket(objId, scene);
 }
 
 export function instantiateObject(type, rootX, rootZ, size, rotation = 0, extra = {}) {
@@ -128,6 +125,20 @@ export function removeObjectById(objId, onHoveredCleared) {
   if (!data) return;
 
   data.tiles.forEach((t) => occupiedGrid.delete(tileKey(t.x, t.z)));
+
+  // Refund the resources this structure originally cost - trees/stone were
+  // never "built" by the player (they're wilderness nodes), so only types
+  // that appear in BUILD_COSTS give anything back.
+  const cost = state.BUILD_COSTS[data.type];
+  if (cost) {
+    const refunded = [];
+    Object.entries(cost).forEach(([key, amount]) => {
+      if (amount <= 0) return;
+      const gained = addResourceClamped(key, amount, placedObjects);
+      if (gained > 0) refunded.push(`${gained} ${RESOURCE_NAMES[key] || key}`);
+    });
+    if (refunded.length > 0) showNotif(`Refunded ${refunded.join(", ")}`, "info");
+  }
 
   if (data.root) {
     createPoofParticles(data.root.position, data.type === "tree" ? "#4CAF50" : "#FFFFFF");

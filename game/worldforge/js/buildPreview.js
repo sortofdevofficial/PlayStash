@@ -6,7 +6,6 @@ import { createWatchtower } from "./models/watchtower.js";
 import { createWell } from "./models/well.js";
 import { createStorage } from "./models/storage.js";
 import { createMarket } from "./models/market.js";
-import { createWallSegment, createGate } from "./models/wall.js";
 
 const creators = {
   hut:      createLowPolyHut,
@@ -16,8 +15,6 @@ const creators = {
   well:     createWell,
   storage:  createStorage,
   market:   createMarket,
-  wall:     createWallSegment,
-  gate:     createGate,
 };
 
 function initPreview(canvas, modelKey) {

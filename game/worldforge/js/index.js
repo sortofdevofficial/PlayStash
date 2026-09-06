@@ -14,7 +14,6 @@ import { createWatchtower } from "./models/watchtower.js";
 import { createWell } from "./models/well.js";
 import { createStorage } from "./models/storage.js";
 import { createMarket } from "./models/market.js";
-import { createWallSegment, createGate } from "./models/wall.js";
 import { updateGusts, initAmbientAudio } from "./audio.js";
 import {
   engine, scene, camera, updateCameraControls,
@@ -88,9 +87,7 @@ const ghosts = {
   tower: createWatchtower("ghostTower", scene),
   well: createWell("ghostWell", scene),
   storage: createStorage("ghostStorage", scene),
-  market: createMarket("ghostMarket", scene),
-  wall: createWallSegment("ghostWall", scene),
-  gate: createGate("ghostGate", scene)
+  market: createMarket("ghostMarket", scene)
 };
 
 Object.values(ghosts).forEach((g) => {

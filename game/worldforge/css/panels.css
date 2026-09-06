@@ -1,14 +1,14 @@
 #rightStack {
   position: fixed;
-  top: 118px;
-  right: clamp(190px, 22vw, 235px);
+  top: 14px;
+  right: calc(14px + clamp(150px, 16vw, 190px) + 12px);
   width: clamp(200px, 22vw, 250px);
   display: flex;
   flex-direction: column;
   gap: 12px;
   pointer-events: none;
   z-index: 2000;
-  max-height: calc(100vh - 140px);
+  max-height: calc(100vh - 28px);
   overflow-y: auto;
 }
 .stack-panel {
