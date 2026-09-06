@@ -1,8 +1,8 @@
-// "Visit" mode: renders another player's saved world as a temporary,
-// read-only overlay in the SAME scene/camera the player is already using -
-// no second WebGL context, no touching placedObjects/occupiedGrid/markDirty,
-// so there is no way this can corrupt or overwrite the player's own save.
-// Leaving disposes every temporary node and hands the camera back.
+// In-place "Visit" mode: renders another player's saved world as a
+// temporary overlay in the SAME tab/scene the player is already using - no
+// page navigation, no new tab. Never touches placedObjects/occupiedGrid or
+// calls markDirty(), so the live save can't be corrupted no matter what.
+// Leaving disposes every temporary node and hands the camera + world back.
 import { scene, camera, createLowPolyTree, createLowPolyStone, envMaterials } from "./environment.js";
 import { createLowPolyHut } from "./models/hut.js";
 import { createCampfire } from "./models/campfire.js";
@@ -13,7 +13,7 @@ import { createStorage } from "./models/storage.js";
 import { createMarket } from "./models/market.js";
 import { gridToWorldCenter } from "./npcBrain.js";
 import { TYPE_BY_CODE, loadWorldByUid } from "./db.js";
-import { showNotif } from "./ui.js";
+import { showNotif, state } from "./ui.js";
 import { clearTrackedNpc } from "./npcPanel.js";
 
 const BUILDERS = {
@@ -33,11 +33,12 @@ function sizeForVisit(type) { return ONE_TILE_TYPES.has(type) ? 1 : 2; }
 
 let visitRoot = null; // a single TransformNode parenting every temporary mesh, so leaving is one .dispose()
 let previousCameraState = null;
+let previousMode = null;
 let onLeaveCallback = null;
 
 export function isVisiting() { return visitRoot !== null; }
 
-async function buildVisitScene(worldData, hostUid) {
+function buildVisitScene(worldData) {
   visitRoot = new BABYLON.TransformNode("visitRoot", scene);
 
   let buildingCount = 0;
@@ -85,8 +86,14 @@ export async function startVisit(uid, hostName, placedObjects, activeNPCs) {
     return;
   }
 
+  // Force out of build/remove mode and lock input the same way the ?view=
+  // page-navigation path does, so nothing placed/removed while spectating.
+  previousMode = state.mode;
+  state.mode = "none";
+  state.isSpectating = true;
+
   setOwnWorldVisible(false, placedObjects, activeNPCs);
-  const buildingCount = await buildVisitScene(worldData, uid);
+  const buildingCount = buildVisitScene(worldData);
 
   // Remember exactly where the player's own camera was so Leave can put it
   // back - otherwise they'd return to their world staring at wherever the
@@ -98,8 +105,6 @@ export async function startVisit(uid, hostName, placedObjects, activeNPCs) {
     radius: camera.radius
   };
 
-  // Pull the camera back to a wide establishing view over the visited plot
-  // rather than leaving it wherever the player's own camera happened to be.
   camera.setTarget(BABYLON.Vector3.Zero());
   camera.radius = 55;
   camera.alpha = -Math.PI / 2;
@@ -115,6 +120,10 @@ export function endVisit(placedObjects, activeNPCs) {
   visitRoot = null;
   hideBanner();
   setOwnWorldVisible(true, placedObjects, activeNPCs);
+
+  state.isSpectating = false;
+  state.mode = previousMode || "none";
+  previousMode = null;
 
   if (previousCameraState) {
     camera.setTarget(previousCameraState.target);
