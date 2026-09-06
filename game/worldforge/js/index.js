@@ -148,7 +148,14 @@ function startRenderLoop() {
     if (trackedNpcId) {
       const tNpc = activeNPCs.find((n) => n.id === trackedNpcId);
       if (tNpc) {
-        camera.target = BABYLON.Vector3.Lerp(camera.target, tNpc.root.position, 0.05);
+        // camera.target must go through setTarget() on an ArcRotateCamera -
+        // plain assignment (camera.target = ...) swaps in a new Vector3 but
+        // doesn't invalidate Babylon's cached view matrix/inertial state, so
+        // the camera's actual rendered position never visibly moved even
+        // though .target itself had the right value. setTarget() forces the
+        // recompute that raw assignment skips.
+        const lerped = BABYLON.Vector3.Lerp(camera.target, tNpc.root.position, 0.05);
+        camera.setTarget(lerped);
       } else {
         clearTrackedNpc();
       }
