@@ -186,8 +186,11 @@ onValue(presenceRef, (snap) => {
 });
 
 // Anyone signed in can write their own u/{uid}/i record, so the avatar URL is
-// restricted to http(s) before it ever reaches an <img src>.
+// restricted to http(s) before it ever reaches an <img src>. Empty input must
+// be rejected first: new URL(undefined, base) does not throw, it resolves to
+// "<origin>/undefined" and 404s.
 function safeAvatarUrl(url) {
+  if (typeof url !== 'string' || !url) return 'favicon.png';
   try {
     const parsed = new URL(url, window.location.href);
     return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : 'favicon.png';
