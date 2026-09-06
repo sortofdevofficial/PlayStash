@@ -88,7 +88,7 @@ export function placeObject(rootX, rootZ) {
   const shortfall = Object.keys(cost).find((key) => (state.resources[key] || 0) < cost[key]);
   
   if (shortfall) {
-    // Convert technical key (e.g., 'wh') to friendly name (e.g., 'Wheat')
+    // Convert technical key (e.g., 'wh') to friendly name (e.g., 'Wood')
     const friendlyName = RESOURCE_NAMES[shortfall] || shortfall;
     return showNotif(`Not enough ${friendlyName}!`, "warn");
   }

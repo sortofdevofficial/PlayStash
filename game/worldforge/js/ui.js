@@ -75,8 +75,13 @@ export function showNotif(msg, type = "success") {
 
   const notif = document.createElement("div");
   notif.className = "mobile-notif";
-  const badgeClass = type === "warn" ? "warn" : type === "info" ? "info" : "";
-  notif.innerHTML = `<div class="notif-badge ${badgeClass}"></div><span>${msg}</span>`;
+  const badge = document.createElement("div");
+  badge.className = `notif-badge ${type === "warn" ? "warn" : type === "info" ? "info" : ""}`.trim();
+  const text = document.createElement("span");
+  // Messages can carry another player's saved name (visit notifications), so
+  // they are only ever assigned as text - never interpolated into markup.
+  text.textContent = msg;
+  notif.append(badge, text);
 
   container.appendChild(notif);
   requestAnimationFrame(() => {

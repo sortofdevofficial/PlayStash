@@ -185,6 +185,17 @@ onValue(presenceRef, (snap) => {
   onlineCountEl.textContent = onlineTotal;
 });
 
+// Anyone signed in can write their own u/{uid}/i record, so the avatar URL is
+// restricted to http(s) before it ever reaches an <img src>.
+function safeAvatarUrl(url) {
+  try {
+    const parsed = new URL(url, window.location.href);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : 'favicon.png';
+  } catch {
+    return 'favicon.png';
+  }
+}
+
 // Realtime User Network Sync
 // Path: u/{uid}/i (was users/{uid}/info)
 onValue(ref(db, 'u'), (snapshot) => {
@@ -202,15 +213,33 @@ onValue(ref(db, 'u'), (snapshot) => {
 
   userCountEl.textContent = users.length;
 
-  usersContainer.innerHTML = users.map(u => `
-    <div class="card-bg border border-gray-800/80 rounded-xl p-3.5 flex items-center gap-3.5 hover:border-gray-700 transition">
-      <img src="${u.pe || 'favicon.png'}" class="w-10 h-10 rounded-full border border-blue-500/40 object-cover shrink-0" alt="Profile" />
-      <div class="flex flex-col min-w-0 flex-1">
-        <span class="font-bold text-sm text-white truncate">${u.dn || 'Anonymous Player'}</span>
-        <span class="text-[11px] text-blue-400/90 font-medium truncate mt-0.5">Joined ${formatDateDetailed(u.jt)}</span>
-      </div>
-    </div>
-  `).join('');
+  // dn and pe are player-controlled, so rows are built as nodes and those two
+  // values are only ever assigned as text/attribute - interpolating them into
+  // markup would let any player run script in every visitor's browser.
+  usersContainer.replaceChildren(...users.map(u => {
+    const card = document.createElement('div');
+    card.className = 'card-bg border border-gray-800/80 rounded-xl p-3.5 flex items-center gap-3.5 hover:border-gray-700 transition';
+
+    const img = document.createElement('img');
+    img.src = safeAvatarUrl(u.pe);
+    img.className = 'w-10 h-10 rounded-full border border-blue-500/40 object-cover shrink-0';
+    img.alt = 'Profile';
+
+    const details = document.createElement('div');
+    details.className = 'flex flex-col min-w-0 flex-1';
+
+    const name = document.createElement('span');
+    name.className = 'font-bold text-sm text-white truncate';
+    name.textContent = u.dn || 'Anonymous Player';
+
+    const joined = document.createElement('span');
+    joined.className = 'text-[11px] text-blue-400/90 font-medium truncate mt-0.5';
+    joined.textContent = `Joined ${formatDateDetailed(u.jt)}`;
+
+    details.append(name, joined);
+    card.append(img, details);
+    return card;
+  }));
 }, (err) => {
   userCountEl.textContent = '—';
   usersContainer.innerHTML = `<div class="card-bg border border-gray-800/80 rounded-xl p-4 text-center text-gray-400 text-sm">Player network unavailable (${err.code || 'error'}).</div>`;

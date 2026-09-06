@@ -1,9 +1,10 @@
 // Small presentational bits tied to cloud save: the topbar's save-status
 // pill text, and the "Other Worlds" panel that lets a player browse and
-// visit other players' saved worlds. Visiting works by navigating to this
-// same page with ?view={uid} in the URL - index.js reads that on boot and
-// switches into a fully read-only spectate mode (see state.isSpectating).
+// visit other players' saved worlds. Visiting renders the other world in
+// place, in this same tab and scene (see visitWorld.js) - no navigation.
+// index.js still honours ?view={uid} on boot for hand-shared deep links.
 import { listOtherWorlds } from "./db.js";
+import { visitUid, isVisiting } from "./visitWorld.js";
 
 export function setSaveStatus(status) {
   const pill = document.getElementById("saveStatus");
@@ -20,26 +21,39 @@ export function setSaveStatus(status) {
     : "Cloud save on";
 }
 
-// Builds a ?view={uid} URL against the current page, preserving no other
-// query params - a visit link should always start clean rather than
-// inheriting whatever params happened to be on the page that opened it.
-function visitUrlFor(uid) {
-  const url = new URL(window.location.href);
-  url.search = `?view=${encodeURIComponent(uid)}`;
-  return url.toString();
-}
-
 export function initOtherWorldsPanel() {
   const viewBtn = document.getElementById("viewWorldsBtn");
   const closeBtn = document.getElementById("closeOtherWorldsBtn");
-  if (!viewBtn || !closeBtn) return;
+  const panel = document.getElementById("otherWorldsPanel");
+  const list = document.getElementById("otherWorldsList");
+  if (!viewBtn || !closeBtn || !panel || !list) return;
+
+  // Delegated once at init rather than per row, so it survives re-rendering
+  // the list and is not re-attached every time the panel is opened.
+  list.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".visit-world-btn");
+    if (!btn || btn.disabled) return;
+
+    btn.disabled = true;
+    btn.textContent = "Loading…";
+    try {
+      if (await visitUid(btn.dataset.uid, btn.dataset.name || null)) {
+        panel.style.display = "none";
+        return;
+      }
+    } finally {
+      // Without this a rejected visit leaves the row disabled forever.
+      if (!isVisiting()) {
+        btn.disabled = false;
+        btn.textContent = "Visit";
+      }
+    }
+  });
 
   viewBtn.onclick = async () => {
-    const panel = document.getElementById("otherWorldsPanel");
-    const list = document.getElementById("otherWorldsList");
     const isOpen = panel.style.display !== "none";
 
-    if (isOpen) { panel.style.display = "none"; return; }
+    if (isOpen || isVisiting()) { panel.style.display = "none"; return; }
 
     panel.style.display = "block";
     list.textContent = "Loading…";
@@ -50,24 +64,39 @@ export function initOtherWorldsPanel() {
       return;
     }
 
-    list.innerHTML = "";
+    list.replaceChildren();
     worlds.forEach((w) => {
-      const displayName = w.name || `Player ${w.uid.slice(0, 6)}`;
       const row = document.createElement("div");
       row.style.cssText = "background:rgba(255,255,255,0.08); border-radius:6px; padding:6px 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;";
-      row.innerHTML = `
-        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">
-          <b style="color:#fff;">${displayName}</b><br/>
-          <span style="font-size:10px; color:#94a3b8;">🏘️ ${w.buildingCount} builds · 👤 ${w.npcCount} NPCs</span>
-        </span>
-        <a class="visit-world-btn" href="${visitUrlFor(w.uid)}" target="_blank" rel="noopener"
-           style="padding:4px 10px; font-size:11px; flex-shrink:0; text-decoration:none; display:inline-block;">Visit</a>
-      `;
+
+      // Both strings originate in another player's save, so they are only ever
+      // assigned as text - never interpolated into markup.
+      const info = document.createElement("span");
+      info.style.cssText = "overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;";
+
+      const name = document.createElement("b");
+      name.style.color = "#fff";
+      name.textContent = w.name || `Player ${w.uid.slice(0, 6)}`;
+
+      const stats = document.createElement("span");
+      stats.style.cssText = "font-size:10px; color:#94a3b8;";
+      stats.textContent = `🏘️ ${w.buildingCount} builds · 👤 ${w.npcCount} NPCs`;
+
+      info.append(name, document.createElement("br"), stats);
+
+      const visit = document.createElement("button");
+      visit.className = "visit-world-btn";
+      visit.style.cssText = "padding:4px 10px; font-size:11px; flex-shrink:0;";
+      visit.textContent = "Visit";
+      visit.dataset.uid = w.uid;
+      visit.dataset.name = w.name || "";
+
+      row.append(info, visit);
       list.appendChild(row);
     });
   };
 
   closeBtn.onclick = () => {
-    document.getElementById("otherWorldsPanel").style.display = "none";
+    panel.style.display = "none";
   };
 }

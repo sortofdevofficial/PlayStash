@@ -124,6 +124,10 @@ export function getMaxNPCCapacity(placedObjects) {
 
 const NPC_NAMES = ["Bram", "Kael", "Lyra", "Torn", "Elian", "Mila", "Rowan"];
 
+// Tiles per second. models/npc.js scales the walk stride off this, so changing
+// it here changes both how fast villagers move and how fast their legs cycle.
+export const WALK_SPEED = 9;
+
 let npcIdCounter = 0;
 
 export function setNpcIdSeed(n) { npcIdCounter = Math.max(npcIdCounter, n); }
@@ -134,7 +138,7 @@ function createNpc(id, scene, pos, overrides = {}) {
   root.position.set(pos.x, 0, pos.z);
 
   return {
-    id, root, path: [], speed: 0.09, a: "IDLE", actionTimer: 0,
+    id, root, path: [], speed: WALK_SPEED, a: "IDLE", actionTimer: 0,
     targetObjId: null, stuckTimer: 0, climbProgress: 0, lastPos: root.position.clone(),
     name: NPC_NAMES[Math.floor(Math.random() * NPC_NAMES.length)],
     hunger: 100, happiness: 100, isStarving: false,
@@ -475,8 +479,12 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
           }
         }
       } else {
-        npc.root.position.x += (dx / dist) * npc.speed;
-        npc.root.position.z += (dz / dist) * npc.speed;
+        // Delta-scaled so villagers cover the same ground per second on a 60Hz
+        // and a 144Hz display, and clamped to what is left of the waypoint so a
+        // long frame cannot step past it and stall the arrival check above.
+        const step = Math.min(npc.speed * deltaTime, dist);
+        npc.root.position.x += (dx / dist) * step;
+        npc.root.position.z += (dz / dist) * step;
         npc.root.rotation.y = Math.atan2(dx, dz);
       }
     }

@@ -3,6 +3,10 @@
 // latest thought about the world. Hidden by default - toggled open/closed
 // rather than always visible.
 let trackedNpcId = null;
+let panelEl = null;
+let rowsEl = null;
+let countEl = null;
+let lastSignature = null;
 
 const ACTIVITY_LABELS = {
   IDLE: "Idle",
@@ -33,75 +37,135 @@ function moodFor(happiness) {
   return happiness < 40 ? "😞" : happiness < 75 ? "🙂" : "😊";
 }
 
-function rowHtml(npc) {
+function statRow(label, value, fillClass) {
+  const wrap = document.createElement("div");
+  wrap.className = "npc-stat-row";
+
+  const labels = document.createElement("div");
+  labels.className = "npc-stat-label";
+  const labelText = document.createElement("span");
+  labelText.textContent = label;
+  const valueText = document.createElement("span");
+  valueText.textContent = `${value}%`;
+  labels.append(labelText, valueText);
+
+  const bar = document.createElement("div");
+  bar.className = "npc-bar";
+  const fill = document.createElement("div");
+  fill.className = `npc-bar-fill ${fillClass}`;
+  fill.style.width = `${value}%`;
+  bar.append(fill);
+
+  wrap.append(labels, bar);
+  return wrap;
+}
+
+function buildRow(npc) {
   const hunger = Math.max(0, Math.min(100, Math.floor(npc.hunger)));
   const happiness = Math.max(0, Math.min(100, Math.floor(npc.happiness)));
   const activity = ACTIVITY_LABELS[npc.a] || "Idle";
-  const thought = npc.lastThought ? `"${npc.lastThought}"` : "…";
   const isTracked = trackedNpcId === npc.id;
 
-  return `
-    <div class="npc-row${isTracked ? " tracked" : ""}" data-npc-id="${npc.id}">
-      <div class="npc-row-top">
-        <span class="npc-row-name">${npc.name} ${moodFor(happiness)}</span>
-        <button class="npc-row-track" data-track-id="${npc.id}" title="Follow with camera">${isTracked ? "🎥 Following" : "🎥"}</button>
-      </div>
-      <div class="npc-row-activity">${activity} — <em>${thought}</em></div>
-      <div class="npc-stat-row">
-        <div class="npc-stat-label"><span>Hunger</span><span>${hunger}%</span></div>
-        <div class="npc-bar"><div class="npc-bar-fill hunger" style="width:${hunger}%;"></div></div>
-      </div>
-      <div class="npc-stat-row">
-        <div class="npc-stat-label"><span>Happiness</span><span>${happiness}%</span></div>
-        <div class="npc-bar"><div class="npc-bar-fill happy" style="width:${happiness}%;"></div></div>
-      </div>
-    </div>
-  `;
+  const row = document.createElement("div");
+  row.className = `npc-row${isTracked ? " tracked" : ""}`;
+  row.dataset.npcId = npc.id;
+
+  const top = document.createElement("div");
+  top.className = "npc-row-top";
+
+  // name and lastThought are restored from the player's cloud save, so they are
+  // only ever assigned as text - never interpolated into markup.
+  const name = document.createElement("span");
+  name.className = "npc-row-name";
+  name.textContent = `${npc.name} ${moodFor(happiness)}`;
+
+  const track = document.createElement("button");
+  track.className = "npc-row-track";
+  track.dataset.trackId = npc.id;
+  track.title = "Follow with camera";
+  track.textContent = isTracked ? "🎥 Following" : "🎥";
+
+  top.append(name, track);
+
+  const activityRow = document.createElement("div");
+  activityRow.className = "npc-row-activity";
+  const thought = document.createElement("em");
+  thought.textContent = npc.lastThought ? `"${npc.lastThought}"` : "…";
+  activityRow.append(`${activity} — `, thought);
+
+  row.append(
+    top,
+    activityRow,
+    statRow("Hunger", hunger, "hunger"),
+    statRow("Happiness", happiness, "happy")
+  );
+  return row;
 }
 
 // Wires up the open button (topbar), close button (panel header), and the
 // per-row "follow with camera" click delegation. The panel itself starts
 // with the "hidden" class already applied in the HTML.
 export function initNpcPanel() {
-  const panel = document.getElementById("npcListPanel");
+  panelEl = document.getElementById("npcListPanel");
+  rowsEl = document.getElementById("npcListRows");
+  countEl = document.getElementById("npcListCount");
+
   const openBtn = document.getElementById("npcListBtn");
   const closeBtn = document.getElementById("npcListClose");
-  const rows = document.getElementById("npcListRows");
 
-  if (openBtn && panel) {
-    openBtn.onclick = () => panel.classList.toggle("hidden");
+  if (openBtn && panelEl) {
+    openBtn.onclick = () => panelEl.classList.toggle("hidden");
   }
-  if (closeBtn && panel) {
-    closeBtn.onclick = () => panel.classList.add("hidden");
+  if (closeBtn && panelEl) {
+    closeBtn.onclick = () => panelEl.classList.add("hidden");
   }
 
-  if (!rows) return;
+  if (!rowsEl) return;
 
-  // Event delegation: rows are re-rendered wholesale each tick, so binding to
-  // the container once (rather than per-row) survives that re-render.
-  rows.addEventListener("click", (e) => {
+  // Event delegation: rows are re-rendered wholesale when their content
+  // changes, so binding to the container once (rather than per-row) survives
+  // that re-render.
+  rowsEl.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-track-id]");
     if (!btn) return;
     toggleTrackNpc(btn.dataset.trackId);
   });
 }
 
-// Called every render frame by index.js. Rebuilding the whole list each call
-// is simple and cheap at the population sizes this game supports (a handful
-// of NPCs, capped by hut count) - no need for incremental DOM diffing.
+// Called every render frame by index.js. Rebuilding the roster is skipped
+// unless a value the rows actually display has changed - reparsing identical
+// markup 60x a second was pure jank and reset hover/selection state each time.
+function signatureFor(activeNPCs) {
+  return activeNPCs.map((npc) => [
+    npc.id,
+    npc.name,
+    Math.floor(npc.hunger),
+    Math.floor(npc.happiness),
+    npc.a,
+    npc.lastThought || "",
+    trackedNpcId === npc.id ? 1 : 0
+  ].join("\u0001")).join("\u0002");
+}
+
 export function tickNpcPanel(activeNPCs) {
-  const rows = document.getElementById("npcListRows");
-  const countEl = document.getElementById("npcListCount");
-  if (!rows) return;
+  if (!rowsEl || (panelEl && panelEl.classList.contains("hidden"))) return;
 
-  if (countEl) countEl.textContent = String(activeNPCs.length);
-
-  if (activeNPCs.length === 0) {
-    rows.innerHTML = `<div style="font-size:11px; color:#94a3b8; text-align:center; padding:10px 0;">No NPCs yet</div>`;
-    return;
-  }
+  const count = String(activeNPCs.length);
+  if (countEl && countEl.textContent !== count) countEl.textContent = count;
 
   if (trackedNpcId && !activeNPCs.some((n) => n.id === trackedNpcId)) clearTrackedNpc();
 
-  rows.innerHTML = activeNPCs.map(rowHtml).join("");
+  const signature = signatureFor(activeNPCs);
+  if (signature === lastSignature) return;
+  lastSignature = signature;
+
+  if (activeNPCs.length === 0) {
+    const empty = document.createElement("div");
+    empty.style.cssText = "font-size:11px; color:#94a3b8; text-align:center; padding:10px 0;";
+    empty.textContent = "No NPCs yet";
+    rowsEl.replaceChildren(empty);
+    return;
+  }
+
+  rowsEl.replaceChildren(...activeNPCs.map(buildRow));
 }

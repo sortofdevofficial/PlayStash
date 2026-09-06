@@ -113,9 +113,19 @@ export function createLowPolyNPC(id, scene) {
   return root;
 }
 
+const BASE_ANIM_RATE = 7;
+// Stride cadence has to track walk speed or a fast villager's feet slide across
+// the ground. Tuned so the original 2.7 tiles/sec cycles at BASE_ANIM_RATE.
+const WALK_ANIM_RATE_PER_SPEED = 2.6;
+
 export function updateNPCAnimation(npc, delta) {
   if (!npc.animState) npc.animState = { time: 0 };
-  npc.animState.time += delta * 7;
+
+  const action = npc.a || npc.action;
+  const rate = action === "WALK"
+    ? Math.max(BASE_ANIM_RATE, (npc.speed || 0) * WALK_ANIM_RATE_PER_SPEED)
+    : BASE_ANIM_RATE;
+  npc.animState.time += delta * rate;
   const t = npc.animState.time;
 
   const meta = npc.root.metadata;
@@ -123,7 +133,7 @@ export function updateNPCAnimation(npc, delta) {
 
   const { leftLegRoot, rightLegRoot, leftArmRoot, rightArmRoot } = meta;
 
-  switch (npc.a || npc.action) {
+  switch (action) {
     case "WALK":
       npc.root.position.y = Math.abs(Math.sin(t * 1.5)) * 0.08;
       if (leftLegRoot) leftLegRoot.rotation.x = Math.sin(t) * 0.7;

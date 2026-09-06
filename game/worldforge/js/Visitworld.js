@@ -11,6 +11,7 @@ import { createWatchtower } from "./models/watchtower.js";
 import { createWell } from "./models/well.js";
 import { createStorage } from "./models/storage.js";
 import { createMarket } from "./models/market.js";
+import { createWallSegment, createGate } from "./models/wall.js";
 import { gridToWorldCenter } from "./npcBrain.js";
 import { TYPE_BY_CODE, loadWorldByUid } from "./db.js";
 import { showNotif, state } from "./ui.js";
@@ -25,16 +26,23 @@ const BUILDERS = {
   tower: (id, s) => createWatchtower(id, s),
   well: (id, s) => createWell(id, s),
   storage: (id, s) => createStorage(id, s),
-  market: (id, s) => createMarket(id, s)
+  market: (id, s) => createMarket(id, s),
+  wall: (id, s) => createWallSegment(id, s),
+  gate: (id, s) => createGate(id, s)
 };
 
-const ONE_TILE_TYPES = new Set(["campfire", "well", "stone"]);
+const ONE_TILE_TYPES = new Set(["campfire", "well", "stone", "wall", "gate"]);
 function sizeForVisit(type) { return ONE_TILE_TYPES.has(type) ? 1 : 2; }
 
 let visitRoot = null; // a single TransformNode parenting every temporary mesh, so leaving is one .dispose()
 let previousCameraState = null;
 let previousMode = null;
+let previousSpectating = false;
 let onLeaveCallback = null;
+
+// Captured by initVisitWorld so visitUid()/endVisit() need no arguments.
+let livePlacedObjects = null;
+let liveActiveNPCs = null;
 
 export function isVisiting() { return visitRoot !== null; }
 
@@ -89,11 +97,28 @@ export async function startVisit(uid, hostName, placedObjects, activeNPCs) {
   // Force out of build/remove mode and lock input the same way the ?view=
   // page-navigation path does, so nothing placed/removed while spectating.
   previousMode = state.mode;
+  previousSpectating = !!state.isSpectating;
   state.mode = "none";
   state.isSpectating = true;
 
   setOwnWorldVisible(false, placedObjects, activeNPCs);
-  const buildingCount = buildVisitScene(worldData);
+
+  let buildingCount;
+  try {
+    buildingCount = buildVisitScene(worldData);
+  } catch (err) {
+    // The player's own world is already hidden and the Leave button is not
+    // created until the end of this function, so a bare throw here would leave
+    // them with an invisible village and no way back short of a reload.
+    console.warn("[visit] Failed to render world:", err);
+    if (visitRoot) { visitRoot.dispose(false, true); visitRoot = null; }
+    setOwnWorldVisible(true, placedObjects, activeNPCs);
+    state.isSpectating = previousSpectating;
+    state.mode = previousMode || "none";
+    previousMode = null;
+    showNotif("That world couldn't be rendered.", "warn");
+    return;
+  }
 
   // Remember exactly where the player's own camera was so Leave can put it
   // back - otherwise they'd return to their world staring at wherever the
@@ -114,14 +139,16 @@ export async function startVisit(uid, hostName, placedObjects, activeNPCs) {
   showNotif(`Now visiting ${hostName || "a player"}'s world (${buildingCount} builds)`, "success");
 }
 
-export function endVisit(placedObjects, activeNPCs) {
+export function endVisit(placedObjects = livePlacedObjects, activeNPCs = liveActiveNPCs) {
   if (!isVisiting()) return;
   visitRoot.dispose(false, true);
   visitRoot = null;
   hideBanner();
   setOwnWorldVisible(true, placedObjects, activeNPCs);
 
-  state.isSpectating = false;
+  // Restore, don't clear: a player who arrived via ?view= was already
+  // spectating and must stay read-only after leaving an in-place visit.
+  state.isSpectating = previousSpectating;
   state.mode = previousMode || "none";
   previousMode = null;
 
@@ -151,10 +178,21 @@ function showBanner(hostName, buildingCount) {
     `;
     document.body.appendChild(banner);
   }
-  banner.innerHTML = `
-    <span>🌍 Visiting <b>${hostName || "a player"}'s</b> world · ${buildingCount} builds</span>
-    <button id="leaveVisitBtn" style="padding:4px 10px; font-size:11px;">Leave</button>
-  `;
+  // hostName is another player's saved name, so it is only ever set as text -
+  // interpolating it into innerHTML would let a crafted name run script here.
+  banner.replaceChildren();
+
+  const label = document.createElement("span");
+  const who = document.createElement("b");
+  who.textContent = `${hostName || "a player"}'s`;
+  label.append("🌍 Visiting ", who, ` world · ${buildingCount} builds`);
+
+  const leave = document.createElement("button");
+  leave.id = "leaveVisitBtn";
+  leave.style.cssText = "padding:4px 10px; font-size:11px;";
+  leave.textContent = "Leave";
+
+  banner.append(label, leave);
   banner.style.display = "flex";
 }
 
@@ -163,12 +201,23 @@ function hideBanner() {
   if (banner) banner.style.display = "none";
 }
 
+// Entry point for the other-worlds panel: renders that player's world in this
+// same tab and scene. Resolves false if a visit is already running or the live
+// collections were never handed over by initVisitWorld.
+export async function visitUid(uid, hostName) {
+  if (!uid || isVisiting() || !livePlacedObjects || !liveActiveNPCs) return false;
+  await startVisit(uid, hostName, livePlacedObjects, liveActiveNPCs);
+  return isVisiting();
+}
+
 // index.js calls this once at startup, passing the live collections so the
 // Leave button (created dynamically inside showBanner) can find them without
 // this module needing to own or import that state itself.
 export function initVisitWorld(placedObjects, activeNPCs, onLeave) {
+  livePlacedObjects = placedObjects;
+  liveActiveNPCs = activeNPCs;
   onLeaveCallback = onLeave || null;
   document.body.addEventListener("click", (e) => {
-    if (e.target && e.target.id === "leaveVisitBtn") endVisit(placedObjects, activeNPCs);
+    if (e.target && e.target.id === "leaveVisitBtn") endVisit();
   });
 }

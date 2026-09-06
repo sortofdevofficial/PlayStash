@@ -17,6 +17,34 @@ const creators = {
   market:   createMarket,
 };
 
+// Every preview shares one rAF loop. A separate engine.runRenderLoop per card
+// meant seven extra render pipelines on top of the game's own, all still
+// spinning while the tab was backgrounded.
+const previews = [];
+let lastTick = 0;
+let ticking = false;
+
+function tick(now) {
+  requestAnimationFrame(tick);
+  if (document.hidden) return;
+
+  // Time-based so the spin looks identical on a 60Hz and a 144Hz display.
+  const delta = lastTick ? Math.min((now - lastTick) / 1000, 0.1) : 0;
+  lastTick = now;
+
+  for (const p of previews) {
+    p.root.rotation.y += delta * 0.5;
+    p.scene.render();
+  }
+}
+
+function startTicking() {
+  if (ticking) return;
+  ticking = true;
+  requestAnimationFrame(tick);
+  window.addEventListener("resize", () => previews.forEach((p) => p.engine.resize()));
+}
+
 function initPreview(canvas, modelKey) {
   // Guard: canvas must have non-zero pixel size
   if (canvas.width === 0 || canvas.height === 0) {
@@ -25,13 +53,8 @@ function initPreview(canvas, modelKey) {
   }
 
   const creator = creators[modelKey];
-  if (!creator) {
-    console.warn(`buildPreview: no creator for "${modelKey}"`);
-    return;
-  }
 
   const engine = new BABYLON.Engine(canvas, true, {
-    preserveDrawingBuffer: true,
     stencil: true,
     alpha: true,
   });
@@ -55,20 +78,25 @@ function initPreview(canvas, modelKey) {
     camera.target = new BABYLON.Vector3(0, size.y * 0.3, 0);
   });
 
-  // Always slowly rotate so the model is clearly visible
-  engine.runRenderLoop(() => {
-    root.rotation.y += 0.008;
-    scene.render();
-  });
-
-  window.addEventListener("resize", () => engine.resize());
+  previews.push({ engine, scene, root });
+  startTicking();
 }
 
-// Module scripts run after DOMContentLoaded; just scan directly.
+// Each preview needs its own WebGL context, and browsers evict the oldest
+// context once their cap is hit (~16 in Chrome, fewer on iOS) - which would
+// take the game's context with it. So a card is only built once it has
+// actually scrolled into view; cards never looked at never cost an engine.
 function initAllPreviews() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      observer.unobserve(entry.target);
+      initPreview(entry.target, entry.target.dataset.model);
+    });
+  }, { rootMargin: "120px" });
+
   document.querySelectorAll("canvas.build-preview").forEach((c) => {
-    const model = c.dataset.model;
-    if (model) initPreview(c, model);
+    if (c.dataset.model && creators[c.dataset.model]) observer.observe(c);
   });
 }
 

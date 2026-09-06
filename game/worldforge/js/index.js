@@ -30,12 +30,11 @@ import { initNpcPanel, tickNpcPanel, getTrackedNpcId, clearTrackedNpc } from "./
 import { isTouchDevice, initMobileControls, applyMobileHeightHold } from "./mobileControls.js";
 import { waitForPlay } from "./mainMenu.js";
 import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
+import { initVisitWorld } from "./visitWorld.js";
 
-// ?view={uid} in the URL means "load this player's world read-only" - set by
-// the "Visit" button in the other-worlds panel. This was previously handled
-// here but got dropped somewhere during the split into separate modules,
-// which is why visiting silently did nothing: the button could navigate to
-// the right URL, but nothing on this end ever looked at the parameter.
+// ?view={uid} in the URL means "load this player's world read-only". The
+// in-game Visit button no longer produces these - it renders the other world
+// in place through visitWorld.js - but hand-shared deep links still land here.
 const spectateUid = new URLSearchParams(window.location.search).get("view");
 
 const occupiedGrid = new Map();
@@ -139,6 +138,7 @@ removeGhostBox.isVisible = false;
 initWorld({ scene, placedObjects, occupiedGrid, activeNPCs, buildCounters, onStatsChanged: onWorldChanged, nextBuildKey });
 initInputHandlers({ placedObjects, occupiedGrid, activeNPCs, ghosts, removeGhostBox, onWorldChanged, onSyncNPCs: syncNPCs });
 initNpcPanel();
+initVisitWorld(placedObjects, activeNPCs);
 initOtherWorldsPanel();
 if (isTouchDevice) initMobileControls();
 

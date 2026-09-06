@@ -3,7 +3,10 @@ export const GAME_ID = 1;
 // Game-internal resource name -> database field. Saved under short codes to
 // keep the Realtime Database payload small (wo/w/s/wa instead of the full
 // words), not because the resource itself has a different name anywhere.
-export const RESOURCE_KEY_MAP = { wood: "wo", food: "w", stone: "s", water: "wa" };
+// The internal key for wood is `wh` (state.resources.wh in ui.js) - renaming
+// it here silently saves 0 and restores nothing, since both directions look
+// the key up in state.resources.
+export const RESOURCE_KEY_MAP = { wh: "wo", food: "w", stone: "s", water: "wa" };
 
 const RESOURCE_KEY_BY_SHORT = Object.fromEntries(
   Object.entries(RESOURCE_KEY_MAP).map(([internal, short]) => [short, internal])
