@@ -73,6 +73,28 @@ let onStatus = () => {};
 
 export function getPlayerId() { return playerId; }
 
+const PLAYER_NAME_STORAGE_KEY = "worldforge_player_name";
+
+export function getPlayerName() {
+  try {
+    return localStorage.getItem(PLAYER_NAME_STORAGE_KEY) || null;
+  } catch {
+    return null; // localStorage can throw in some locked-down/private-browsing contexts
+  }
+}
+
+export function setPlayerName(name) {
+  const trimmed = (name || "").trim().slice(0, 24); // keep it short enough to fit in HUD rows
+  try {
+    if (trimmed) localStorage.setItem(PLAYER_NAME_STORAGE_KEY, trimmed);
+    else localStorage.removeItem(PLAYER_NAME_STORAGE_KEY);
+  } catch {
+    // ignore - worst case the name just doesn't persist across reloads
+  }
+  markDirty(); // so the new name gets pushed up on the next save
+  return trimmed;
+}
+
 export function authReady() {
   if (!auth) return Promise.resolve(null);
 
@@ -164,6 +186,7 @@ export function serializeWorld(placedObjects, activeNPCs, gameState) {
 
   // null deletes the subtree, so a cleared world does not leave stale children behind.
   return {
+    pn: getPlayerName() || null,
     r: Object.keys(r).length ? r : null,
     b: Object.keys(b).length ? b : null,
     n: Object.keys(n).length ? n : null
@@ -234,6 +257,7 @@ export async function listOtherWorlds() {
       const val = childSnap.val() || {};
       out.push({
         uid,
+        name: val.pn || null,
         buildingCount: val.b ? Object.keys(val.b).length : 0,
         npcCount: val.n ? Object.keys(val.n).length : 0
       });

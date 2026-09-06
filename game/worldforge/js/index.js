@@ -23,13 +23,14 @@ import {
   getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs
 } from "./npcBrain.js";
 import { state, updateResourceUI, addResourceClamped } from "./ui.js";
-import { authReady, loadSave, initAutosave, markDirty, getPlayerId, serializeWorld, BUILD_CODE } from "./db.js";
+import { authReady, loadSave, initAutosave, markDirty, getPlayerId, getPlayerName, setPlayerName, serializeWorld, BUILD_CODE } from "./db.js";
 import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById } from "./world.js";
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
 import { initNpcPanel, tickNpcPanel, getTrackedNpcId, clearTrackedNpc } from "./npcPanel.js";
 import { isTouchDevice, initMobileControls, applyMobileHeightHold } from "./mobileControls.js";
 import { waitForPlay } from "./mainMenu.js";
 import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
+import { initVisitWorld } from "./visitWorld.js";
 
 const occupiedGrid = new Map();
 const placedObjects = new Map();
@@ -115,7 +116,8 @@ removeGhostBox.isVisible = false;
 initWorld({ scene, placedObjects, occupiedGrid, activeNPCs, buildCounters, onStatsChanged: onWorldChanged, nextBuildKey });
 initInputHandlers({ placedObjects, occupiedGrid, activeNPCs, ghosts, removeGhostBox, onWorldChanged, onSyncNPCs: syncNPCs });
 initNpcPanel();
-initOtherWorldsPanel();
+initOtherWorldsPanel(placedObjects, activeNPCs);
+initVisitWorld(placedObjects, activeNPCs);
 if (isTouchDevice) initMobileControls();
 
 function startWorldTicks() {
@@ -229,6 +231,14 @@ async function boot() {
   startRenderLoop();
 
   await waitForPlay(data);
+
+  // First-time players have no name saved anywhere yet; prompting right
+  // after Play (rather than blocking the main menu itself) means a slow
+  // network never delays this, and it only ever fires once per browser.
+  if (!getPlayerName()) {
+    const entered = window.prompt("What should other players call you?", "");
+    if (entered && entered.trim()) setPlayerName(entered);
+  }
 
   // Everything that mutates the world/economy waits until after Play is
   // clicked, so nothing ticks away unseen while the player is still reading
