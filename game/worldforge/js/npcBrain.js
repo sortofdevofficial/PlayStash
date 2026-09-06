@@ -134,7 +134,7 @@ function createNpc(id, scene, pos, overrides = {}) {
   root.position.set(pos.x, 0, pos.z);
 
   return {
-    id, root, path: [], speed: 0.045, a: "IDLE", actionTimer: 0,
+    id, root, path: [], speed: 0.09, a: "IDLE", actionTimer: 0,
     targetObjId: null, stuckTimer: 0, climbProgress: 0, lastPos: root.position.clone(),
     name: NPC_NAMES[Math.floor(Math.random() * NPC_NAMES.length)],
     hunger: 100, happiness: 100, isStarving: false,
