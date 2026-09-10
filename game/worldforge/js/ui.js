@@ -9,15 +9,11 @@ export const RESOURCE_NAMES = {
   water: "Water"
 };
 
-export const state = {
+const state = {
   mode: "none",
   buildType: null,
   buildRotation: 0,
   isNight: false,
-  // Set true by index.js when the page was opened with ?view={uid} - every
-  // mutating action (build, remove, harvest) checks this and bails out, so
-  // visiting someone else's world is guaranteed read-only everywhere at once
-  // rather than needing a guard duplicated in every handler individually.
   isSpectating: false,
   resources: { wh: 100, stone: 80, food: 30, water: 20 },
   BUILD_COSTS: {
@@ -31,19 +27,30 @@ export const state = {
   }
 };
 
+/**
+ * Calculate the resource cap based on placed objects.
+ * Includes bonus capacity from storage objects.
+ */
 export function getResourceCap(placedObjects) {
   let storageCount = 0;
   if (placedObjects) {
-    placedObjects.forEach((o) => { if (o.type === "storage") storageCount++; });
+    placedObjects.forEach((o) => {
+      if (o.type === "storage") storageCount++;
+    });
   }
   return RESOURCE_BASE_CAP + storageCount * STORAGE_CAP_BONUS;
 }
 
+/**
+ * Add a clamped amount of a resource to the state.
+ * Ensures the value never goes below 0 or above the cap.
+ */
 export function addResourceClamped(key, amount, placedObjects) {
   if (!(key in state.resources)) return 0;
   const cap = getResourceCap(placedObjects);
   const before = state.resources[key] || 0;
-  state.resources[key] = Math.max(0, Math.min(cap, before + amount));
+  const newAmount = Math.max(0, Math.min(cap, before + amount));
+  state.resources[key] = newAmount;
   return state.resources[key] - before;
 }
 
@@ -53,33 +60,46 @@ function setResourceText(id, text) {
   if (el.textContent === text) return;
   el.textContent = text;
   el.classList.remove("value-pop");
-  void el.offsetWidth; 
+  void el.offsetWidth;
   el.classList.add("value-pop");
 }
 
+/**
+ * Update the resource counters in the UI.
+ */
 export function updateResourceUI(activeNPCsLength, maxCap, placedObjects) {
   const cap = getResourceCap(placedObjects);
-
   setResourceText("whCount", `${state.resources.wh}/${cap}`);
   setResourceText("stoneCount", `${state.resources.stone}/${cap}`);
   setResourceText("foodCount", `${state.resources.food}/${cap}`);
   setResourceText("waterCount", `${state.resources.water}/${cap}`);
-  if (document.getElementById("storageCap")) document.getElementById("storageCap").textContent = cap;
-  if (document.getElementById("popCount")) document.getElementById("popCount").textContent = `${activeNPCsLength}/${maxCap}`;
+  if (document.getElementById("storageCap")) {
+    document.getElementById("storageCap").textContent = cap;
+  }
+  if (document.getElementById("popCount")) {
+    document.getElementById("popCount").textContent = `${activeNPCsLength}/${maxCap}`;
+  }
 }
 
+/**
+ * Show a notification in the notifContainer.
+ * Gracefully handles missing container.
+ */
 export function showNotif(msg, type = "success") {
   const container = document.getElementById("notifContainer");
-  if (!container) return;
-  while (container.children.length >= 2) container.removeChild(container.firstChild);
+  if (!container) {
+    console.warn("Notification container not found.");
+    return;
+  }
+  while (container.children.length >= 2) {
+    container.removeChild(container.firstChild);
+  }
 
   const notif = document.createElement("div");
   notif.className = "mobile-notif";
   const badge = document.createElement("div");
-  badge.className = `notif-badge ${type === "warn" ? "warn" : type === "info" ? "info" : ""}`.trim();
+  badge.className = `notif-badge ${type === "warn" ? "warn" : type === "info" ? "info" : ""}`;
   const text = document.createElement("span");
-  // Messages can carry another player's saved name (visit notifications), so
-  // they are only ever assigned as text - never interpolated into markup.
   text.textContent = msg;
   notif.append(badge, text);
 
@@ -91,9 +111,20 @@ export function showNotif(msg, type = "success") {
   setTimeout(() => notif.remove(), 1600);
 }
 
+/**
+ * Display floating text at a world position.
+ * Requires BABYLON to be available.
+ */
 export function showFloatingText(text, worldPos, color = "#81C784", scene, camera, engine) {
-  const projected = BABYLON.Vector3.Project(
-    worldPos, BABYLON.Matrix.Identity(), scene.getTransformMatrix(),
+  if (!window.BABYLON) {
+    console.error("BABYLON library not loaded.");
+    return;
+  }
+
+  const projected = window.BABYLON.Vector3.Project(
+    worldPos, 
+    window.BABYLON.Matrix.Identity(), 
+    scene.getTransformMatrix(), 
     camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight())
   );
 
@@ -114,6 +145,9 @@ export function showFloatingText(text, worldPos, color = "#81C784", scene, camer
   setTimeout(() => popup.remove(), 800);
 }
 
+/**
+ * Highlight card elements based on the current building mode.
+ */
 export function updateCardHighlights() {
   ["hut", "campfire", "farm", "tower", "well", "storage", "market"].forEach((type) => {
     const el = document.getElementById(`card${type.charAt(0).toUpperCase() + type.slice(1)}`);
@@ -121,6 +155,9 @@ export function updateCardHighlights() {
   });
 }
 
+/**
+ * Deselect all modes and reset the state.
+ */
 export function deselectAllModes(ghosts, removeGhostBox) {
   state.mode = "none";
   state.buildType = null;
