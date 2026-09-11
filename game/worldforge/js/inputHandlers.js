@@ -1,8 +1,3 @@
-// All player input: canvas pointer events (placing/removing/harvesting/
-// selecting an NPC), keyboard shortcuts, and the build-menu/topbar button
-// clicks. Kept separate from world.js (which only knows how to create/
-// destroy objects) and npcPanel.js (which only knows how to render one NPC's
-// stats), so this file is purely "what does a click/keypress do".
 import { canvas, scene, camera, engine, playableGround, setEnvironmentLighting } from "./environment.js";
 import { worldToGrid, gridToWorldCenter, isFootprintValid, getMaxNPCCapacity } from "./npcBrain.js";
 import { state, showNotif, showFloatingText, updateCardHighlights, deselectAllModes, addResourceClamped, updateResourceUI } from "./ui.js";
@@ -21,9 +16,6 @@ let onSyncNPCs = () => {};
 
 export function getTargetGhostPos() { return targetGhostPos; }
 
-// index.js owns the shared collections and the "something changed, re-sync
-// stats/NPC counts" callbacks; this module just needs references to react to
-// input, not to own the data itself.
 export function initInputHandlers(deps) {
   placedObjects = deps.placedObjects;
   occupiedGrid = deps.occupiedGrid;
@@ -60,22 +52,15 @@ function bindPointerEvents() {
     const groundPickFilter = (m) => m === playableGround || m.metadata?.objId;
 
     if (info.type === BABYLON.PointerEventTypes.POINTERMOVE) {
-      // Spectators get no build/remove ghost feedback at all - state.mode
-      // never actually becomes "plant"/"remove" for them (see bindBuildMenu/
-      // bindTopbarButtons below), but skipping this early avoids wasted work
-      // and any chance of a ghost mesh flashing on screen for a visitor.
       if (state.isSpectating) return;
-
       const pick = scene.pick(scene.pointerX, scene.pointerY, groundPickFilter);
 
       if (pick.hit && pick.pickedPoint) {
         if (state.mode === "plant") {
           removeGhostBox.isVisible = false;
-
           const size = getFootprintSize();
           const g = worldToGrid(pick.pickedPoint);
           targetGhostPos = gridToWorldCenter(g.x, g.z, size);
-
           const isValid = isFootprintValid(g.x, g.z, size, occupiedGrid);
 
           Object.keys(ghosts).forEach((k) => {
@@ -127,8 +112,6 @@ function bindPointerEvents() {
           if (npcRoot) {
             const clickedNpc = activeNPCs.find((n) => n.id === npcRoot.name);
             if (clickedNpc) {
-              // Inspecting an NPC is read-only by nature, so this stays
-              // available even while spectating someone else's world.
               toggleTrackNpc(clickedNpc.id);
               return;
             }
@@ -136,15 +119,9 @@ function bindPointerEvents() {
         }
       }
 
-      // Everything below this point mutates the world (harvesting, placing,
-      // removing) - a visitor must never be able to do any of it, no matter
-      // how state.mode got set. This is the single choke point that
-      // guarantees that, rather than relying on every branch below to
-      // remember its own check.
       if (state.isSpectating) return;
 
       if (evt.button === 0 && state.mode === "none") {
-        // Direct tree chopping & stone mining in default explore mode
         const targetMesh = pick.pickedMesh;
         if (targetMesh && targetMesh.metadata?.objId) {
           const objData = placedObjects.get(targetMesh.metadata.objId);
@@ -152,7 +129,7 @@ function bindPointerEvents() {
             if (objData.type === "tree") {
               const gained = addResourceClamped("wh", 4, placedObjects);
               playSound("chop");
-              showFloatingText(gained > 0 ? "+4 Wheat 🌾" : "Storage full!", pick.pickedPoint, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
+              showFloatingText(gained > 0 ? "+4 Wood 🪵" : "Storage full!", pick.pickedPoint, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
             } else {
               const gained = addResourceClamped("stone", 4, placedObjects);
               playSound("mine");
@@ -169,7 +146,6 @@ function bindPointerEvents() {
       }
 
       if (evt.button === 2) {
-        // Right-click cancels active build or remove mode
         if (state.mode !== "none") {
           deselectAllModes(ghosts, removeGhostBox);
           return;
@@ -188,7 +164,7 @@ function bindPointerEvents() {
             if (objData.type === "tree") {
               const gained = addResourceClamped("wh", 4, placedObjects);
               playSound("chop");
-              showFloatingText(gained > 0 ? "+4 Wheat 🌾" : "Storage full!", pick.pickedPoint, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
+              showFloatingText(gained > 0 ? "+4 Wood 🪵" : "Storage full!", pick.pickedPoint, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
             } else {
               const gained = addResourceClamped("stone", 4, placedObjects);
               playSound("mine");
@@ -271,8 +247,6 @@ function bindTopbarButtons() {
   };
 
   document.getElementById("dayBtn").onclick = () => {
-    // Day/night is a local viewing preference, not a world mutation - fine
-    // to leave enabled for spectators.
     state.isNight = !state.isNight;
     setEnvironmentLighting(state.isNight);
     const dayBtn = document.getElementById("dayBtn");

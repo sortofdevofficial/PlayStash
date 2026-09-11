@@ -9,7 +9,7 @@ export const BOUND_MIN = -HALF_SIZE;
 export const BOUND_MAX = HALF_SIZE - 1;
 
 const NPC_THOUGHTS = {
-  CHOP: ["Harvesting wheat for building.", "Wheat harvest time!"],
+  CHOP: ["Harvesting wood for building.", "Wood harvest time!"],
   MINE: ["Clang! Stone is heavy today...", "Gathering rocks for walls."],
   DRAW_WATER: ["Cool water, good and fresh.", "Refill for the crops."],
   FARM: ["Crops take time to grow.", "Good food for the village."],
@@ -24,10 +24,6 @@ function getRandomThought(cat) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-// Thoughts now live in the Villagers roster panel rather than floating
-// bubbles over each NPC's head, and are throttled per-NPC so the roster
-// isn't rewriting itself constantly - a new thought only "sticks" if enough
-// real time has passed since that NPC's last one.
 const THOUGHT_COOLDOWN_SECONDS = 12;
 function setThought(npc, category) {
   const now = performance.now() / 1000;
@@ -70,13 +66,12 @@ export function isTileNearStructure(rootX, rootZ, placedObjects, minDistance = 3
   return false;
 }
 
-// UPDATED: Now takes npcPos to find the closest adjacent tile instead of just any tile
 export function findAdjacentFreeTile(rootX, rootZ, size, occupiedGrid, npcPos = { x: 0, z: 0 }) {
   const candidates = [
-    { x: rootX - 1, z: rootZ }, // Left
-    { x: rootX + size, z: rootZ }, // Right
-    { x: rootX, z: rootZ - 1 }, // North
-    { x: rootX, z: rootZ + size } // South
+    { x: rootX - 1, z: rootZ },
+    { x: rootX + size, z: rootZ },
+    { x: rootX, z: rootZ - 1 },
+    { x: rootX, z: rootZ + size }
   ];
 
   const validTiles = candidates.filter(
@@ -85,7 +80,6 @@ export function findAdjacentFreeTile(rootX, rootZ, size, occupiedGrid, npcPos = 
 
   if (validTiles.length === 0) return null;
 
-  // Return the tile closest to the NPC's current grid position
   return validTiles.reduce((prev, curr) => {
     const distPrev = Math.abs(prev.x - npcPos.x) + Math.abs(prev.z - npcPos.z);
     const distCurr = Math.abs(curr.x - npcPos.x) + Math.abs(curr.z - npcPos.z);
@@ -123,13 +117,9 @@ export function getMaxNPCCapacity(placedObjects) {
 }
 
 const NPC_NAMES = ["Bram", "Kael", "Lyra", "Torn", "Elian", "Mila", "Rowan"];
-
-// Tiles per second. models/npc.js scales the walk stride off this, so changing
-// it here changes both how fast villagers move and how fast their legs cycle.
 export const WALK_SPEED = 9;
 
 let npcIdCounter = 0;
-
 export function setNpcIdSeed(n) { npcIdCounter = Math.max(npcIdCounter, n); }
 export function nextNpcId() { return String(++npcIdCounter); }
 
@@ -303,7 +293,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
             if (objData.type === "tree") {
               const gained = addResourceClamped("wh", 4, placedObjects);
               playSound("chop");
-              showFloatingText(gained > 0 ? "+4 Wheat 🌾" : "Storage Full!", pos, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
+              showFloatingText(gained > 0 ? "+4 Wood 🪵" : "Storage Full!", pos, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
               objData.health = (objData.health || 3) - 1;
               if (objData.health <= 0) removeObjectById(npc.targetObjId);
             } else if (objData.type === "stone") {
@@ -329,7 +319,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
                 addResourceClamped("food", 15, placedObjects);
                 addResourceClamped("water", 15, placedObjects);
                 playSound("place");
-                showFloatingText("Traded Wheat/Stone! 🛒", pos, "#B0BEC5", scene, camera, engine);
+                showFloatingText("Traded Wood/Stone! 🛒", pos, "#B0BEC5", scene, camera, engine);
               }
             }
             updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
@@ -354,7 +344,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
       });
 
       if (targetTower) {
-        // Pass currentG to find the closest adjacent tile
         const freeTile = findAdjacentFreeTile(targetTower.obj.rootX, targetTower.obj.rootZ, targetTower.obj.size, occupiedGrid, currentG);
         if (freeTile) {
           const rawPath = findPath(currentG, freeTile, occupiedGrid);
@@ -379,7 +368,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
           if (reserved.has(id)) return;
           if (obj.type === "farm" && (!obj.isReady || obj.growthTimer > 0)) return;
 
-          // Pass currentG to find the closest adjacent tile
           const freeTile = findAdjacentFreeTile(obj.rootX, obj.rootZ, obj.size, occupiedGrid, currentG);
           if (freeTile) {
             const dist = Math.abs(freeTile.x - currentG.x) + Math.abs(freeTile.z - currentG.z);
@@ -479,9 +467,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
           }
         }
       } else {
-        // Delta-scaled so villagers cover the same ground per second on a 60Hz
-        // and a 144Hz display, and clamped to what is left of the waypoint so a
-        // long frame cannot step past it and stall the arrival check above.
         const step = Math.min(npc.speed * deltaTime, dist);
         npc.root.position.x += (dx / dist) * step;
         npc.root.position.z += (dz / dist) * step;
