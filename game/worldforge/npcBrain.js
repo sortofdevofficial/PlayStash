@@ -35,34 +35,58 @@ function setThought(npc, category) {
 
 // Natural Disasters
 const NATURAL_DISASTERS = [
-  { name: "earthquake", chance: 0.0001, effect: (npcs) => {
+  {
+    name: "Earthquake 🌍",
+    effect: (npcs, scene, camera, engine) => {
       npcs.forEach(npc => {
-        if (Math.random() < 0.3) {
-          npc.health = Math.max(0, npc.health - 20);
-          showFloatingText("Earthquake! 🌍", npc.root.position, "#FF4757", scene, camera, engine);
+        if (!npc.isDead && Math.random() < 0.7) {
+          const dmg = 20 + Math.floor(Math.random() * 20);
+          npc.health = Math.max(0, npc.health - dmg);
+          showFloatingText(`Earthquake -${dmg} HP! 🌍`, npc.root.position, "#FF4757", scene, camera, engine);
         }
       });
-    },
-    duration: 3.0
+    }
   },
-  { name: "lightning_strike", chance: 0.00005, effect: (npcs) => {
-      const target = npcs[Math.floor(Math.random() * npcs.length)];
-      target.health = Math.max(0, target.health - 40);
-      showFloatingText("Lightning! ⚡", target.root.position, "#FFD700", scene, camera, engine);
-    },
-    duration: 2.0
+  {
+    name: "Lightning Strike ⚡",
+    effect: (npcs, scene, camera, engine) => {
+      const living = npcs.filter(n => !n.isDead);
+      if (living.length > 0) {
+        const target = living[Math.floor(Math.random() * living.length)];
+        const dmg = 45 + Math.floor(Math.random() * 25);
+        target.health = Math.max(0, target.health - dmg);
+        showFloatingText(`Lightning -${dmg} HP! ⚡`, target.root.position, "#FFD700", scene, camera, engine);
+      }
+    }
   },
-  { name: "wildfire", chance: 0.00008, effect: (npcs) => {
+  {
+    name: "Wildfire 🔥",
+    effect: (npcs, scene, camera, engine) => {
       npcs.forEach(npc => {
-        if (Math.random() < 0.2) {
-          npc.health = Math.max(0, npc.health - 15);
-          showFloatingText("Wildfire! 🔥", npc.root.position, "#FF4500", scene, camera, engine);
+        if (!npc.isDead && Math.random() < 0.6) {
+          const dmg = 15 + Math.floor(Math.random() * 15);
+          npc.health = Math.max(0, npc.health - dmg);
+          showFloatingText(`Wildfire -${dmg} HP! 🔥`, npc.root.position, "#FF4500", scene, camera, engine);
         }
       });
-    },
-    duration: 5.0
+    }
+  },
+  {
+    name: "Flash Flood 🌊",
+    effect: (npcs, scene, camera, engine) => {
+      npcs.forEach(npc => {
+        if (!npc.isDead && Math.random() < 0.5) {
+          const dmg = 25;
+          npc.health = Math.max(0, npc.health - dmg);
+          showFloatingText(`Flood -${dmg} HP! 🌊`, npc.root.position, "#29B6F6", scene, camera, engine);
+        }
+      });
+    }
   }
 ];
+
+let disasterTimer = 0;
+const DISASTER_INTERVAL = 25; // Trigger a disaster every 25 seconds
 
 export function tileKey(x, z) { return `c: ${x},${z}`; }
 export function worldToGrid(pos) { return { x: Math.floor(pos.x), z: Math.floor(pos.z) }; }
@@ -162,8 +186,9 @@ function createNpc(id, scene, pos, overrides = {}) {
   return {
     id, root, path: [], speed: WALK_SPEED, a: "IDLE", actionTimer: 0,
     targetObjId: null, stuckTimer: 0, climbProgress: 0, lastPos: root.position.clone(),
-    name: NPC_NAMES[Math.floor(Math.random() * NPC_NAMES.length)],
+    name: overrides.name || NPC_NAMES[Math.floor(Math.random() * NPC_NAMES.length)],
     hunger: 100, happiness: 100, health: 100, isStarving: false, isDead: false,
+    respawning: false,
     lastThought: null, lastThoughtAt: 0,
     ...overrides
   };
@@ -214,7 +239,7 @@ export function checkCampfireNPCSymmetry(activeNPCs, placedObjects, scene, shado
   while (activeNPCs.length > maxCap) {
     const removed = activeNPCs.pop();
     if (removed) {
-      removed.root.dispose();
+      if (removed.root) removed.root.dispose();
       showNotif("NPC Left", "warn");
     }
   }
@@ -223,20 +248,54 @@ export function checkCampfireNPCSymmetry(activeNPCs, placedObjects, scene, shado
   updateStats();
 }
 
-export function triggerNaturalDisaster(activeNPCs, scene, camera, engine) {
-  const now = performance.now() / 1000;
-  const disaster = NATURAL_DISASTERS.find(d => Math.random() < d.chance && !d.activeAt);
-
-  if (disaster) {
-    disaster.activeAt = now;
-    disaster.effect(activeNPCs);
+export function triggerNaturalDisaster(deltaTime, activeNPCs, scene, camera, engine) {
+  if (activeNPCs.length === 0) return;
+  disasterTimer += deltaTime;
+  if (disasterTimer >= DISASTER_INTERVAL) {
+    disasterTimer = 0;
+    const disaster = NATURAL_DISASTERS[Math.floor(Math.random() * NATURAL_DISASTERS.length)];
     showNotif(`Natural Disaster: ${disaster.name}!`, "warn");
-    setTimeout(() => {
-      if (disaster.activeAt === now) {
-        disaster.activeAt = null;
-      }
-    }, disaster.duration * 1000);
+    disaster.effect(activeNPCs, scene, camera, engine);
   }
+}
+
+function respawnExactNPC(npc, scene, camera, engine, placedObjects) {
+  npc.respawning = true;
+  setThought(npc, "DYING");
+  showNotif(`${npc.name} died! Respawning in 3 seconds...`, "warn");
+
+  setTimeout(() => {
+    let spawnPos = { x: 0.5, z: 0.5 };
+    const campfires = Array.from(placedObjects.values()).filter(o => o.type === "campfire");
+    if (campfires.length > 0) {
+      const cf = campfires[0];
+      const pos = gridToWorldCenter(cf.rootX, cf.rootZ, cf.size);
+      spawnPos = { x: pos.x, z: pos.z };
+    }
+
+    if (npc.root) {
+      npc.root.dispose();
+    }
+    const newRoot = createLowPolyNPC(npc.id, scene);
+    newRoot.position.set(spawnPos.x, 0, spawnPos.z);
+
+    npc.root = newRoot;
+    npc.health = 100;
+    npc.hunger = 100;
+    npc.happiness = 100;
+    npc.isStarving = false;
+    npc.isDead = false;
+    npc.respawning = false;
+    npc.a = "IDLE";
+    npc.path = [];
+    npc.targetObjId = null;
+    npc.actionTimer = 0;
+    npc.climbProgress = 0;
+    npc.lastPos = newRoot.position.clone();
+
+    showFloatingText(`${npc.name} Respawned! ✨`, newRoot.position, "#00FF7F", scene, camera, engine);
+    showNotif(`${npc.name} has respawned!`, "info");
+  }, 3000);
 }
 
 export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, scene, camera, engine, removeObjectById) {
@@ -261,33 +320,20 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
     }
   });
 
-  // Trigger natural disasters
-  triggerNaturalDisaster(activeNPCs, scene, camera, engine);
+  // Trigger natural disasters periodically
+  triggerNaturalDisaster(deltaTime, activeNPCs, scene, camera, engine);
 
   activeNPCs.forEach((npc) => {
-    if (npc.isDead) {
-      if (Math.random() < 0.001) {
-        // Respawn NPC after a delay
-        setTimeout(() => {
-          const spawnX = Math.floor(Math.random() * (BOUND_MAX - BOUND_MIN - 1)) + BOUND_MIN;
-          const spawnZ = Math.floor(Math.random() * (BOUND_MAX - BOUND_MIN - 1)) + BOUND_MIN;
-          const newNpc = createNpc(npc.id, scene, { x: spawnX + 0.5, z: spawnZ + 0.5 });
-          const index = activeNPCs.indexOf(npc);
-          if (index !== -1) {
-            activeNPCs.splice(index, 1);
-          }
-          activeNPCs.push(newNpc);
-          showNotif(`${newNpc.name} has respawned!`, "info");
-        }, 10000);
-      }
+    if (npc.isDead || npc.respawning) {
       return;
     }
 
     if (npc.health <= 0) {
       npc.isDead = true;
-      npc.root.dispose();
-      showNotif(`${npc.name} has died!`, "warn");
-      setThought(npc, "DYING");
+      if (npc.root) {
+        npc.root.dispose();
+      }
+      respawnExactNPC(npc, scene, camera, engine, placedObjects);
       return;
     }
 
@@ -336,9 +382,18 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
         npc.isStarving = false;
         showFloatingText("-1 Food 🌽", npc.root.position, "#FFD54F", scene, camera, engine);
         updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
-      } else if (npc.hunger === 0 && !npc.isStarving) {
-        showNotif(`${npc.name} is starving!`, "warn");
-        npc.isStarving = true;
+      } else if (npc.hunger === 0) {
+        if (!npc.isStarving) {
+          showNotif(`${npc.name} is starving!`, "warn");
+          npc.isStarving = true;
+        }
+        npc.health = Math.max(0, npc.health - deltaTime * 8);
+        if (npc.health <= 0) {
+          npc.isDead = true;
+          if (npc.root) npc.root.dispose();
+          respawnExactNPC(npc, scene, camera, engine, placedObjects);
+          return;
+        }
       }
     }
 
@@ -391,7 +446,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
               playSound("place");
               showFloatingText(gained > 0 ? "+15 Water 💧" : "Storage Full!", pos, gained > 0 ? "#5CC7E6" : "#e07263", scene, camera, engine);
             } else if (objData.type === "market") {
-              // Trade wood or stone for food/water, or surplus food/water for building materials
               if (state.resources.wh >= 5 || state.resources.stone >= 5) {
                 if (state.resources.wh >= 5) {
                   state.resources.wh -= 5;
@@ -473,7 +527,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
           if (reserved.has(id)) return;
           if (obj.type === "farm" && (!obj.isReady || obj.growthTimer > 0)) return;
 
-          // If market, check if we actually have tradeable surplus before prioritising it
           if (obj.type === "market") {
             const canTrade = state.resources.wh >= 5 || state.resources.stone >= 5 || state.resources.food >= 15 || state.resources.water >= 15;
             if (!canTrade) return;
