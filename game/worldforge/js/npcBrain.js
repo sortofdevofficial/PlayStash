@@ -313,13 +313,40 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
               playSound("place");
               showFloatingText(gained > 0 ? "+15 Water 💧" : "Storage Full!", pos, gained > 0 ? "#5CC7E6" : "#e07263", scene, camera, engine);
             } else if (objData.type === "market") {
-              if (state.resources.wh >= 10 && state.resources.stone >= 10) {
-                state.resources.wh -= 10;
-                state.resources.stone -= 10;
-                addResourceClamped("food", 15, placedObjects);
-                addResourceClamped("water", 15, placedObjects);
+              // Trade wood or stone for food/water, or surplus food/water for building materials
+              if (state.resources.wh >= 5 || state.resources.stone >= 5) {
+                if (state.resources.wh >= 5) {
+                  state.resources.wh -= 5;
+                  if (state.resources.food <= state.resources.water) {
+                    addResourceClamped("food", 12, placedObjects);
+                    showFloatingText("+12 Food 🌽 (Traded Wood)", pos, "#B0BEC5", scene, camera, engine);
+                  } else {
+                    addResourceClamped("water", 12, placedObjects);
+                    showFloatingText("+12 Water 💧 (Traded Wood)", pos, "#B0BEC5", scene, camera, engine);
+                  }
+                } else {
+                  state.resources.stone -= 5;
+                  if (state.resources.food <= state.resources.water) {
+                    addResourceClamped("food", 12, placedObjects);
+                    showFloatingText("+12 Food 🌽 (Traded Stone)", pos, "#B0BEC5", scene, camera, engine);
+                  } else {
+                    addResourceClamped("water", 12, placedObjects);
+                    showFloatingText("+12 Water 💧 (Traded Stone)", pos, "#B0BEC5", scene, camera, engine);
+                  }
+                }
                 playSound("place");
-                showFloatingText("Traded Wood/Stone! 🛒", pos, "#B0BEC5", scene, camera, engine);
+              } else if (state.resources.food >= 15) {
+                state.resources.food -= 10;
+                addResourceClamped("wh", 8, placedObjects);
+                playSound("place");
+                showFloatingText("+8 Wood 🪵 (Traded Food)", pos, "#B0BEC5", scene, camera, engine);
+              } else if (state.resources.water >= 15) {
+                state.resources.water -= 10;
+                addResourceClamped("stone", 8, placedObjects);
+                playSound("place");
+                showFloatingText("+8 Stone 🪨 (Traded Water)", pos, "#B0BEC5", scene, camera, engine);
+              } else {
+                showFloatingText("No goods to trade! 🛒", pos, "#e07263", scene, camera, engine);
               }
             }
             updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
@@ -367,6 +394,12 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
           if (!workable) return;
           if (reserved.has(id)) return;
           if (obj.type === "farm" && (!obj.isReady || obj.growthTimer > 0)) return;
+
+          // If market, check if we actually have tradeable surplus before prioritising it
+          if (obj.type === "market") {
+            const canTrade = state.resources.wh >= 5 || state.resources.stone >= 5 || state.resources.food >= 15 || state.resources.water >= 15;
+            if (!canTrade) return;
+          }
 
           const freeTile = findAdjacentFreeTile(obj.rootX, obj.rootZ, obj.size, occupiedGrid, currentG);
           if (freeTile) {
