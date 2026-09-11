@@ -9,7 +9,8 @@ export const RESOURCE_NAMES = {
   water: "Water"
 };
 
-const state = {
+// Export the state object
+export const state = {
   mode: "none",
   buildType: null,
   buildRotation: 0,
