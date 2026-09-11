@@ -1,13 +1,54 @@
 import { showFloatingText } from "../js/ui.js";
 
+export class Earthquake {
+  constructor(scene) {
+    this.scene = scene;
+    this.active = false;
+    this.originalTarget = null;
+    this.animObserver = null;
+  }
+
+  activate() {
+    if (this.active) return;
+    this.active = true;
+
+    const camera = this.scene.activeCamera;
+    if (camera) {
+      this.originalTarget = camera.target ? camera.target.clone() : null;
+      this.animObserver = this.scene.onBeforeRenderObservable.add(() => {
+        if (!this.active || !camera.target) return;
+        const shakeX = (Math.random() - 0.5) * 0.4;
+        const shakeZ = (Math.random() - 0.5) * 0.4;
+        camera.target.x = (this.originalTarget ? this.originalTarget.x : 0) + shakeX;
+        camera.target.z = (this.originalTarget ? this.originalTarget.z : 0) + shakeZ;
+      });
+    }
+  }
+
+  deactivate() {
+    if (!this.active) return;
+    this.active = false;
+
+    if (this.animObserver) {
+      this.scene.onBeforeRenderObservable.remove(this.animObserver);
+      this.animObserver = null;
+    }
+
+    const camera = this.scene.activeCamera;
+    if (camera && this.originalTarget) {
+      camera.target.copyFrom(this.originalTarget);
+    }
+  }
+}
+
 export const earthquake = {
-  name: "Earthquake 🌍",
+  name: "Earthquake 🌋",
   trigger(npcs, scene, camera, engine) {
     npcs.forEach(npc => {
       if (!npc.isDead && Math.random() < 0.7) {
         const dmg = 20 + Math.floor(Math.random() * 20);
         npc.health = Math.max(0, npc.health - dmg);
-        showFloatingText(`Earthquake -${dmg} HP! 🌍`, npc.root.position, "#FF4757", scene, camera, engine);
+        showFloatingText(`Quake -${dmg} HP! 🌋`, npc.root.position, "#FFA500", scene, camera, engine);
       }
     });
   }
