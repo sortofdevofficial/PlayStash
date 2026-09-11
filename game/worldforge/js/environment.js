@@ -202,3 +202,30 @@ export function createLowPolyTree(name, scene, materials) {
 
   return root;
 }
+
+// Natural Disasters Management
+import { Flood } from '../nd/flood.js';
+
+let activeDisaster = null;
+
+export function triggerDisaster(type) {
+  if (activeDisaster) {
+    activeDisaster.deactivate();
+  }
+
+  switch (type) {
+    case 'flood':
+      activeDisaster = new Flood(scene, envMaterials);
+      activeDisaster.activate();
+      break;
+    default:
+      console.warn(`Unknown disaster type: ${type}`);
+  }
+}
+
+export function stopDisaster() {
+  if (activeDisaster) {
+    activeDisaster.deactivate();
+    activeDisaster = null;
+  }
+}
