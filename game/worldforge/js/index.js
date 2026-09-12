@@ -24,7 +24,7 @@ import {
   getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs
 } from "./npcBrain.js";
 import { state, updateResourceUI, showNotif } from "./ui.js";
-import { authReady, loadSave, loadWorldByUid, initAutosave, markDirty, getPlayerId, getPlayerName, setPlayerName, serializeWorld, BUILD_CODE } from "./db.js";
+import { authReady, loadSave, loadWorldByUid, initAutosave, markDirty, getPlayerId, serializeWorld, BUILD_CODE } from "./db.js";
 import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById } from "./world.js";
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
 import { initNpcPanel, tickNpcPanel, getTrackedNpcId, clearTrackedNpc } from "./npcPanel.js";
@@ -97,11 +97,11 @@ pipeline.imageProcessing.toneMappingType = BABYLON.ImageProcessingConfiguration.
 pipeline.imageProcessing.vignetteEnabled = true;
 pipeline.imageProcessing.vignetteWeight = 0.4;
 
-  if (playableGround) {
-    playableGround.position.set(0, 0, 0);
-    playableGround.isVisible = true;
-    playableGround.isPickable = true;
-  }
+if (playableGround) {
+  playableGround.position.set(0, 0, 0);
+  playableGround.isVisible = true;
+  playableGround.isPickable = true;
+}
 
 const ghosts = {
   hut: createLowPolyHut("ghostHut", scene),
@@ -251,14 +251,8 @@ async function boot() {
 
   await waitForPlay(data);
 
-  // First-time players have no name saved anywhere yet; prompting right
-  // after Play (rather than blocking the main menu itself) means a slow
-  // network never delays this, and it only ever fires once per browser.
-  // Never reached while spectating - boot() already returned above for that.
-  if (!getPlayerName()) {
-    const entered = window.prompt("What should other players call you?", "");
-    if (entered && entered.trim()) setPlayerName(entered);
-  }
+  // Player naming is handled entirely by the PlayStash lobby's Google sign-in
+  // (u/{uid}/i/dn) - the game itself never prompts for or stores a name.
 
   startWorldTicks();
   startDisasterSystem(activeNPCs, (name) => showNotif(`${name} incoming!`, "warn"));

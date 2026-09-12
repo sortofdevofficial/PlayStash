@@ -82,28 +82,6 @@ let onStatus = () => {};
 
 export function getPlayerId() { return playerId; }
 
-const PLAYER_NAME_STORAGE_KEY = "worldforge_player_name";
-
-export function getPlayerName() {
-  try {
-    return localStorage.getItem(PLAYER_NAME_STORAGE_KEY) || null;
-  } catch {
-    return null; // localStorage can throw in some locked-down/private-browsing contexts
-  }
-}
-
-export function setPlayerName(name) {
-  const trimmed = (name || "").trim().slice(0, 24); // keep it short enough to fit in HUD rows
-  try {
-    if (trimmed) localStorage.setItem(PLAYER_NAME_STORAGE_KEY, trimmed);
-    else localStorage.removeItem(PLAYER_NAME_STORAGE_KEY);
-  } catch {
-    // ignore - worst case the name just doesn't persist across reloads
-  }
-  markDirty(); // so the new name gets pushed up on the next save
-  return trimmed;
-}
-
 export function authReady() {
   if (!auth) return Promise.resolve(null);
 
@@ -158,7 +136,10 @@ export async function loadSave() {
 
 export function serializeWorld(placedObjects, activeNPCs, gameState) {
   // Anything left at its restore-side default is omitted, so a full-health
-  // unrotated build stores nothing but its coordinates.
+  // unrotated build stores nothing but its coordinates. Player name is
+  // deliberately NOT stored here - it already lives at u/{uid}/i/dn from
+  // the lobby's Google sign-in, and duplicating it into every game's save
+  // would just be two copies that can drift out of sync.
   const r = {};
   for (const [internal, short] of Object.entries(RESOURCE_KEY_MAP)) {
     const amount = Math.round(gameState.resources[internal] || 0);
@@ -197,7 +178,6 @@ export function serializeWorld(placedObjects, activeNPCs, gameState) {
 
   // null deletes the subtree, so a cleared world does not leave stale children behind.
   return {
-    pn: getPlayerName() || null,
     r: Object.keys(r).length ? r : null,
     b: Object.keys(b).length ? b : null,
     n: Object.keys(n).length ? n : null
@@ -253,22 +233,29 @@ export function flushNow() {
 }
 
 // Lists other players' saved worlds for this game (read-only, public per the
-// database rules). Returns [{ uid, buildingCount, npcCount }], excluding our
-// own save since that one is already visible locally.
+// database rules). Returns [{ uid, name, buildingCount, npcCount }], excluding
+// our own save since that one is already visible locally. Names come from
+// u/{uid}/i/dn - the same display name the PlayStash lobby shows and writes
+// on Google sign-in - rather than a separate copy stored per-game.
 export async function listOtherWorlds() {
   if (!get || !ref || !db) return [];
   try {
-    const snap = await get(ref(db, `G/${GAME_ID}`));
-    if (!snap.exists()) return [];
+    const [worldsSnap, usersSnap] = await Promise.all([
+      get(ref(db, `G/${GAME_ID}`)),
+      get(ref(db, "u"))
+    ]);
+    if (!worldsSnap.exists()) return [];
+
+    const usersData = usersSnap.exists() ? usersSnap.val() : {};
 
     const out = [];
-    snap.forEach((childSnap) => {
+    worldsSnap.forEach((childSnap) => {
       const uid = childSnap.key;
       if (uid === playerId) return;
       const val = childSnap.val() || {};
       out.push({
         uid,
-        name: val.pn || null,
+        name: usersData[uid]?.i?.dn || null,
         buildingCount: val.b ? Object.keys(val.b).length : 0,
         npcCount: val.n ? Object.keys(val.n).length : 0
       });
