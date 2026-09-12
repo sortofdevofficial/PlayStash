@@ -21,7 +21,7 @@ export const state = {
     hut: { wh: 20, stone: 10, food: 0, water: 0 },
     campfire: { wh: 10, stone: 10, food: 0, water: 0 },
     farm: { wh: 15, stone: 5, food: 0, water: 5 },
-    tower: { wh: 30, stone: 25, food: 0, water: 0 },
+    tower: { wh: 30, stone: 25, food: 10, water: 0 },
     well: { wh: 15, stone: 15, food: 0, water: 0 },
     storage: { wh: 25, stone: 10, food: 0, water: 0 },
     market: { wh: 20, stone: 20, food: 0, water: 0 }
@@ -122,10 +122,12 @@ export function showFloatingText(text, worldPos, color = "#81C784", scene, camer
     return;
   }
 
+  if (!worldPos || !scene || !camera || !engine) return;
+
   const projected = window.BABYLON.Vector3.Project(
-    worldPos, 
-    window.BABYLON.Matrix.Identity(), 
-    scene.getTransformMatrix(), 
+    worldPos,
+    window.BABYLON.Matrix.Identity(),
+    scene.getTransformMatrix(),
     camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight())
   );
 

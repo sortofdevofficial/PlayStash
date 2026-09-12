@@ -17,13 +17,13 @@ import { createMarket } from "./models/market.js";
 import { updateGusts, initAmbientAudio } from "./audio.js";
 import {
   engine, scene, camera, updateCameraControls,
-  playableGround, BUILD_SIZE,
-  startDisasterSystem, stopDisasterSystem, isDisasterActive, getActiveDisasterName, triggerDisaster
+  playableGround,
+  startDisasterSystem
 } from "./environment.js";
 import {
   getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs
 } from "./npcBrain.js";
-import { state, updateResourceUI, addResourceClamped, showNotif } from "./ui.js";
+import { state, updateResourceUI, showNotif } from "./ui.js";
 import { authReady, loadSave, loadWorldByUid, initAutosave, markDirty, getPlayerId, getPlayerName, setPlayerName, serializeWorld, BUILD_CODE } from "./db.js";
 import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById } from "./world.js";
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
@@ -97,12 +97,11 @@ pipeline.imageProcessing.toneMappingType = BABYLON.ImageProcessingConfiguration.
 pipeline.imageProcessing.vignetteEnabled = true;
 pipeline.imageProcessing.vignetteWeight = 0.4;
 
-if (playableGround) {
-  playableGround.position.set(0, 0, 0);
-  playableGround.scaling.set(BUILD_SIZE + 40, 1, BUILD_SIZE + 40);
-  playableGround.isVisible = true;
-  playableGround.isPickable = true;
-}
+  if (playableGround) {
+    playableGround.position.set(0, 0, 0);
+    playableGround.isVisible = true;
+    playableGround.isPickable = true;
+  }
 
 const ghosts = {
   hut: createLowPolyHut("ghostHut", scene),
@@ -145,15 +144,6 @@ if (isTouchDevice) initMobileControls();
 
 function startWorldTicks() {
   setInterval(spawnRandomWildernessNode, 3500);
-
-  setInterval(() => {
-    const farmCount = Array.from(placedObjects.values()).filter((o) => o.type === "farm").length;
-    if (farmCount > 0) {
-      addResourceClamped("food", farmCount * 2, placedObjects);
-      markDirty();
-      updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
-    }
-  }, 5000);
 }
 
 let elapsedTime = 0;
@@ -271,6 +261,7 @@ async function boot() {
   }
 
   startWorldTicks();
+  startDisasterSystem(activeNPCs, (name) => showNotif(`${name} incoming!`, "warn"));
   initAutosave({ placedObjects, activeNPCs, state }, setSaveStatus);
   setSaveStatus(uid ? "ready" : "offline");
 }

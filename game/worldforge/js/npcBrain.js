@@ -190,13 +190,15 @@ export function checkCampfireNPCSymmetry(activeNPCs, placedObjects, scene, shado
   while (activeNPCs.length > maxCap) {
     const removed = activeNPCs.pop();
     if (removed) {
+      removed.respawning = false;
+      removed.isDead = true;
       if (removed.root) removed.root.dispose();
       showNotif("NPC Left", "warn");
     }
   }
 
   updateResourceUI(activeNPCs.length, maxCap, placedObjects);
-  updateStats();
+  if (typeof updateStats === "function") updateStats();
 }
 
 function respawnExactNPC(npc, scene, camera, engine, placedObjects) {
@@ -205,6 +207,8 @@ function respawnExactNPC(npc, scene, camera, engine, placedObjects) {
   showNotif(`${npc.name} died! Respawning in 3 seconds...`, "warn");
 
   setTimeout(() => {
+    if (!npc.respawning) return;
+
     let spawnPos = { x: 0.5, z: 0.5 };
     const campfires = Array.from(placedObjects.values()).filter(o => o.type === "campfire");
     if (campfires.length > 0) {
@@ -318,13 +322,15 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
 
     npc.hunger = Math.max(0, npc.hunger - deltaTime * 0.35);
     if (npc.hunger < 40) {
+      npc.happiness = Math.max(0, npc.happiness - deltaTime * 2.5);
       if (state.resources.food > 0) {
         state.resources.food -= 1;
         npc.hunger = 100;
         npc.isStarving = false;
+        npc.happiness = Math.min(100, npc.happiness + 12);
         showFloatingText("-1 Food 🌽", npc.root.position, "#FFD54F", scene, camera, engine);
         updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
-      } else if (npc.hunger === 0) {
+      } else if (npc.hunger <= 0) {
         if (!npc.isStarving) {
           showNotif(`${npc.name} is starving!`, "warn");
           npc.isStarving = true;
@@ -337,6 +343,8 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
           return;
         }
       }
+    } else {
+      npc.happiness = Math.min(100, npc.happiness + deltaTime * 1.2);
     }
 
     let taskSpeedMult = 1.0;
@@ -451,8 +459,14 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
           if (rawPath !== null) {
             npc.targetObjId = targetTower.id;
             npc.pendingAction = "CLIMB";
-            npc.path = rawPath.map((pt) => gridToWorldCenter(pt.x, pt.z, 1));
             setThought(npc, "CLIMB");
+            if (rawPath.length > 0) {
+              npc.path = rawPath.map((pt) => gridToWorldCenter(pt.x, pt.z, 1));
+            } else {
+              npc.path = [];
+              npc.a = "CLIMB";
+              npc.climbProgress = 0;
+            }
             return;
           }
         }

@@ -1,6 +1,20 @@
 export const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+let muted = false;
+
+export function isAudioMuted() { return muted; }
+
+export function setAudioMuted(next) {
+  muted = !!next;
+  if (muted) {
+    if (audioCtx.state === "running") audioCtx.suspend();
+  } else if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+}
+
 export function playSound(type) {
+  if (muted) return;
   if (audioCtx.state === "suspended") audioCtx.resume();
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
@@ -89,6 +103,7 @@ export function initAmbientAudio() {
 
   // Procedural Bird Chirps
   setInterval(() => {
+    if (muted) return;
     if (Math.random() > 0.4 && audioCtx.state === "running") {
       const birdOsc = audioCtx.createOscillator();
       const birdGain = audioCtx.createGain();

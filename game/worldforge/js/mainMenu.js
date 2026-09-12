@@ -1,7 +1,6 @@
-import { audioCtx } from "./audio.js";
+import { audioCtx, isAudioMuted, setAudioMuted } from "./audio.js";
 
 let pendingPlayResolve = null;
-let isAudioMuted = false;
 
 export function waitForPlay(data) {
   return new Promise((resolve) => {
@@ -47,7 +46,7 @@ function showMainMenu(data) {
       pendingPlayResolve();
       pendingPlayResolve = null;
     }
-    if (audioCtx && audioCtx.state === "suspended" && !isAudioMuted) {
+    if (audioCtx && audioCtx.state === "suspended" && !isAudioMuted()) {
       audioCtx.resume();
     }
   };
@@ -70,14 +69,8 @@ function showMainMenu(data) {
 
   if (audioBtn) {
     audioBtn.onclick = () => {
-      isAudioMuted = !isAudioMuted;
-      if (isAudioMuted) {
-        if (audioCtx && audioCtx.state === "running") audioCtx.suspend();
-        audioBtn.textContent = "🔇 Sound: Off";
-      } else {
-        if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
-        audioBtn.textContent = "🔊 Sound: On";
-      }
+      setAudioMuted(!isAudioMuted());
+      audioBtn.textContent = isAudioMuted() ? "🔇 Sound: Off" : "🔊 Sound: On";
     };
   }
 }

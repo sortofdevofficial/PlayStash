@@ -182,8 +182,10 @@ export function serializeWorld(placedObjects, activeNPCs, gameState) {
     };
     const hunger = Math.round(npc.hunger);
     const happiness = Math.round(npc.happiness);
+    const health = Math.round(npc.health);
     if (hunger < 100) node.h = hunger;
     if (happiness < 100) node.hp = happiness;
+    if (Number.isFinite(health) && health < 100) node.health = health;
     n[npc.id] = node;
   });
 

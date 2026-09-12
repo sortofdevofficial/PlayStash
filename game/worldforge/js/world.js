@@ -120,16 +120,22 @@ function disposeRoot(root) {
   root.dispose(false, true);
 }
 
-export function removeObjectById(objId, onHoveredCleared) {
+export function removeObjectById(objId, onHoveredCleared, options = {}) {
   const data = placedObjects.get(objId);
   if (!data) return;
 
   data.tiles.forEach((t) => occupiedGrid.delete(tileKey(t.x, t.z)));
 
-  // Refund the resources this structure originally cost - trees/stone were
-  // never "built" by the player (they're wilderness nodes), so only types
-  // that appear in BUILD_COSTS give anything back.
-  const cost = state.BUILD_COSTS[data.type];
+  if (data.root) {
+    createPoofParticles(data.root.position, data.type === "tree" ? "#4CAF50" : "#FFFFFF");
+    disposeRoot(data.root);
+  }
+
+  placedObjects.delete(objId);
+
+  // Refund after the object is gone so storage-cap bonuses don't let the
+  // refund sit above the new, smaller cap.
+  const cost = options.refund === false ? null : state.BUILD_COSTS[data.type];
   if (cost) {
     const refunded = [];
     Object.entries(cost).forEach(([key, amount]) => {
@@ -140,22 +146,41 @@ export function removeObjectById(objId, onHoveredCleared) {
     if (refunded.length > 0) showNotif(`Refunded ${refunded.join(", ")}`, "info");
   }
 
-  if (data.root) {
-    createPoofParticles(data.root.position, data.type === "tree" ? "#4CAF50" : "#FFFFFF");
-    disposeRoot(data.root);
-  }
-
-  placedObjects.delete(objId);
+  const cap = getResourceCap(placedObjects);
+  Object.keys(state.resources).forEach((key) => {
+    state.resources[key] = Math.max(0, Math.min(cap, state.resources[key] || 0));
+  });
 
   activeNPCs.forEach((npc) => {
     if (npc.targetObjId === objId) {
       npc.targetObjId = null;
       npc.path = [];
+      npc.pendingAction = null;
       npc.a = "IDLE";
+      if (npc.root) npc.root.position.y = 0;
     }
   });
 
   if (onHoveredCleared) onHoveredCleared(objId);
+  onStatsChanged();
+}
+
+export function clearWorld() {
+  Array.from(placedObjects.keys()).forEach((id) => {
+    removeObjectById(id, undefined, { refund: false });
+  });
+
+  while (activeNPCs.length) {
+    const npc = activeNPCs.pop();
+    if (!npc) continue;
+    npc.respawning = false;
+    npc.isDead = true;
+    if (npc.root) npc.root.dispose();
+  }
+
+  Object.keys(buildCounters).forEach((type) => { buildCounters[type] = 0; });
+  state.resources = { wh: 100, stone: 80, food: 30, water: 20 };
+  occupiedGrid.clear();
   onStatsChanged();
 }
 

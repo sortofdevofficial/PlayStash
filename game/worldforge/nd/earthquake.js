@@ -14,13 +14,10 @@ export class Earthquake {
 
     const camera = this.scene.activeCamera;
     if (camera) {
-      this.originalTarget = camera.target ? camera.target.clone() : null;
       this.animObserver = this.scene.onBeforeRenderObservable.add(() => {
         if (!this.active || !camera.target) return;
-        const shakeX = (Math.random() - 0.5) * 0.4;
-        const shakeZ = (Math.random() - 0.5) * 0.4;
-        camera.target.x = (this.originalTarget ? this.originalTarget.x : 0) + shakeX;
-        camera.target.z = (this.originalTarget ? this.originalTarget.z : 0) + shakeZ;
+        camera.target.x += (Math.random() - 0.5) * 0.4;
+        camera.target.z += (Math.random() - 0.5) * 0.4;
       });
     }
   }
@@ -32,11 +29,6 @@ export class Earthquake {
     if (this.animObserver) {
       this.scene.onBeforeRenderObservable.remove(this.animObserver);
       this.animObserver = null;
-    }
-
-    const camera = this.scene.activeCamera;
-    if (camera && this.originalTarget) {
-      camera.target.copyFrom(this.originalTarget);
     }
   }
 }
@@ -58,7 +50,7 @@ export const earthquake = {
         // isDead here without also disposing the mesh and respawning left
         // earthquake/flood-killed NPCs as permanent lifeless zombies that
         // updateNPCs would then skip forever (isDead short-circuits it).
-        showFloatingText(`Quake -${dmg} HP! 🌋`, npc.root.position, "#FFA500", scene, camera, engine);
+        showFloatingText(`Quake -${dmg} HP! 🌋`, npc.root?.position, "#FFA500", scene, camera, engine);
       }
     });
   }

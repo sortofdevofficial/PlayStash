@@ -13,6 +13,7 @@ export class Wildfire {
     this.active = true;
 
     this.fireSystem = new BABYLON.ParticleSystem("fire", 1000, this.scene);
+    this.fireSystem.particleTexture = new BABYLON.Texture("https://assets.babylonjs.com/textures/flare.png", this.scene);
     this.fireSystem.emitter = new BABYLON.Vector3((Math.random() - 0.5) * 40, 0, (Math.random() - 0.5) * 40);
     this.fireSystem.minEmitBox = new BABYLON.Vector3(-10, 0, -10);
     this.fireSystem.maxEmitBox = new BABYLON.Vector3(10, 0, 10);
@@ -64,7 +65,7 @@ export const wildfire = {
       if (!npc.isDead && Math.random() < 0.5) {
         const dmg = 25 + Math.floor(Math.random() * 20);
         npc.health = Math.max(0, npc.health - dmg);
-        showFloatingText(`Wildfire -${dmg} HP! 🔥`, npc.root.position, "#FF4500", scene, camera, engine);
+        showFloatingText(`Wildfire -${dmg} HP! 🔥`, npc.root?.position, "#FF4500", scene, camera, engine);
       }
     });
   }

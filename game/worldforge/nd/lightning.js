@@ -59,7 +59,7 @@ export const lightning = {
       if (!npc.isDead && Math.random() < 0.4) {
         const dmg = 30 + Math.floor(Math.random() * 25);
         npc.health = Math.max(0, npc.health - dmg);
-        showFloatingText(`Lightning -${dmg} HP! ⚡`, npc.root.position, "#FFFF00", scene, camera, engine);
+        showFloatingText(`Lightning -${dmg} HP! ⚡`, npc.root?.position, "#FFFF00", scene, camera, engine);
       }
     });
   }

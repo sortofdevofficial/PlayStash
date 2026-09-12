@@ -79,7 +79,7 @@ export const flood = {
         // Death/respawn is handled centrally by updateNPCs() in npcBrain.js -
         // see the matching comment in earthquake.js for why this trigger
         // only ever applies damage and never sets isDead itself.
-        showFloatingText(`Flood -${dmg} HP! 🌊`, npc.root.position, "#4FC3F7", scene, camera, engine);
+        showFloatingText(`Flood -${dmg} HP! 🌊`, npc.root?.position, "#4FC3F7", scene, camera, engine);
       }
     });
   }

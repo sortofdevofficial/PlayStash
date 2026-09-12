@@ -3,7 +3,7 @@ import { worldToGrid, gridToWorldCenter, isFootprintValid, getMaxNPCCapacity } f
 import { state, showNotif, showFloatingText, updateCardHighlights, deselectAllModes, addResourceClamped, updateResourceUI } from "./ui.js";
 import { playSound } from "./audio.js";
 import { markDirty } from "./db.js";
-import { getFootprintSize, placeObject, removeObjectById } from "./world.js";
+import { getFootprintSize, placeObject, removeObjectById, clearWorld } from "./world.js";
 import { toggleTrackNpc } from "./npcPanel.js";
 
 let placedObjects, occupiedGrid, activeNPCs, ghosts, removeGhostBox;
@@ -156,29 +156,6 @@ function bindPointerEvents() {
         let targetId = pick.pickedMesh?.metadata?.objId || hoveredObjId;
         if (targetId) handleRemoveClick(targetId);
       } else if (evt.button === 0 && state.mode === "plant") {
-        const targetMesh = pick.pickedMesh;
-
-        if (targetMesh && targetMesh.metadata?.objId) {
-          const objData = placedObjects.get(targetMesh.metadata.objId);
-          if (objData && (objData.type === "tree" || objData.type === "stone")) {
-            if (objData.type === "tree") {
-              const gained = addResourceClamped("wh", 4, placedObjects);
-              playSound("chop");
-              showFloatingText(gained > 0 ? "+4 Wood 🪵" : "Storage full!", pick.pickedPoint, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
-            } else {
-              const gained = addResourceClamped("stone", 4, placedObjects);
-              playSound("mine");
-              showFloatingText(gained > 0 ? "+4 Stone 🪨" : "Storage full!", pick.pickedPoint, gained > 0 ? "#E0E0E0" : "#e07263", scene, camera, engine);
-            }
-
-            objData.health = (objData.health || 3) - 1;
-            if (objData.health <= 0) handleRemoveClick(targetMesh.metadata.objId);
-            markDirty();
-            updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
-            return;
-          }
-        }
-
         if (pick.hit && pick.pickedPoint) {
           const g = worldToGrid(pick.pickedPoint);
           const entry = placeObject(g.x, g.z);
@@ -205,7 +182,7 @@ function rotateActiveGhost() {
 function bindKeyboardShortcuts() {
   window.addEventListener("keydown", (e) => {
     if (state.isSpectating) return;
-    if (e.key.toLowerCase() === "r") rotateActiveGhost();
+    if (e.key.toLowerCase() === "r" && state.mode === "plant") rotateActiveGhost();
     if (e.key === "Escape") deselectAllModes(ghosts, removeGhostBox);
   });
 
@@ -280,11 +257,12 @@ function bindTopbarButtons() {
   document.getElementById("clearBtn").onclick = () => {
     if (state.isSpectating) return;
     if (!confirm("Clear the entire world? This also erases your saved world.")) return;
-    Array.from(placedObjects.keys()).forEach((id) => removeObjectById(id, (removedId) => {
-      if (hoveredObjId === removedId) { hoveredObjId = null; removeGhostBox.isVisible = false; }
-    }));
+    hoveredObjId = null;
+    removeGhostBox.isVisible = false;
+    clearWorld();
     markDirty();
     onWorldChanged();
+    onSyncNPCs();
     showNotif("World Cleared", "warn");
   };
 }
