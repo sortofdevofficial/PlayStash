@@ -53,7 +53,11 @@ export const earthquake = {
       if (Math.random() < 0.7) {
         const dmg = 20 + Math.floor(Math.random() * 20);
         npc.health = Math.max(0, npc.health - dmg);
-        if (npc.health <= 0) npc.isDead = true;
+        // Death/respawn is handled centrally by updateNPCs() in npcBrain.js
+        // on its next tick (it checks npc.health <= 0 every frame) - setting
+        // isDead here without also disposing the mesh and respawning left
+        // earthquake/flood-killed NPCs as permanent lifeless zombies that
+        // updateNPCs would then skip forever (isDead short-circuits it).
         showFloatingText(`Quake -${dmg} HP! 🌋`, npc.root.position, "#FFA500", scene, camera, engine);
       }
     });

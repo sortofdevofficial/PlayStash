@@ -76,7 +76,9 @@ export const flood = {
       if (Math.random() < 0.35) {
         const dmg = 10 + Math.floor(Math.random() * 15);
         npc.health = Math.max(0, npc.health - dmg);
-        if (npc.health <= 0) npc.isDead = true;
+        // Death/respawn is handled centrally by updateNPCs() in npcBrain.js -
+        // see the matching comment in earthquake.js for why this trigger
+        // only ever applies damage and never sets isDead itself.
         showFloatingText(`Flood -${dmg} HP! 🌊`, npc.root.position, "#4FC3F7", scene, camera, engine);
       }
     });

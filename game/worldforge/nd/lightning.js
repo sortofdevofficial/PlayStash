@@ -55,6 +55,7 @@ export const lightning = {
   name: "Lightning Strike ⚡",
   trigger(npcs, scene, camera, engine) {
     npcs.forEach(npc => {
+      if (npc.health === undefined) npc.health = 100;
       if (!npc.isDead && Math.random() < 0.4) {
         const dmg = 30 + Math.floor(Math.random() * 25);
         npc.health = Math.max(0, npc.health - dmg);

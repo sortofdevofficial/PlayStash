@@ -60,6 +60,7 @@ export const wildfire = {
   name: "Wildfire 🔥",
   trigger(npcs, scene, camera, engine) {
     npcs.forEach(npc => {
+      if (npc.health === undefined) npc.health = 100;
       if (!npc.isDead && Math.random() < 0.5) {
         const dmg = 25 + Math.floor(Math.random() * 20);
         npc.health = Math.max(0, npc.health - dmg);
