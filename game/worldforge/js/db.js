@@ -42,6 +42,9 @@ let update = null;
 let onDisconnect = null;
 let onAuthStateChanged = null;
 let signInAnonymously = null;
+let signInWithPopup = null;
+let linkWithPopup = null;
+let googleProvider = null;
 let db = null;
 let auth = null;
 
@@ -59,6 +62,9 @@ try {
   db = dbMod.getDatabase(app);
   onAuthStateChanged = authMod.onAuthStateChanged;
   signInAnonymously = authMod.signInAnonymously;
+  signInWithPopup = authMod.signInWithPopup;
+  linkWithPopup = authMod.linkWithPopup;
+  googleProvider = new authMod.GoogleAuthProvider();
   ref = dbMod.ref;
   get = dbMod.get;
   update = dbMod.update;
