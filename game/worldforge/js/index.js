@@ -17,12 +17,13 @@ import { createMarket } from "./models/market.js";
 import { updateGusts, initAmbientAudio } from "./audio.js";
 import {
   engine, scene, camera, updateCameraControls,
-  playableGround, BUILD_SIZE
+  playableGround, BUILD_SIZE,
+  startDisasterSystem, stopDisasterSystem, isDisasterActive, getActiveDisasterName, triggerDisaster
 } from "./environment.js";
 import {
   getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs
 } from "./npcBrain.js";
-import { state, updateResourceUI, addResourceClamped } from "./ui.js";
+import { state, updateResourceUI, addResourceClamped, showNotif } from "./ui.js";
 import { authReady, loadSave, loadWorldByUid, initAutosave, markDirty, getPlayerId, getPlayerName, setPlayerName, serializeWorld, BUILD_CODE } from "./db.js";
 import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById } from "./world.js";
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";

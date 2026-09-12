@@ -33,60 +33,11 @@ function setThought(npc, category) {
   npc.lastThoughtAt = now;
 }
 
-// Natural Disasters
-const NATURAL_DISASTERS = [
-  {
-    name: "Earthquake 🌍",
-    effect: (npcs, scene, camera, engine) => {
-      npcs.forEach(npc => {
-        if (!npc.isDead && Math.random() < 0.7) {
-          const dmg = 20 + Math.floor(Math.random() * 20);
-          npc.health = Math.max(0, npc.health - dmg);
-          showFloatingText(`Earthquake -${dmg} HP! 🌍`, npc.root.position, "#FF4757", scene, camera, engine);
-        }
-      });
-    }
-  },
-  {
-    name: "Lightning Strike ⚡",
-    effect: (npcs, scene, camera, engine) => {
-      const living = npcs.filter(n => !n.isDead);
-      if (living.length > 0) {
-        const target = living[Math.floor(Math.random() * living.length)];
-        const dmg = 45 + Math.floor(Math.random() * 25);
-        target.health = Math.max(0, target.health - dmg);
-        showFloatingText(`Lightning -${dmg} HP! ⚡`, target.root.position, "#FFD700", scene, camera, engine);
-      }
-    }
-  },
-  {
-    name: "Wildfire 🔥",
-    effect: (npcs, scene, camera, engine) => {
-      npcs.forEach(npc => {
-        if (!npc.isDead && Math.random() < 0.6) {
-          const dmg = 15 + Math.floor(Math.random() * 15);
-          npc.health = Math.max(0, npc.health - dmg);
-          showFloatingText(`Wildfire -${dmg} HP! 🔥`, npc.root.position, "#FF4500", scene, camera, engine);
-        }
-      });
-    }
-  },
-  {
-    name: "Flash Flood 🌊",
-    effect: (npcs, scene, camera, engine) => {
-      npcs.forEach(npc => {
-        if (!npc.isDead && Math.random() < 0.5) {
-          const dmg = 25;
-          npc.health = Math.max(0, npc.health - dmg);
-          showFloatingText(`Flood -${dmg} HP! 🌊`, npc.root.position, "#29B6F6", scene, camera, engine);
-        }
-      });
-    }
-  }
-];
-
-let disasterTimer = 0;
-const DISASTER_INTERVAL = 25; // Trigger a disaster every 25 seconds
+// Natural disasters (visual effects + damage) now live in environment.js's
+// disaster scheduler and the nd/*.js modules, started once from index.js.
+// This file kept its own separate damage-only implementation with no visuals,
+// duplicating and slightly diverging from that system (e.g. it never
+// disposed/respawned NPCs it killed) - removed in favor of the one system.
 
 export function tileKey(x, z) { return `c: ${x},${z}`; }
 export function worldToGrid(pos) { return { x: Math.floor(pos.x), z: Math.floor(pos.z) }; }
@@ -248,17 +199,6 @@ export function checkCampfireNPCSymmetry(activeNPCs, placedObjects, scene, shado
   updateStats();
 }
 
-export function triggerNaturalDisaster(deltaTime, activeNPCs, scene, camera, engine) {
-  if (activeNPCs.length === 0) return;
-  disasterTimer += deltaTime;
-  if (disasterTimer >= DISASTER_INTERVAL) {
-    disasterTimer = 0;
-    const disaster = NATURAL_DISASTERS[Math.floor(Math.random() * NATURAL_DISASTERS.length)];
-    showNotif(`Natural Disaster: ${disaster.name}!`, "warn");
-    disaster.effect(activeNPCs, scene, camera, engine);
-  }
-}
-
 function respawnExactNPC(npc, scene, camera, engine, placedObjects) {
   npc.respawning = true;
   setThought(npc, "DYING");
@@ -320,8 +260,10 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
     }
   });
 
-  // Trigger natural disasters periodically
-  triggerNaturalDisaster(deltaTime, activeNPCs, scene, camera, engine);
+  // Natural disasters are now driven by environment.js's scheduler (started
+  // once from index.js), which calls into the nd/*.js trigger() functions -
+  // those apply damage the same way the old code here did, but through a
+  // single system that also owns the matching visual effect.
 
   activeNPCs.forEach((npc) => {
     if (npc.isDead || npc.respawning) {

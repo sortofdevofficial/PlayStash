@@ -45,9 +45,15 @@ export const earthquake = {
   name: "Earthquake 🌋",
   trigger(npcs, scene, camera, engine) {
     npcs.forEach(npc => {
-      if (!npc.isDead && Math.random() < 0.7) {
+      // Defensive init: health isn't guaranteed to exist on every NPC yet
+      // (older saves, or NPCs spawned before health tracking existed).
+      if (npc.health === undefined) npc.health = 100;
+      if (npc.isDead) return;
+
+      if (Math.random() < 0.7) {
         const dmg = 20 + Math.floor(Math.random() * 20);
         npc.health = Math.max(0, npc.health - dmg);
+        if (npc.health <= 0) npc.isDead = true;
         showFloatingText(`Quake -${dmg} HP! 🌋`, npc.root.position, "#FFA500", scene, camera, engine);
       }
     });
