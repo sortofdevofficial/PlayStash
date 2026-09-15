@@ -89,6 +89,18 @@ export async function ensureJoinTime(uid) {
   }
 }
 
+export async function getJoinTime(uid) {
+  if (!uid || !db || !ref || !get) return null;
+  try {
+    const snap = await get(ref(db, `G/${GAME_ID}/${uid}/i/jt`));
+    if (snap.exists()) return snap.val();
+    const userSnap = await get(ref(db, `u/${uid}/i/jt`));
+    return userSnap.exists() ? userSnap.val() : null;
+  } catch (err) {
+    return null;
+  }
+}
+
 export async function signInWithGoogle() {
   if (!auth || !GoogleAuthProvider || !signInWithPopup) return null;
   const provider = new GoogleAuthProvider();
@@ -198,7 +210,6 @@ export function serializeWorld(placedObjects, activeNPCs, gameState) {
   });
 
   return {
-    ts: Date.now(),
     r: Object.keys(r).length ? r : null,
     b: Object.keys(b).length ? b : null,
     n: Object.keys(n).length ? n : null

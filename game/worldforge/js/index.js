@@ -17,7 +17,7 @@ import {
 import { state, updateResourceUI, showNotif } from "./ui.js";
 import {
   authReady, loadSave, loadWorldByUid, initAutosave, markDirty,
-  getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser
+  getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser, getJoinTime
 } from "./db.js";
 import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById } from "./world.js";
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
@@ -56,6 +56,27 @@ function syncNPCs() {
   if (!state.isSpectating) markDirty();
 }
 
+async function updateJoinedTimeUI(uid) {
+  const timeTextEl = document.getElementById("joinedTimeText");
+  if (!timeTextEl) return;
+
+  if (!uid) {
+    timeTextEl.textContent = "Offline";
+    return;
+  }
+
+  const jt = await getJoinTime(uid);
+  if (jt) {
+    const d = new Date(jt);
+    timeTextEl.textContent = d.toLocaleString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  } else {
+    timeTextEl.textContent = "Just joined";
+  }
+}
+
 function updateAuthUI() {
   const signInBtn = document.getElementById("signInBtn");
   const signOutBtn = document.getElementById("signOutBtn");
@@ -64,9 +85,11 @@ function updateAuthUI() {
   if (user && !user.isAnonymous) {
     if (signInBtn) signInBtn.style.display = "none";
     if (signOutBtn) signOutBtn.style.display = "flex";
+    updateJoinedTimeUI(user.uid);
   } else {
     if (signInBtn) signInBtn.style.display = "flex";
     if (signOutBtn) signOutBtn.style.display = "none";
+    updateJoinedTimeUI(null);
   }
 }
 

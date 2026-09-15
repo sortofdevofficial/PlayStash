@@ -17,7 +17,6 @@
   <link rel="stylesheet" href="./css/buildMenu.css" />
   <link rel="stylesheet" href="./css/responsive.css" />
   <style>
-    /* Auth Buttons & Hover Animations */
     .auth-container {
       position: relative;
       display: inline-flex;
@@ -41,7 +40,6 @@
       outline: none;
     }
 
-    /* Sign In Style & Animated Smiley Hover */
     .sign-in-btn {
       background: linear-gradient(135deg, #2563eb, #1d4ed8);
       box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
@@ -73,7 +71,6 @@
       100% { transform: scale(1.35) translateY(-3px) rotate(12deg); }
     }
 
-    /* Sign Out Style & "Why" Tooltip Hover */
     .sign-out-btn {
       background: linear-gradient(135deg, #dc2626, #b91c1c);
       box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
@@ -135,6 +132,20 @@
       align-items: center;
       gap: 4px;
     }
+
+    #joinedWorldForgeBadge {
+      font-size: 10px;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(14, 165, 233, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
   </style>
 </head>
 <body>
@@ -143,11 +154,8 @@
     <div id="menuCard">
       <div id="menuIcon">🔥</div>
       <div id="menuTitle">World<span>Forge</span></div>
-
       <div id="menuStatus">Loading world...</div>
-
       <button id="menuPlayBtn" disabled>Play</button>
-
       <div class="menu-btn-row">
         <button id="menuGuideBtn" class="menu-sec-btn" type="button">📖 Guide</button>
         <button id="menuAudioBtn" class="menu-sec-btn" type="button">🔊 Sound: On</button>
@@ -342,6 +350,10 @@
       <div id="brand">World<span>Forge</span></div>
       <span id="saveStatus" data-state="ready">Connecting…</span>
       <span id="worldStats" style="font-size: 10px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧱 <span id="itemCount">0</span> · 👤 <span id="npcCount">0</span></span>
+      
+      <!-- In-Game Area Joined WorldForge & Time Display -->
+      <span id="joinedWorldForgeBadge">🗓️ Joined WorldForge: <span id="joinedTimeText">--</span></span>
+
       <button id="npcListBtn" class="iconBtn" title="View NPCs">👥</button>
       <button id="removeBtn" title="Remove">🗑️</button>
       <button id="dayBtn" title="Toggle Day / Night">🌙</button>

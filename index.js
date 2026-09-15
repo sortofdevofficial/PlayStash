@@ -118,7 +118,6 @@ tooltipStyles.textContent = `
 `;
 document.head.appendChild(tooltipStyles);
 
-// Animated Hover Tooltip for Sign In (Smiley) & Sign Out (Why Explanation)
 function setupButtonHoverEffects() {
   if (loginBtn) {
     if (getComputedStyle(loginBtn).position === 'static') {
@@ -189,7 +188,10 @@ openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
 
 function formatDateDetailed(timestamp) {
   if (!timestamp) return 'N/A';
-  return new Date(timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(timestamp).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
 }
 
 function safeAvatarUrl(url) {
@@ -202,7 +204,6 @@ function safeAvatarUrl(url) {
   }
 }
 
-// Render resources converting abbreviations (wo -> Wood, wa -> Water, w -> Wheat, s -> Stone)
 function renderDetailedResources(resourceObj, containerElement) {
   if (!containerElement) return;
   containerElement.innerHTML = '';
@@ -255,7 +256,7 @@ function openUserModal(user, uid) {
   modalAvatar.src = safeAvatarUrl(user.pe);
   modalName.textContent = user.dn || 'Player';
   modalEmail.textContent = user.e ? user.e.replace(/(?<=.{2}).(?=.*@)/g, "*") : 'PlayStash Member';
-  modalJoined.textContent = `Joined: ${formatDateDetailed(user.jt)}`;
+  modalJoined.textContent = `Joined WorldForge: ${formatDateDetailed(user.jt)}`;
 
   if (modalBuildings) modalBuildings.textContent = bCount;
   if (modalNpcs) modalNpcs.textContent = nCount;
@@ -331,13 +332,16 @@ onAuthStateChanged(auth, async (user) => {
     const creationTime = user.metadata?.creationTime ? new Date(user.metadata.creationTime).getTime() : Date.now();
     const formattedDate = formatDateDetailed(creationTime);
     memberSince.textContent = `Joined ${formattedDate}`;
-    if (profileCardJoined) profileCardJoined.textContent = `Joined: ${formattedDate}`;
+    if (profileCardJoined) profileCardJoined.textContent = `Joined WorldForge: ${formattedDate}`;
 
     try {
       await update(ref(db, `u/${user.uid}/i`), {
         e: user.email || '',
         dn: displayName,
         pe: user.photoURL || 'favicon.png',
+        jt: creationTime
+      });
+      await update(ref(db, `G/1/${user.uid}/i`), {
         jt: creationTime
       });
     } catch (err) {}
@@ -424,7 +428,6 @@ function renderDirectory() {
     const gameSave = rawGamesData[u.uid] || {};
     const res = gameSave.r || {};
     
-    // Parse resource values directly using short/long keys
     const wood = Number(res.wo || res.wood || 0);
     const water = Number(res.wa || res.water || 0);
     const wheat = Number(res.w || res.wheat || 0);
@@ -451,7 +454,7 @@ function renderDirectory() {
 
     const joined = document.createElement('span');
     joined.className = 'text-[10px] text-sky-400 font-medium truncate mt-0.5';
-    joined.textContent = `Joined ${formatDateDetailed(u.jt)}`;
+    joined.textContent = `Joined WorldForge: ${formatDateDetailed(u.jt)}`;
 
     details.append(name, joined);
     left.append(img, details);
