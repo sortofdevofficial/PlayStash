@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>PlayStash - Console Shell</title>
+  <title>PlayStash - Console Hub</title>
   
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
@@ -20,141 +20,166 @@
       width: 6px;
     }
     ::-webkit-scrollbar-track {
-      background: #070a0f;
+      background: #060911;
     }
     ::-webkit-scrollbar-thumb {
       background: #1e293b;
-      border-radius: 2px;
+      border-radius: 9999px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: #334155;
+      background: #38bdf8;
     }
 
     body {
-      background-color: #070a0f;
-      color: #94a3b8;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background-color: #060911;
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
     }
 
-    .term-panel {
-      background: #0d131d;
-      border: 1px solid #1e293b;
+    .ps-glass {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    .term-header {
-      background: rgba(7, 10, 15, 0.92);
-      backdrop-filter: blur(8px);
-      padding-top: env(safe-area-inset-top);
-      transition: border-color 0.2s ease, background 0.2s ease;
+    .ps-card-active {
+      box-shadow: 0 0 30px -5px rgba(56, 189, 248, 0.25);
+      border-color: rgba(56, 189, 248, 0.6);
     }
 
-    .term-header.scrolled {
-      background: rgba(7, 10, 15, 0.98);
-      border-bottom-color: #334155;
+    .ps-hero-glow {
+      background: radial-gradient(circle at 50% 20%, rgba(30, 58, 138, 0.35) 0%, rgba(6, 9, 17, 0) 70%);
     }
   </style>
 </head>
-<body class="bg-[#070a0f] text-slate-400 min-h-screen font-mono flex flex-col antialiased">
+<body class="bg-[#060911] text-slate-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden">
   
-  <!-- Terminal Top Bar -->
-  <header id="main-header" class="term-header border-b border-slate-800 sticky top-0 z-50 px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-    <div class="flex items-center gap-3">
-      <div class="flex items-center gap-1.5 mr-1">
-        <span class="w-2.5 h-2.5 rounded-full bg-slate-700"></span>
-        <span class="w-2.5 h-2.5 rounded-full bg-slate-700"></span>
-        <span class="w-2.5 h-2.5 rounded-full bg-slate-700"></span>
+  <!-- Dynamic Ambient Background Glow -->
+  <div class="fixed inset-0 ps-hero-glow pointer-events-none z-0"></div>
+
+  <!-- PS5 Top Status Navigation Bar -->
+  <header id="main-header" class="ps-glass sticky top-0 z-50 px-6 sm:px-10 py-3.5 flex items-center justify-between border-b border-slate-800/60">
+    <div class="flex items-center gap-8">
+      <div class="flex items-center gap-3 cursor-pointer group">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center p-0.5 shadow-lg shadow-blue-500/20 group-hover:scale-105 transition duration-300">
+          <img src="favicon.png" alt="Logo" class="w-full h-full rounded-lg object-cover" />
+        </div>
+        <span class="text-lg font-black tracking-wider text-white uppercase">PLAY<span class="text-sky-400">STASH</span></span>
       </div>
-      <div class="flex items-center gap-2">
-        <img src="favicon.png" alt="Logo" class="w-5 h-5 opacity-80" />
-        <span class="text-xs font-bold tracking-widest text-slate-200 uppercase">PLAYSTASH<span class="text-slate-500">//</span>TTY1</span>
-      </div>
+
+      <nav class="hidden md:flex items-center gap-6 text-xs font-semibold uppercase tracking-widest text-slate-400">
+        <span class="text-white border-b-2 border-sky-400 pb-1 cursor-pointer">Games</span>
+        <span class="hover:text-slate-200 cursor-pointer transition">Media</span>
+        <span class="hover:text-slate-200 cursor-pointer transition">Store</span>
+      </nav>
     </div>
     
-    <div id="auth-section">
-      <button id="login-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-3 py-1.5 rounded border border-slate-700 flex items-center gap-2 transition text-xs uppercase tracking-wider active:scale-95">
-        <svg class="w-3.5 h-3.5 bg-white rounded-full p-0.5 shrink-0" viewBox="0 0 24 24">
+    <div id="auth-section" class="flex items-center gap-4">
+      <button id="login-btn" class="bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-500 hover:to-sky-400 text-white font-bold px-4 py-2 rounded-full flex items-center gap-2.5 transition duration-200 shadow-lg shadow-sky-500/20 active:scale-95 text-xs">
+        <svg class="w-4 h-4 bg-white rounded-full p-0.5 shrink-0" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
           <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
         </svg>
-        <span>AUTH_GOOGLE</span>
+        <span>Sign in with Google</span>
       </button>
       
       <div id="user-profile" class="hidden flex items-center gap-3">
-        <img id="user-avatar" class="w-7 h-7 rounded border border-slate-700 object-cover" alt="Profile" />
+        <img id="user-avatar" class="w-8 h-8 rounded-full border-2 border-sky-400/80 object-cover shadow-md" alt="Profile" />
         <div class="flex flex-col text-right hidden sm:flex">
-          <span id="user-email" class="text-xs text-slate-200 font-bold max-w-[150px] truncate"></span>
-          <span id="member-since" class="text-[10px] text-slate-500 truncate"></span>
+          <span id="user-email" class="text-xs text-slate-100 font-bold max-w-[140px] truncate"></span>
+          <span id="member-since" class="text-[10px] text-sky-400 font-medium truncate"></span>
         </div>
-        <button id="logout-btn" class="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 px-2.5 py-1 text-[11px] rounded border border-slate-800 transition">SIG_LOGOUT</button>
+        <button id="logout-btn" class="bg-slate-800/80 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 text-slate-300 font-semibold px-3 py-1 text-xs rounded-full border border-slate-700/80 transition ml-1 shrink-0">Sign Out</button>
       </div>
     </div>
   </header>
 
-  <!-- Console Workspace -->
-  <main class="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 space-y-6">
+  <!-- PS5 Dashboard Content -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-10 space-y-10 relative z-10">
     
-    <!-- System Telemetry Panel -->
-    <div class="term-panel rounded p-4 flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+    <!-- PS5 Hero Feature Banner -->
+    <section class="relative rounded-3xl overflow-hidden ps-glass border border-slate-800/80 p-6 sm:p-10 flex flex-col justify-end min-h-[260px] sm:min-h-[320px] group transition duration-500">
+      <div class="absolute inset-0 bg-gradient-to-t from-[#060911] via-[#060911]/60 to-transparent z-10"></div>
+      <div class="absolute inset-0 bg-gradient-to-r from-blue-900/30 to-violet-900/10 opacity-80 group-hover:opacity-100 transition duration-500"></div>
+
+      <div class="relative z-20 space-y-4 max-w-2xl">
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md bg-sky-500/20 text-sky-400 border border-sky-500/30">FEATURED TITLE</span>
+          <span id="game-save-status" class="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md bg-slate-800 text-slate-400 border border-slate-700">Sign in to save</span>
+        </div>
+        <h1 class="text-3xl sm:text-5xl font-black text-white tracking-tight leading-none uppercase">WorldForge</h1>
+        <p class="text-xs sm:text-sm text-slate-300 max-w-lg leading-relaxed font-normal">Build your realm in real time. Your village layout, structures, and villagers save directly to your cloud profile.</p>
+
+        <div class="pt-2 flex items-center gap-4">
+          <a href="game/worldforge/index.html" class="bg-white text-slate-950 hover:bg-sky-400 font-black px-6 py-2.5 rounded-full text-xs uppercase tracking-wider transition duration-200 shadow-xl active:scale-95 flex items-center gap-2">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            Play Game
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Network Activity Strip -->
+    <section class="ps-glass rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <span class="relative flex h-3 w-3 shrink-0">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+        </span>
         <div>
-          <div class="text-xs font-bold text-slate-200 uppercase tracking-wider">[SYS_NETWORK_STATUS]</div>
-          <div class="text-[11px] text-slate-500">Node sync active · Realtime RTDB</div>
+          <h3 class="text-white font-bold text-xs uppercase tracking-wider">PlayStash Network</h3>
+          <p class="text-[11px] text-slate-400">Live cloud sync & online telemetry</p>
         </div>
       </div>
       
-      <div class="flex items-center gap-6 text-xs">
-        <div>
-          <span class="text-slate-500 block text-[10px] uppercase">Active_Conns</span>
-          <span id="online-count" class="text-slate-200 font-bold">0</span>
+      <div class="flex items-center gap-8">
+        <div class="flex flex-col items-end">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Online Now</span>
+          <span id="online-count" class="text-lg font-black text-emerald-400">0</span>
         </div>
         <div class="h-6 w-[1px] bg-slate-800"></div>
-        <div>
-          <span class="text-slate-500 block text-[10px] uppercase">Registered_UIDs</span>
-          <span id="user-count" class="text-slate-200 font-bold">0</span>
+        <div class="flex flex-col items-end">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Players Joined</span>
+          <span id="user-count" class="text-lg font-black text-sky-400">0</span>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Games Matrix -->
+    <!-- Games Carousel Grid -->
     <section>
-      <div class="flex items-center justify-between mb-3">
-        <h1 class="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
-          <span>&gt; EXEC_TARGETS</span>
-        </h1>
-        <span class="text-[10px] text-slate-600 uppercase">SYS_MOUNTED</span>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-300">Installed Games</h2>
+        <span class="text-xs text-slate-500">1 Item</span>
       </div>
       
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" id="game-grid">
-        <a href="game/worldforge/index.html" class="term-panel rounded overflow-hidden hover:border-slate-600 transition group block">
-          <div class="h-32 bg-[#05080d] flex items-center justify-center border-b border-slate-800 relative">
-            <span class="absolute top-2 left-2 text-[9px] text-slate-600">ID: 0x01</span>
-            <img src="favicon.png" class="w-10 h-10 opacity-50 group-hover:opacity-100 transition duration-200" alt="Icon" />
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4" id="game-grid">
+        <a href="game/worldforge/index.html" class="ps-glass ps-card-active rounded-2xl overflow-hidden group transition duration-300 transform hover:-translate-y-1 block">
+          <div class="h-40 sm:h-48 bg-slate-900/80 flex items-center justify-center p-6 relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent z-10"></div>
+            <img src="favicon.png" class="w-16 h-16 object-cover rounded-2xl shadow-2xl group-hover:scale-110 transition duration-300 z-0" alt="WorldForge" />
           </div>
-          <div class="p-3.5">
-            <div class="flex items-center justify-between gap-2">
-              <h2 class="font-bold text-xs text-slate-200 group-hover:text-slate-100">WorldForge.exe</h2>
-              <span id="game-save-status" class="text-[10px] px-1.5 py-0.5 rounded border bg-slate-900 border-slate-800 text-slate-500">GUEST</span>
-            </div>
-            <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Civilization sandbox module. Saves bind directly to account state.</p>
+          <div class="p-3.5 bg-slate-950/60 flex flex-col gap-1">
+            <span class="text-xs font-bold text-white truncate group-hover:text-sky-400 transition">WorldForge</span>
+            <span class="text-[10px] text-slate-400">PS5 Cloud Save</span>
           </div>
         </a>
       </div>
     </section>
 
-    <!-- Client Directory -->
-    <section class="border-t border-slate-800/60 pt-6">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400">&gt; USER_DIRECTORY</h2>
-        <span class="text-[10px] text-slate-600">FETCHING_PEERS</span>
+    <!-- Active Players / Friends Online Roster -->
+    <section class="border-t border-slate-800/80 pt-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-300">Active Players Roster</h2>
+        <span class="text-xs text-slate-500">Realtime Network Data</span>
       </div>
-      <div id="users-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-        <div class="term-panel rounded p-3 text-center text-slate-600 text-xs">
-          Reading directory...
+      <div id="users-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs font-medium">
+          Connecting to player network...
         </div>
       </div>
     </section>

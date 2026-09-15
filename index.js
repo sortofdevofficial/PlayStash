@@ -4,10 +4,12 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// --- SECURITY & CONSOLE PROTECTION ---
+// --- SECURITY & CONSOLE CONTROLS ---
 (() => {
+  // Disable Right Click
   document.addEventListener('contextmenu', e => e.preventDefault());
 
+  // Block Developer Tools Shortcuts
   document.addEventListener('keydown', e => {
     if (
       e.key === 'F12' ||
@@ -18,6 +20,7 @@ import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } f
     }
   });
 
+  // Neuter Console Output
   const noop = () => {};
   window.console.log = noop;
   window.console.warn = noop;
@@ -25,15 +28,6 @@ import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } f
   window.console.info = noop;
   window.console.debug = noop;
 })();
-
-const header = document.getElementById('main-header');
-window.addEventListener('scroll', () => {
-  if (window.scrollY > 10) {
-    header?.classList.add('scrolled');
-  } else {
-    header?.classList.remove('scrolled');
-  }
-});
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -63,7 +57,7 @@ const usersContainer = document.getElementById('users-container');
 const gameSaveStatusEl = document.getElementById('game-save-status');
 
 const GAME_ID = 1;
-const PILL_CLASSES = 'text-[10px] px-1.5 py-0.5 rounded border shrink-0';
+const PILL_CLASSES = 'text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md border shrink-0';
 
 let unsubscribeGameSave = null;
 
@@ -75,8 +69,8 @@ function watchGameSave(uid) {
   if (!gameSaveStatusEl) return;
 
   if (!uid) {
-    gameSaveStatusEl.textContent = 'NO_AUTH';
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 border-slate-800 text-slate-500`;
+    gameSaveStatusEl.textContent = 'Sign in to save';
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-800 text-slate-400 border-slate-700`;
     return;
   }
 
@@ -84,32 +78,36 @@ function watchGameSave(uid) {
     const data = snap.val();
 
     if (!data) {
-      gameSaveStatusEl.textContent = 'NEW_STATE';
-      gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 border-slate-700 text-slate-300`;
+      gameSaveStatusEl.textContent = 'New Save State';
+      gameSaveStatusEl.className = `${PILL_CLASSES} bg-sky-500/20 text-sky-400 border-sky-500/30`;
       return;
     }
 
     const builds = data.b ? Object.keys(data.b).length : 0;
     const villagers = data.n ? Object.keys(data.n).length : 0;
-    gameSaveStatusEl.textContent = `SAVED (${builds}b/${villagers}v)`;
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 border-slate-700 text-slate-200`;
+    gameSaveStatusEl.textContent = `Save Sync: ${builds} builds · ${villagers} villagers`;
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-emerald-500/20 text-emerald-400 border-emerald-500/30`;
   }, () => {
-    gameSaveStatusEl.textContent = 'OFFLINE';
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 border-slate-800 text-slate-600`;
+    gameSaveStatusEl.textContent = 'Save Unavailable';
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-800 text-slate-500 border-slate-700`;
   });
 }
 
 function formatDateDetailed(timestamp) {
   if (!timestamp) return 'N/A';
-  return new Date(timestamp).toISOString().split('T')[0];
+  return new Date(timestamp).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
 }
 
-// Strictly Google Auth Only
+// Google Authentication Only
 loginBtn.addEventListener('click', async () => {
   try {
     await signInWithPopup(auth, provider);
   } catch (err) {
-    alert("Auth Failed: " + err.message);
+    alert("Sign In Error: " + err.message);
   }
 });
 
@@ -127,7 +125,7 @@ onAuthStateChanged(auth, async (user) => {
       ? new Date(user.metadata.creationTime).getTime()
       : Date.now();
 
-    memberSince.textContent = `REG:${formatDateDetailed(creationTime)}`;
+    memberSince.textContent = `Joined ${formatDateDetailed(creationTime)}`;
 
     try {
       await set(ref(db, `u/${user.uid}/i`), {
@@ -137,7 +135,7 @@ onAuthStateChanged(auth, async (user) => {
         jt: creationTime
       });
     } catch (err) {
-      // Console hidden
+      // Ignored due to console lock
     }
 
     watchGameSave(user.uid);
@@ -151,7 +149,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Telemetry/Presence
+// Telemetry & Presence System
 const connectedRef = ref(db, ".info/connected");
 const presenceRef = ref(db, "presence");
 
@@ -182,12 +180,12 @@ function safeAvatarUrl(url) {
   }
 }
 
-// Directory Sync
+// Realtime User Network Sync
 onValue(ref(db, 'u'), (snapshot) => {
   const data = snapshot.val();
   if (!data) {
     userCountEl.textContent = '0';
-    usersContainer.innerHTML = '<div class="term-panel rounded p-3 text-center text-slate-600 text-xs">Directory empty.</div>';
+    usersContainer.innerHTML = '<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">No registered players yet.</div>';
     return;
   }
 
@@ -200,29 +198,29 @@ onValue(ref(db, 'u'), (snapshot) => {
 
   usersContainer.replaceChildren(...users.map(u => {
     const card = document.createElement('div');
-    card.className = 'term-panel rounded p-2.5 flex items-center gap-2.5';
+    card.className = 'ps-glass rounded-2xl p-3.5 flex items-center gap-3.5 hover:border-sky-500/40 transition duration-300';
 
     const img = document.createElement('img');
     img.src = safeAvatarUrl(u.pe);
-    img.className = 'w-7 h-7 rounded border border-slate-800 object-cover shrink-0';
-    img.alt = 'User';
+    img.className = 'w-9 h-9 rounded-full border border-sky-400/50 object-cover shrink-0 shadow-sm';
+    img.alt = 'Profile';
 
     const details = document.createElement('div');
     details.className = 'flex flex-col min-w-0 flex-1';
 
     const name = document.createElement('span');
-    name.className = 'font-bold text-xs text-slate-300 truncate';
-    name.textContent = u.dn || 'Anonymous';
+    name.className = 'font-bold text-xs text-white truncate';
+    name.textContent = u.dn || 'Player';
 
     const joined = document.createElement('span');
-    joined.className = 'text-[10px] text-slate-600 truncate';
-    joined.textContent = `TS:${formatDateDetailed(u.jt)}`;
+    joined.className = 'text-[10px] text-sky-400 font-medium truncate mt-0.5';
+    joined.textContent = `Joined ${formatDateDetailed(u.jt)}`;
 
     details.append(name, joined);
     card.append(img, details);
     return card;
   }));
 }, () => {
-  userCountEl.textContent = 'ERR';
-  usersContainer.innerHTML = `<div class="term-panel rounded p-3 text-center text-slate-600 text-xs">Sync exception.</div>`;
+  userCountEl.textContent = '—';
+  usersContainer.innerHTML = `<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">Player network unavailable.</div>`;
 });
