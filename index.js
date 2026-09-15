@@ -67,7 +67,6 @@ const modalJoined = document.getElementById('modal-joined');
 const modalBuildings = document.getElementById('modal-buildings');
 const modalNpcs = document.getElementById('modal-npcs');
 const modalResources = document.getElementById('modal-resources');
-const modalVisitBtn = document.getElementById('modal-visit-btn');
 const closeModalBtn = document.getElementById('close-modal-btn');
 const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
 
@@ -75,8 +74,8 @@ let rawUsersData = {};
 let rawGamesData = {};
 
 function switchTab(selected) {
-  const activeClass = "pb-1 text-xs font-bold uppercase tracking-widest text-white border-b-2 border-sky-400 transition cursor-pointer";
-  const inactiveClass = "pb-1 text-xs font-semibold uppercase tracking-widest text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition cursor-pointer";
+  const activeClass = "px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-sky-500/20 border border-sky-400/40 transition cursor-pointer";
+  const inactiveClass = "px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer";
 
   tabGamesBtn.className = selected === 'games' ? activeClass : inactiveClass;
   tabPlayersBtn.className = selected === 'players' ? activeClass : inactiveClass;
@@ -127,10 +126,6 @@ function openUserModal(user, uid) {
   if (modalNpcs) modalNpcs.textContent = nCount;
   if (modalResources) modalResources.textContent = rSum;
 
-  if (modalVisitBtn) {
-    modalVisitBtn.href = `game/worldforge/index.html?view=${uid}`;
-  }
-
   profileModal.classList.remove('hidden');
 }
 
@@ -140,7 +135,7 @@ saveUsernameBtn?.addEventListener('click', async () => {
 
   if (!currentUser) return;
   if (!newName) {
-    showUsernameStatus('Username cannot be empty', false);
+    showUsernameStatus('Gamertag cannot be empty', false);
     return;
   }
 
@@ -152,9 +147,9 @@ saveUsernameBtn?.addEventListener('click', async () => {
     if (profileCardName) profileCardName.textContent = newName;
     usernameInput.value = '';
 
-    showUsernameStatus('Username updated successfully!', true);
+    showUsernameStatus('Gamertag updated successfully!', true);
   } catch (err) {
-    showUsernameStatus('Failed to update username.', false);
+    showUsernameStatus('Failed to update gamertag.', false);
   }
 });
 
@@ -190,7 +185,7 @@ onAuthStateChanged(auth, async (user) => {
     if (profileCardAvatar) profileCardAvatar.src = avatarUrl;
     if (profileCardName) profileCardName.textContent = displayName;
     if (profileCardEmail) profileCardEmail.textContent = user.email || 'PlayStash Account';
-    if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-2 border-[#060911] rounded-full';
+    if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-2 border-[#030712] rounded-full';
     if (profileCardStatusText) {
       profileCardStatusText.textContent = 'ONLINE';
       profileCardStatusText.className = 'text-xs font-extrabold text-emerald-400 block';
@@ -223,7 +218,7 @@ onAuthStateChanged(auth, async (user) => {
     if (profileCardName) profileCardName.textContent = 'Guest Player';
     if (profileCardEmail) profileCardEmail.textContent = 'Sign in to view full profile details';
     if (profileCardJoined) profileCardJoined.textContent = 'PlayStash Member: Offline';
-    if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-slate-600 border-2 border-[#060911] rounded-full';
+    if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-slate-600 border-2 border-[#030712] rounded-full';
     if (profileCardStatusText) {
       profileCardStatusText.textContent = 'OFFLINE';
       profileCardStatusText.className = 'text-xs font-extrabold text-slate-500 block';
@@ -275,7 +270,7 @@ onValue(ref(db, 'u'), (snapshot) => {
 function renderDirectory() {
   if (!rawUsersData) {
     if (userCountEl) userCountEl.textContent = '0';
-    usersContainer.innerHTML = '<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">No registered players yet.</div>';
+    usersContainer.innerHTML = '<div class="console-glass rounded-2xl p-6 text-center text-slate-400 text-xs">No registered players yet.</div>';
     return;
   }
 
@@ -292,15 +287,15 @@ function renderDirectory() {
     const nCount = gameSave.n ? Object.keys(gameSave.n).length : 0;
 
     const card = document.createElement('div');
-    card.className = 'ps-glass rounded-2xl p-3.5 flex items-center justify-between gap-3 hover:border-sky-500/50 cursor-pointer transition duration-300';
+    card.className = 'console-card rounded-2xl p-4 flex items-center justify-between gap-3 hover:border-sky-500/50 cursor-pointer transition duration-300';
     card.addEventListener('click', () => openUserModal(u, u.uid));
 
     const left = document.createElement('div');
-    left.className = 'flex items-center gap-3 min-w-0';
+    left.className = 'flex items-center gap-3.5 min-w-0';
 
     const img = document.createElement('img');
     img.src = safeAvatarUrl(u.pe);
-    img.className = 'w-10 h-10 rounded-full border border-sky-400/50 object-cover shrink-0 shadow-sm';
+    img.className = 'w-11 h-11 rounded-full border border-sky-400/50 object-cover shrink-0 shadow-md';
     img.alt = 'Profile';
 
     const details = document.createElement('div');
@@ -318,8 +313,8 @@ function renderDirectory() {
     left.append(img, details);
 
     const right = document.createElement('div');
-    right.className = 'flex items-center gap-2 shrink-0 bg-slate-900/80 px-2.5 py-1 rounded-xl border border-slate-800 text-[11px] font-bold text-slate-300';
-    right.innerHTML = `<span>🧱 ${bCount}</span> <span class="text-slate-600">|</span> <span>👤 ${nCount}</span>`;
+    right.className = 'flex items-center gap-2 shrink-0 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800 text-[11px] font-bold text-slate-300 font-mono';
+    right.innerHTML = `<span>🧱 ${bCount}</span> <span class="text-slate-700">|</span> <span>👤 ${nCount}</span>`;
 
     card.append(left, right);
     return card;

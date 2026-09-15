@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>PlayStash - Console Hub</title>
+  <title>PlayStash - Gaming Console Hub</title>
   
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
@@ -17,145 +17,216 @@
     }
 
     ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #060911; }
+    ::-webkit-scrollbar-track { background: #030712; }
     ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
+    ::-webkit-scrollbar-thumb:hover { background: #0284c7; }
 
     body {
-      background-color: #060911;
-      color: #f1f5f9;
+      background-color: #030712;
+      color: #f8fafc;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
     }
 
-    .ps-glass {
-      background: rgba(15, 23, 42, 0.65);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+    .console-glass {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    .ps-card-active {
-      box-shadow: 0 0 30px -5px rgba(56, 189, 248, 0.25);
+    .console-card {
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.5) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    .console-card-active {
+      box-shadow: 0 0 35px -5px rgba(56, 189, 248, 0.3);
       border-color: rgba(56, 189, 248, 0.6);
     }
 
-    .ps-hero-glow {
-      background: radial-gradient(circle at 50% 20%, rgba(30, 58, 138, 0.35) 0%, rgba(6, 9, 17, 0) 70%);
+    .console-hero-glow {
+      background: radial-gradient(circle at 50% -10%, rgba(14, 165, 233, 0.25) 0%, rgba(3, 7, 18, 0) 70%);
+    }
+
+    .console-badge {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #38bdf8;
+    }
+
+    .console-button-primary {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      box-shadow: 0 4px 20px rgba(2, 132, 199, 0.4);
+    }
+
+    .console-button-primary:hover {
+      background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+      box-shadow: 0 6px 24px rgba(2, 132, 199, 0.6);
     }
   </style>
 </head>
-<body class="bg-[#060911] text-slate-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden">
+<body class="bg-[#030712] text-slate-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden">
   
-  <div class="fixed inset-0 ps-hero-glow pointer-events-none z-0"></div>
+  <div class="fixed inset-0 console-hero-glow pointer-events-none z-0"></div>
 
-  <header id="main-header" class="ps-glass sticky top-0 z-50 px-6 sm:px-10 py-3.5 flex items-center justify-between border-b border-slate-800/60">
+  <!-- Console Header -->
+  <header id="main-header" class="console-glass sticky top-0 z-50 px-6 sm:px-10 py-3.5 flex items-center justify-between border-b border-slate-800/80">
     <div class="flex items-center gap-8">
       <div class="flex items-center gap-3 cursor-pointer group">
-        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center p-0.5 shadow-lg shadow-blue-500/20 group-hover:scale-105 transition duration-300">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-600 via-blue-500 to-indigo-400 flex items-center justify-center p-0.5 shadow-lg shadow-sky-500/20 group-hover:scale-105 transition duration-300">
           <img src="favicon.png" alt="Logo" class="w-full h-full rounded-lg object-cover" />
         </div>
-        <span class="text-lg font-black tracking-wider text-white uppercase">PLAY<span class="text-sky-400">STASH</span></span>
+        <div class="flex flex-col">
+          <span class="text-lg font-black tracking-wider text-white uppercase leading-none">PLAY<span class="text-sky-400">STASH</span></span>
+          <span class="text-[9px] font-bold text-slate-400 tracking-widest uppercase mt-0.5">CONSOLE OS v2.0</span>
+        </div>
       </div>
 
-      <nav class="flex items-center gap-6">
-        <button id="tab-games-btn" class="pb-1 text-xs font-bold uppercase tracking-widest text-white border-b-2 border-sky-400 transition cursor-pointer">Games</button>
-        <button id="tab-players-btn" class="pb-1 text-xs font-semibold uppercase tracking-widest text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition cursor-pointer">Players</button>
-        <button id="tab-profile-btn" class="pb-1 text-xs font-semibold uppercase tracking-widest text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition cursor-pointer">Profile</button>
+      <!-- Main Navigation -->
+      <nav class="flex items-center gap-2 bg-slate-900/80 p-1 rounded-full border border-slate-800">
+        <button id="tab-games-btn" class="px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-sky-500/20 border border-sky-400/40 transition cursor-pointer">🎮 Games</button>
+        <button id="tab-players-btn" class="px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer">👥 Players</button>
+        <button id="tab-profile-btn" class="px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer">👤 Profile</button>
       </nav>
     </div>
     
+    <!-- Account Area -->
     <div id="auth-section" class="flex items-center gap-4">
-      <button id="login-btn" class="bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-500 hover:to-sky-400 text-white font-bold px-4 py-2 rounded-full flex items-center gap-2.5 transition duration-200 shadow-lg shadow-sky-500/20 active:scale-95 text-xs">
+      <button id="login-btn" class="console-button-primary text-white font-bold px-5 py-2 rounded-full flex items-center gap-2.5 transition duration-200 active:scale-95 text-xs uppercase tracking-wider">
         <svg class="w-4 h-4 bg-white rounded-full p-0.5 shrink-0" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
           <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
         </svg>
-        <span>Sign in with Google</span>
+        <span>Sign In</span>
       </button>
       
       <div id="user-profile" class="hidden flex items-center gap-3">
-        <button id="open-my-profile-btn" class="flex items-center gap-3 hover:opacity-80 transition text-left">
+        <button id="open-my-profile-btn" class="flex items-center gap-3 hover:opacity-80 transition text-left bg-slate-900/60 p-1.5 pr-4 rounded-full border border-slate-800">
           <img id="user-avatar" class="w-8 h-8 rounded-full border-2 border-sky-400/80 object-cover shadow-md" alt="Profile" />
           <div class="flex flex-col hidden sm:flex">
             <span id="user-email" class="text-xs text-slate-100 font-bold max-w-[140px] truncate"></span>
             <span id="member-since" class="text-[10px] text-sky-400 font-medium truncate"></span>
           </div>
         </button>
-        <button id="logout-btn" class="bg-slate-800/80 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 text-slate-300 font-semibold px-3 py-1 text-xs rounded-full border border-slate-700/80 transition ml-1 shrink-0">Sign Out</button>
+        <button id="logout-btn" class="bg-slate-900 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 text-slate-300 font-semibold px-3.5 py-1.5 text-xs rounded-full border border-slate-800 transition shrink-0">Sign Out</button>
       </div>
     </div>
   </header>
 
   <main class="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-10 space-y-8 relative z-10">
     
-    <section class="ps-glass rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+    <!-- System Live Telemetry Ribbon -->
+    <section class="console-glass rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 border border-slate-800">
       <div class="flex items-center gap-3.5">
-        <span class="relative flex h-3 w-3 shrink-0">
+        <span class="relative flex h-3.5 w-3.5 shrink-0">
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+          <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
         </span>
         <div>
-          <h3 class="text-white font-bold text-xs uppercase tracking-wider">PlayStash Network</h3>
-          <p class="text-[11px] text-slate-400">Live online telemetry & player tracking</p>
+          <h3 class="text-white font-extrabold text-xs uppercase tracking-wider flex items-center gap-2">
+            PlayStash Live Network <span class="px-2 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-400 font-mono border border-emerald-500/30">ONLINE</span>
+          </h3>
+          <p class="text-[11px] text-slate-400">Real-time multiplayer state telemetry & cloud save synchronization</p>
         </div>
       </div>
       
       <div class="flex items-center gap-8">
         <div class="flex flex-col items-end">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Online Now</span>
-          <span id="online-count" class="text-lg font-black text-emerald-400">0</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Players Online</span>
+          <span id="online-count" class="text-xl font-black text-emerald-400 font-mono">0</span>
         </div>
         <div class="h-6 w-[1px] bg-slate-800"></div>
         <div class="flex flex-col items-end">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">PlayStash Players</span>
-          <span id="user-count" class="text-lg font-black text-sky-400">0</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Registered Accounts</span>
+          <span id="user-count" class="text-xl font-black text-sky-400 font-mono">0</span>
         </div>
       </div>
     </section>
 
     <!-- TAB 1: GAMES VIEW -->
     <div id="games-section" class="space-y-8">
-      <section class="relative rounded-3xl overflow-hidden ps-glass border border-slate-800/80 p-6 sm:p-10 flex flex-col justify-end min-h-[260px] sm:min-h-[320px] group transition duration-500">
-        <div class="absolute inset-0 bg-gradient-to-t from-[#060911] via-[#060911]/60 to-transparent z-10"></div>
-        <div class="absolute inset-0 bg-gradient-to-r from-blue-900/30 to-violet-900/10 opacity-80 group-hover:opacity-100 transition duration-500"></div>
+      
+      <!-- Featured Console Game Banner -->
+      <section class="relative rounded-3xl overflow-hidden console-glass border border-slate-800 p-6 sm:p-10 flex flex-col justify-end min-h-[360px] sm:min-h-[420px] group transition duration-500">
+        <div class="absolute inset-0 bg-gradient-to-t from-[#030712] via-[#030712]/70 to-transparent z-10"></div>
+        <div class="absolute inset-0 bg-gradient-to-r from-sky-950/40 via-blue-900/20 to-slate-950 opacity-90 group-hover:opacity-100 transition duration-500"></div>
 
         <div class="relative z-20 space-y-4 max-w-2xl">
-          <div class="flex items-center gap-3 flex-wrap">
-            <span class="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md bg-sky-500/20 text-sky-400 border border-sky-500/30">FEATURED TITLE</span>
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full console-badge">FEATURED TITLE</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-slate-800/90 text-slate-300 border border-slate-700">Real-Time Strategy</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-slate-800/90 text-slate-300 border border-slate-700">3D Simulation</span>
           </div>
-          <h1 class="text-3xl sm:text-5xl font-black text-white tracking-tight leading-none uppercase">WorldForge</h1>
-          <p class="text-xs sm:text-sm text-slate-300 max-w-lg leading-relaxed font-normal">Build your realm in real time with structures and villagers.</p>
 
-          <div class="pt-2 flex items-center gap-4">
-            <a href="game/worldforge/index.html" class="bg-white text-slate-950 hover:bg-sky-400 font-black px-6 py-2.5 rounded-full text-xs uppercase tracking-wider transition duration-200 shadow-xl active:scale-95 flex items-center gap-2">
-              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              Play Game
+          <h1 class="text-4xl sm:text-6xl font-black text-white tracking-tight leading-none uppercase drop-shadow-md">World<span class="text-sky-400">Forge</span></h1>
+          
+          <!-- Detailed Game Description -->
+          <p class="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed font-normal">
+            Step into a persistent 3D world sandbox. Construct settlements with houses, farms, watchtowers, and markets while managing AI villagers who gather resources, build, and survive autonomously. Features real-time multi-resource economy and cloud save persistence.
+          </p>
+
+          <div class="pt-3 flex items-center gap-4">
+            <a href="game/worldforge/index.html" class="console-button-primary text-white font-black px-8 py-3.5 rounded-full text-xs uppercase tracking-wider transition duration-200 active:scale-95 flex items-center gap-3">
+              <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span>Launch Title</span>
             </a>
+            
+            <div class="flex items-center gap-3 px-4 py-2 rounded-full bg-slate-900/80 border border-slate-800 text-[11px] font-semibold text-slate-400">
+              <span>⌨️ WASD Controls</span>
+              <span>•</span>
+              <span>☁️ Cloud Saves</span>
+            </div>
           </div>
         </div>
       </section>
 
+      <!-- Game Library Catalog -->
       <section>
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-300">Installed Games</h2>
-          <span class="text-xs text-slate-500">1 Title Available</span>
+          <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-300 flex items-center gap-2">
+            <span>Library Catalog</span>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">1 Title</span>
+          </h2>
         </div>
         
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4" id="game-grid">
-          <a href="game/worldforge/index.html" class="ps-glass ps-card-active rounded-2xl overflow-hidden group transition duration-300 transform hover:-translate-y-1 block">
-            <div class="h-48 sm:h-56 bg-slate-900/80 flex items-center justify-center p-4 relative overflow-hidden">
-              <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent z-10"></div>
-              <img src="images/games/worldforge/icon.png" class="w-28 h-28 sm:w-36 sm:h-36 object-cover rounded-2xl shadow-2xl group-hover:scale-110 transition duration-300 z-0" alt="WorldForge" />
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="game-grid">
+          
+          <!-- Game Card with Description -->
+          <a href="game/worldforge/index.html" class="console-card console-card-active rounded-3xl overflow-hidden group transition duration-300 transform hover:-translate-y-1 block">
+            <div class="h-48 bg-gradient-to-br from-slate-900 to-sky-950/50 flex items-center justify-center p-6 relative overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-t from-[#030712] via-transparent to-transparent z-10"></div>
+              <img src="images/games/worldforge/icon.png" class="w-28 h-28 object-cover rounded-2xl shadow-2xl group-hover:scale-105 transition duration-300 z-0 border border-slate-700/50" alt="WorldForge" />
+              <span class="absolute top-3 right-3 z-20 text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">PLAYABLE</span>
             </div>
-            <div class="p-3.5 bg-slate-950/60 flex flex-col gap-1">
-              <span class="text-xs font-bold text-white truncate group-hover:text-sky-400 transition">WorldForge</span>
-              <span class="text-[10px] text-slate-400">PlayStash Member Game</span>
+            
+            <div class="p-5 bg-slate-950/80 flex flex-col gap-3">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-base font-black text-white group-hover:text-sky-400 transition">WorldForge 3D</span>
+                  <span class="text-[10px] font-bold text-sky-400">v1.0</span>
+                </div>
+                <p class="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                  3D settlement simulator. Build structures, manage villagers, gather timber, stone, and food with full real-time telemetry.
+                </p>
+              </div>
+
+              <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-bold text-slate-400">
+                <span class="flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                  Singleplayer & Cloud Sync
+                </span>
+                <span class="text-sky-400 group-hover:translate-x-1 transition flex items-center gap-1">
+                  Play ➔
+                </span>
+              </div>
             </div>
           </a>
+
         </div>
       </section>
     </div>
@@ -164,10 +235,10 @@
     <div id="players-section" class="hidden space-y-4">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-300">PlayStash Players Directory</h2>
-        <span class="text-xs text-slate-500">Click a card to view full game telemetry</span>
+        <span class="text-xs text-slate-500">Select a player to view stats</span>
       </div>
-      <div id="users-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs font-medium">
+      <div id="users-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="console-glass rounded-2xl p-6 text-center text-slate-400 text-xs font-medium">
           Loading player telemetry...
         </div>
       </div>
@@ -175,14 +246,14 @@
 
     <!-- TAB 3: PROFILE VIEW -->
     <div id="profile-section" class="hidden space-y-6">
-      <section class="ps-glass rounded-3xl p-6 sm:p-8 border border-sky-500/20 relative overflow-hidden">
+      <section class="console-glass rounded-3xl p-6 sm:p-8 border border-sky-500/20 relative overflow-hidden">
         <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl pointer-events-none"></div>
         
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
           <div class="flex items-center gap-5">
             <div class="relative">
               <img id="profile-card-avatar" class="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-sky-400 object-cover shadow-2xl" src="favicon.png" alt="Player Avatar" />
-              <span id="profile-card-status-dot" class="absolute bottom-1 right-1 w-5 h-5 bg-slate-600 border-2 border-[#060911] rounded-full"></span>
+              <span id="profile-card-status-dot" class="absolute bottom-1 right-1 w-5 h-5 bg-slate-600 border-2 border-[#030712] rounded-full"></span>
             </div>
             <div class="space-y-1">
               <h2 id="profile-card-name" class="text-2xl sm:text-3xl font-black text-white">Guest Player</h2>
@@ -192,7 +263,7 @@
           </div>
 
           <div class="flex items-center gap-4 w-full md:w-auto">
-            <div class="ps-glass bg-slate-900/60 p-4 rounded-2xl min-w-[140px] text-center border border-slate-800">
+            <div class="console-glass bg-slate-900/80 p-4 rounded-2xl min-w-[140px] text-center border border-slate-800">
               <span class="text-[10px] font-bold uppercase text-slate-500 block mb-1">Network Status</span>
               <span id="profile-card-status-text" class="text-xs font-extrabold text-slate-500 block">OFFLINE</span>
             </div>
@@ -202,40 +273,40 @@
 
       <!-- Personal Game Telemetry Overview -->
       <section class="space-y-3">
-        <h3 class="text-xs font-extrabold uppercase tracking-widest text-slate-300">WorldForge Live Realm Stats</h3>
+        <h3 class="text-xs font-extrabold uppercase tracking-widest text-slate-300">WorldForge Realm Statistics</h3>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div class="ps-glass rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
+          <div class="console-glass rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
             <div>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Buildings Built</span>
-              <span id="profile-buildings-count" class="text-2xl font-black text-white">0</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Structures Built</span>
+              <span id="profile-buildings-count" class="text-3xl font-black text-white font-mono">0</span>
             </div>
-            <span class="text-2xl">🧱</span>
+            <span class="text-3xl">🧱</span>
           </div>
 
-          <div class="ps-glass rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
+          <div class="console-glass rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
             <div>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Active Villagers</span>
-              <span id="profile-npcs-count" class="text-2xl font-black text-sky-400">0</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Active Villagers</span>
+              <span id="profile-npcs-count" class="text-3xl font-black text-sky-400 font-mono">0</span>
             </div>
-            <span class="text-2xl">👤</span>
+            <span class="text-3xl">👤</span>
           </div>
 
-          <div class="ps-glass rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
+          <div class="console-glass rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
             <div>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Resource Stock</span>
-              <span id="profile-resources-count" class="text-2xl font-black text-emerald-400">0</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Total Resources</span>
+              <span id="profile-resources-count" class="text-3xl font-black text-emerald-400 font-mono">0</span>
             </div>
-            <span class="text-2xl">📦</span>
+            <span class="text-3xl">📦</span>
           </div>
         </div>
       </section>
 
       <!-- Edit Username -->
-      <section id="edit-username-card" class="ps-glass rounded-3xl p-6 border border-slate-800/80 space-y-4 hidden">
-        <h3 class="text-xs font-extrabold uppercase tracking-widest text-slate-300">Change Username</h3>
+      <section id="edit-username-card" class="console-glass rounded-3xl p-6 border border-slate-800/80 space-y-4 hidden">
+        <h3 class="text-xs font-extrabold uppercase tracking-widest text-slate-300">Gamertag Profile</h3>
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 max-w-md">
-          <input id="username-input" type="text" placeholder="Enter new username" maxlength="25" class="bg-slate-900/90 border border-slate-700/80 text-white text-xs rounded-xl px-4 py-2.5 focus:outline-none focus:border-sky-400 flex-1" />
-          <button id="save-username-btn" class="bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-500 hover:to-sky-400 text-white font-bold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition active:scale-95 shrink-0">Update</button>
+          <input id="username-input" type="text" placeholder="Enter new handle" maxlength="25" class="bg-slate-900/90 border border-slate-700/80 text-white text-xs rounded-xl px-4 py-3 focus:outline-none focus:border-sky-400 flex-1" />
+          <button id="save-username-btn" class="console-button-primary text-white font-bold px-6 py-3 rounded-xl text-xs uppercase tracking-wider transition active:scale-95 shrink-0">Update</button>
         </div>
         <p id="username-status-msg" class="text-[11px] font-medium text-emerald-400 hidden"></p>
       </section>
@@ -243,10 +314,10 @@
 
   </main>
 
-  <!-- Player Profile Inspector Modal -->
+  <!-- Player Profile Inspector Modal (Spectate Button Removed) -->
   <div id="profile-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="ps-glass rounded-3xl max-w-md w-full p-6 border border-slate-700/80 relative space-y-5 shadow-2xl">
-      <button id="close-modal-btn" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold">✕</button>
+    <div class="console-glass rounded-3xl max-w-md w-full p-6 border border-slate-700/80 relative space-y-6 shadow-2xl">
+      <button id="close-modal-btn" class="absolute top-5 right-5 text-slate-400 hover:text-white text-lg font-bold">✕</button>
       
       <div class="flex items-center gap-4">
         <img id="modal-avatar" class="w-16 h-16 rounded-full border-2 border-sky-400 object-cover" src="favicon.png" alt="Avatar" />
@@ -258,29 +329,26 @@
       </div>
 
       <!-- Realtime Game Stats in Modal -->
-      <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800/80 space-y-3">
-        <span class="text-[10px] font-extrabold uppercase tracking-widest text-sky-400 block border-b border-slate-800 pb-1">WorldForge Live Realm Stats</span>
-        <div class="grid grid-cols-3 gap-2 text-center">
-          <div class="bg-slate-950/60 p-2 rounded-xl">
-            <span class="text-[10px] text-slate-400 block">Buildings</span>
-            <span id="modal-buildings" class="text-sm font-black text-white">0</span>
+      <div class="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 space-y-3">
+        <span class="text-[10px] font-extrabold uppercase tracking-widest text-sky-400 block border-b border-slate-800 pb-2">WorldForge Realm Telemetry</span>
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800/80">
+            <span class="text-[10px] text-slate-400 block font-bold mb-1">Buildings</span>
+            <span id="modal-buildings" class="text-base font-black text-white font-mono">0</span>
           </div>
-          <div class="bg-slate-950/60 p-2 rounded-xl">
-            <span class="text-[10px] text-slate-400 block">Villagers</span>
-            <span id="modal-npcs" class="text-sm font-black text-sky-400">0</span>
+          <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800/80">
+            <span class="text-[10px] text-slate-400 block font-bold mb-1">Villagers</span>
+            <span id="modal-npcs" class="text-base font-black text-sky-400 font-mono">0</span>
           </div>
-          <div class="bg-slate-950/60 p-2 rounded-xl">
-            <span class="text-[10px] text-slate-400 block">Resources</span>
-            <span id="modal-resources" class="text-sm font-black text-emerald-400">0</span>
+          <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800/80">
+            <span class="text-[10px] text-slate-400 block font-bold mb-1">Resources</span>
+            <span id="modal-resources" class="text-base font-black text-emerald-400 font-mono">0</span>
           </div>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <a id="modal-visit-btn" href="#" class="flex-1 bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-500 hover:to-sky-400 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider text-center transition shadow-lg active:scale-95 flex items-center justify-center gap-2">
-          <span>👁️ Visit Realm</span>
-        </a>
-        <button id="close-modal-bottom-btn" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition">Close</button>
+      <div class="flex items-center justify-end">
+        <button id="close-modal-bottom-btn" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold px-5 py-3 rounded-xl text-xs uppercase tracking-wider transition">Close Card</button>
       </div>
     </div>
   </div>
