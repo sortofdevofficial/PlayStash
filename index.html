@@ -57,10 +57,10 @@
 </head>
 <body class="bg-[#060911] text-slate-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden">
   
-  <!-- Dynamic Ambient Background Glow -->
+  <!-- Ambient Background Glow -->
   <div class="fixed inset-0 ps-hero-glow pointer-events-none z-0"></div>
 
-  <!-- PS5 Top Status Navigation Bar -->
+  <!-- PS5 Navigation Header -->
   <header id="main-header" class="ps-glass sticky top-0 z-50 px-6 sm:px-10 py-3.5 flex items-center justify-between border-b border-slate-800/60">
     <div class="flex items-center gap-8">
       <div class="flex items-center gap-3 cursor-pointer group">
@@ -72,8 +72,7 @@
 
       <nav class="hidden md:flex items-center gap-6 text-xs font-semibold uppercase tracking-widest text-slate-400">
         <span class="text-white border-b-2 border-sky-400 pb-1 cursor-pointer">Games</span>
-        <span class="hover:text-slate-200 cursor-pointer transition">Media</span>
-        <span class="hover:text-slate-200 cursor-pointer transition">Store</span>
+        <button id="nav-profile-btn" class="hover:text-slate-200 cursor-pointer transition uppercase tracking-widest">Player Profile</button>
       </nav>
     </div>
     
@@ -89,19 +88,58 @@
       </button>
       
       <div id="user-profile" class="hidden flex items-center gap-3">
-        <img id="user-avatar" class="w-8 h-8 rounded-full border-2 border-sky-400/80 object-cover shadow-md" alt="Profile" />
-        <div class="flex flex-col text-right hidden sm:flex">
-          <span id="user-email" class="text-xs text-slate-100 font-bold max-w-[140px] truncate"></span>
-          <span id="member-since" class="text-[10px] text-sky-400 font-medium truncate"></span>
-        </div>
+        <button id="open-my-profile-btn" class="flex items-center gap-3 hover:opacity-80 transition text-left">
+          <img id="user-avatar" class="w-8 h-8 rounded-full border-2 border-sky-400/80 object-cover shadow-md" alt="Profile" />
+          <div class="flex flex-col hidden sm:flex">
+            <span id="user-email" class="text-xs text-slate-100 font-bold max-w-[140px] truncate"></span>
+            <span id="member-since" class="text-[10px] text-sky-400 font-medium truncate"></span>
+          </div>
+        </button>
         <button id="logout-btn" class="bg-slate-800/80 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 text-slate-300 font-semibold px-3 py-1 text-xs rounded-full border border-slate-700/80 transition ml-1 shrink-0">Sign Out</button>
       </div>
     </div>
   </header>
 
-  <!-- PS5 Dashboard Content -->
+  <!-- PS5 Dashboard Main Container -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-10 space-y-10 relative z-10">
     
+    <!-- Player Profile Dashboard Section -->
+    <section id="player-profile-section" class="ps-glass rounded-3xl p-6 sm:p-8 border border-sky-500/20 relative overflow-hidden hidden">
+      <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+        <div class="flex items-center gap-5">
+          <div class="relative">
+            <img id="profile-card-avatar" class="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-sky-400 object-cover shadow-2xl" src="favicon.png" alt="Player Avatar" />
+            <span class="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-2 border-[#060911] rounded-full"></span>
+          </div>
+          <div class="space-y-1">
+            <div class="flex items-center gap-2.5">
+              <h2 id="profile-card-name" class="text-2xl sm:text-3xl font-black text-white">Guest Player</h2>
+              <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">LEVEL 1</span>
+            </div>
+            <p id="profile-card-email" class="text-xs text-slate-400">Sign in to view full profile details</p>
+            <p id="profile-card-joined" class="text-[11px] text-sky-400 font-medium">PSN Node: Offline</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+          <div class="ps-glass bg-slate-900/60 p-3.5 rounded-2xl min-w-[120px] text-center border border-slate-800">
+            <span class="text-[10px] font-bold uppercase text-slate-500 block mb-1">Trophies</span>
+            <span class="text-lg font-black text-amber-400 flex items-center justify-center gap-1">🏆 12</span>
+          </div>
+          <div class="ps-glass bg-slate-900/60 p-3.5 rounded-2xl min-w-[120px] text-center border border-slate-800">
+            <span class="text-[10px] font-bold uppercase text-slate-500 block mb-1">Cloud Saves</span>
+            <span id="profile-card-save-count" class="text-lg font-black text-sky-400">0 Games</span>
+          </div>
+          <div class="ps-glass bg-slate-900/60 p-3.5 rounded-2xl min-w-[120px] text-center border border-slate-800">
+            <span class="text-[10px] font-bold uppercase text-slate-500 block mb-1">Network Status</span>
+            <span class="text-xs font-extrabold text-emerald-400 block mt-1">ONLINE</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- PS5 Hero Feature Banner -->
     <section class="relative rounded-3xl overflow-hidden ps-glass border border-slate-800/80 p-6 sm:p-10 flex flex-col justify-end min-h-[260px] sm:min-h-[320px] group transition duration-500">
       <div class="absolute inset-0 bg-gradient-to-t from-[#060911] via-[#060911]/60 to-transparent z-10"></div>
@@ -150,7 +188,7 @@
       </div>
     </section>
 
-    <!-- Games Carousel Grid -->
+    <!-- Games Grid -->
     <section>
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-300">Installed Games</h2>
@@ -171,11 +209,11 @@
       </div>
     </section>
 
-    <!-- Active Players / Friends Online Roster -->
+    <!-- Active Players Directory -->
     <section class="border-t border-slate-800/80 pt-8">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-300">Active Players Roster</h2>
-        <span class="text-xs text-slate-500">Realtime Network Data</span>
+        <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-300">Players Directory</h2>
+        <span class="text-xs text-slate-500">Click a card to inspect profile</span>
       </div>
       <div id="users-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs font-medium">
@@ -184,6 +222,29 @@
       </div>
     </section>
   </main>
+
+  <!-- Player Profile Inspector Modal -->
+  <div id="profile-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="ps-glass rounded-3xl max-w-md w-full p-6 border border-slate-700/80 relative space-y-5 shadow-2xl">
+      <button id="close-modal-btn" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold">✕</button>
+      
+      <div class="flex items-center gap-4">
+        <img id="modal-avatar" class="w-16 h-16 rounded-full border-2 border-sky-400 object-cover" src="favicon.png" alt="Avatar" />
+        <div>
+          <h3 id="modal-name" class="text-xl font-black text-white">Player</h3>
+          <p id="modal-email" class="text-xs text-slate-400">Player Profile</p>
+          <p id="modal-joined" class="text-[11px] text-sky-400 mt-0.5">Joined -</p>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800/80 space-y-2 text-xs">
+        <div class="flex justify-between"><span class="text-slate-400">Account Type:</span><span class="text-white font-bold">Google Auth Verified</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Cloud Sync Status:</span><span class="text-emerald-400 font-bold">Active</span></div>
+      </div>
+
+      <button id="close-modal-bottom-btn" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition">Close Profile</button>
+    </div>
+  </div>
 
   <script type="module" src="index.js"></script>
 </body>

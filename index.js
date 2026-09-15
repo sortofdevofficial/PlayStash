@@ -6,10 +6,8 @@ import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } f
 
 // --- SECURITY & CONSOLE CONTROLS ---
 (() => {
-  // Disable Right Click
   document.addEventListener('contextmenu', e => e.preventDefault());
 
-  // Block Developer Tools Shortcuts
   document.addEventListener('keydown', e => {
     if (
       e.key === 'F12' ||
@@ -20,7 +18,6 @@ import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } f
     }
   });
 
-  // Neuter Console Output
   const noop = () => {};
   window.console.log = noop;
   window.console.warn = noop;
@@ -56,6 +53,25 @@ const onlineCountEl = document.getElementById('online-count');
 const usersContainer = document.getElementById('users-container');
 const gameSaveStatusEl = document.getElementById('game-save-status');
 
+// Profile Dashboard Elements
+const playerProfileSection = document.getElementById('player-profile-section');
+const profileCardAvatar = document.getElementById('profile-card-avatar');
+const profileCardName = document.getElementById('profile-card-name');
+const profileCardEmail = document.getElementById('profile-card-email');
+const profileCardJoined = document.getElementById('profile-card-joined');
+const profileCardSaveCount = document.getElementById('profile-card-save-count');
+const navProfileBtn = document.getElementById('nav-profile-btn');
+const openMyProfileBtn = document.getElementById('open-my-profile-btn');
+
+// Modal Elements
+const profileModal = document.getElementById('profile-modal');
+const modalAvatar = document.getElementById('modal-avatar');
+const modalName = document.getElementById('modal-name');
+const modalEmail = document.getElementById('modal-email');
+const modalJoined = document.getElementById('modal-joined');
+const closeModalBtn = document.getElementById('close-modal-btn');
+const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
+
 const GAME_ID = 1;
 const PILL_CLASSES = 'text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md border shrink-0';
 
@@ -71,6 +87,7 @@ function watchGameSave(uid) {
   if (!uid) {
     gameSaveStatusEl.textContent = 'Sign in to save';
     gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-800 text-slate-400 border-slate-700`;
+    if (profileCardSaveCount) profileCardSaveCount.textContent = '0 Games';
     return;
   }
 
@@ -80,6 +97,7 @@ function watchGameSave(uid) {
     if (!data) {
       gameSaveStatusEl.textContent = 'New Save State';
       gameSaveStatusEl.className = `${PILL_CLASSES} bg-sky-500/20 text-sky-400 border-sky-500/30`;
+      if (profileCardSaveCount) profileCardSaveCount.textContent = '0 Saves';
       return;
     }
 
@@ -87,6 +105,7 @@ function watchGameSave(uid) {
     const villagers = data.n ? Object.keys(data.n).length : 0;
     gameSaveStatusEl.textContent = `Save Sync: ${builds} builds · ${villagers} villagers`;
     gameSaveStatusEl.className = `${PILL_CLASSES} bg-emerald-500/20 text-emerald-400 border-emerald-500/30`;
+    if (profileCardSaveCount) profileCardSaveCount.textContent = '1 Active';
   }, () => {
     gameSaveStatusEl.textContent = 'Save Unavailable';
     gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-800 text-slate-500 border-slate-700`;
@@ -102,8 +121,34 @@ function formatDateDetailed(timestamp) {
   });
 }
 
-// Google Authentication Only
-loginBtn.addEventListener('click', async () => {
+function toggleProfileSection() {
+  if (playerProfileSection) {
+    playerProfileSection.classList.toggle('hidden');
+    if (!playerProfileSection.classList.contains('hidden')) {
+      playerProfileSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+}
+
+navProfileBtn?.addEventListener('click', toggleProfileSection);
+openMyProfileBtn?.addEventListener('click', toggleProfileSection);
+
+// Close Modal Controls
+const closeModal = () => profileModal?.classList.add('hidden');
+closeModalBtn?.addEventListener('click', closeModal);
+closeModalBottomBtn?.addEventListener('click', closeModal);
+
+function openUserModal(user) {
+  if (!profileModal) return;
+  modalAvatar.src = safeAvatarUrl(user.pe);
+  modalName.textContent = user.dn || 'Anonymous Player';
+  modalEmail.textContent = user.e ? user.e.replace(/(?<=.{2}).(?=.*@)/g, "*") : 'Hidden';
+  modalJoined.textContent = `Registered: ${formatDateDetailed(user.jt)}`;
+  profileModal.classList.remove('hidden');
+}
+
+// Google Authentication
+loginBtn?.addEventListener('click', async () => {
   try {
     await signInWithPopup(auth, provider);
   } catch (err) {
@@ -111,37 +156,48 @@ loginBtn.addEventListener('click', async () => {
   }
 });
 
-logoutBtn.addEventListener('click', () => signOut(auth));
+logoutBtn?.addEventListener('click', () => signOut(auth));
 
 onAuthStateChanged(auth, async (user) => {
   if (user && !user.isAnonymous) {
-    loginBtn.classList.add('hidden');
-    userProfile.classList.remove('hidden');
+    loginBtn?.classList.add('hidden');
+    userProfile?.classList.remove('hidden');
+    playerProfileSection?.classList.remove('hidden');
 
-    userEmail.textContent = user.displayName || user.email;
-    userAvatar.src = safeAvatarUrl(user.photoURL);
+    const displayName = user.displayName || user.email || 'Player';
+    const avatarUrl = safeAvatarUrl(user.photoURL);
+
+    userEmail.textContent = displayName;
+    userAvatar.src = avatarUrl;
+
+    if (profileCardAvatar) profileCardAvatar.src = avatarUrl;
+    if (profileCardName) profileCardName.textContent = displayName;
+    if (profileCardEmail) profileCardEmail.textContent = user.email || 'Google Account Linked';
 
     const creationTime = user.metadata?.creationTime
       ? new Date(user.metadata.creationTime).getTime()
       : Date.now();
 
-    memberSince.textContent = `Joined ${formatDateDetailed(creationTime)}`;
+    const formattedDate = formatDateDetailed(creationTime);
+    memberSince.textContent = `Joined ${formattedDate}`;
+    if (profileCardJoined) profileCardJoined.textContent = `PSN Member Since: ${formattedDate}`;
 
     try {
       await set(ref(db, `u/${user.uid}/i`), {
         e: user.email || '',
-        dn: user.displayName || 'Player',
+        dn: displayName,
         pe: user.photoURL || 'favicon.png',
         jt: creationTime
       });
     } catch (err) {
-      // Ignored due to console lock
+      // Ignored
     }
 
     watchGameSave(user.uid);
   } else {
-    loginBtn.classList.remove('hidden');
-    userProfile.classList.add('hidden');
+    loginBtn?.classList.remove('hidden');
+    userProfile?.classList.add('hidden');
+    playerProfileSection?.classList.add('hidden');
     userEmail.textContent = '';
     userAvatar.src = '';
     memberSince.textContent = '';
@@ -149,7 +205,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Telemetry & Presence System
+// Telemetry & Presence
 const connectedRef = ref(db, ".info/connected");
 const presenceRef = ref(db, "presence");
 
@@ -167,7 +223,7 @@ onValue(connectedRef, (snap) => {
 onValue(presenceRef, (snap) => {
   const onlineData = snap.val();
   const onlineTotal = onlineData ? Object.keys(onlineData).length : 0;
-  onlineCountEl.textContent = onlineTotal;
+  if (onlineCountEl) onlineCountEl.textContent = onlineTotal;
 });
 
 function safeAvatarUrl(url) {
@@ -180,11 +236,11 @@ function safeAvatarUrl(url) {
   }
 }
 
-// Realtime User Network Sync
+// Players Directory Sync
 onValue(ref(db, 'u'), (snapshot) => {
   const data = snapshot.val();
   if (!data) {
-    userCountEl.textContent = '0';
+    if (userCountEl) userCountEl.textContent = '0';
     usersContainer.innerHTML = '<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">No registered players yet.</div>';
     return;
   }
@@ -194,11 +250,12 @@ onValue(ref(db, 'u'), (snapshot) => {
     .filter(Boolean)
     .sort((a, b) => (b.jt || 0) - (a.jt || 0));
 
-  userCountEl.textContent = users.length;
+  if (userCountEl) userCountEl.textContent = users.length;
 
   usersContainer.replaceChildren(...users.map(u => {
     const card = document.createElement('div');
-    card.className = 'ps-glass rounded-2xl p-3.5 flex items-center gap-3.5 hover:border-sky-500/40 transition duration-300';
+    card.className = 'ps-glass rounded-2xl p-3.5 flex items-center gap-3.5 hover:border-sky-500/50 cursor-pointer transition duration-300';
+    card.addEventListener('click', () => openUserModal(u));
 
     const img = document.createElement('img');
     img.src = safeAvatarUrl(u.pe);
@@ -221,6 +278,6 @@ onValue(ref(db, 'u'), (snapshot) => {
     return card;
   }));
 }, () => {
-  userCountEl.textContent = '—';
+  if (userCountEl) userCountEl.textContent = '—';
   usersContainer.innerHTML = `<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">Player network unavailable.</div>`;
 });
