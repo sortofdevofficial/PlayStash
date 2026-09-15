@@ -75,21 +75,27 @@ const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
 let rawUsersData = {};
 let rawGamesData = {};
 
-// Expanded resource icon dictionary with explicitly defined Wheat & Food
-const resourceIcons = {
-  wood: '🪵',
-  wheat: '🌾',
-  food: '🍲',
-  stone: '🪨',
-  gold: '🪙',
-  iron: '⚙️',
-  meat: '🥩',
-  fish: '🐟',
-  water: '💧'
+// Abbreviation mapping dictionary for resource keys
+const resourceMap = {
+  wo: { name: 'Wood', icon: '🪵' },
+  wood: { name: 'Wood', icon: '🪵' },
+  wa: { name: 'Water', icon: '💧' },
+  water: { name: 'Water', icon: '💧' },
+  w: { name: 'Wheat', icon: '🌾' },
+  wheat: { name: 'Wheat', icon: '🌾' },
+  s: { name: 'Stone', icon: '🪨' },
+  stone: { name: 'Stone', icon: '🪨' },
+  f: { name: 'Food', icon: '🍲' },
+  food: { name: 'Food', icon: '🍲' },
+  g: { name: 'Gold', icon: '🪙' },
+  gold: { name: 'Gold', icon: '🪙' },
+  i: { name: 'Iron', icon: '⚙️' },
+  iron: { name: 'Iron', icon: '⚙️' },
+  m: { name: 'Meat', icon: '🥩' },
+  meat: { name: 'Meat', icon: '🥩' },
+  fi: { name: 'Fish', icon: '🐟' },
+  fish: { name: 'Fish', icon: '🐟' }
 };
-
-// Core default items list to always show in player profile & modal view
-const defaultResourceKeys = ['wood', 'wheat', 'stone', 'food', 'gold', 'iron'];
 
 function switchTab(selected) {
   const activeClass = "px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-sky-500/20 border border-sky-400/40 transition cursor-pointer";
@@ -124,31 +130,40 @@ function safeAvatarUrl(url) {
   }
 }
 
-// Function to render full list of items/resources including Wood, Wheat, Stone, etc.
+// Render resources converting abbreviations (wo -> Wood, wa -> Water, w -> Wheat, s -> Stone)
 function renderDetailedResources(resourceObj, containerElement) {
   if (!containerElement) return;
   containerElement.innerHTML = '';
 
-  const mergedResources = {};
-  defaultResourceKeys.forEach(k => { mergedResources[k] = 0; });
+  const mappedResources = {};
 
   if (resourceObj && typeof resourceObj === 'object') {
     Object.entries(resourceObj).forEach(([key, val]) => {
-      mergedResources[key.toLowerCase()] = Number(val || 0);
+      const lowerKey = key.toLowerCase();
+      const meta = resourceMap[lowerKey] || { name: key.toUpperCase(), icon: '📦' };
+      
+      if (!mappedResources[meta.name]) {
+        mappedResources[meta.name] = { amount: 0, icon: meta.icon };
+      }
+      mappedResources[meta.name].amount += Number(val || 0);
     });
   }
 
-  Object.entries(mergedResources).forEach(([key, val]) => {
-    const icon = resourceIcons[key] || '📦';
-    const cleanName = key.charAt(0).toUpperCase() + key.slice(1);
+  const entries = Object.entries(mappedResources);
+  if (entries.length === 0) {
+    containerElement.innerHTML = '<span class="text-xs text-slate-400">No resources collected yet</span>';
+    return;
+  }
+
+  entries.forEach(([name, data]) => {
     const itemCard = document.createElement('div');
     itemCard.className = 'bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs';
     itemCard.innerHTML = `
       <span class="text-slate-300 font-bold flex items-center gap-2">
-        <span>${icon}</span>
-        <span>${cleanName}</span>
+        <span>${data.icon}</span>
+        <span>${name}</span>
       </span>
-      <span class="font-black text-sky-400 font-mono">${val}</span>
+      <span class="font-black text-sky-400 font-mono">${data.amount}</span>
     `;
     containerElement.appendChild(itemCard);
   });
@@ -335,12 +350,13 @@ function renderDirectory() {
 
   usersContainer.replaceChildren(...entries.map(u => {
     const gameSave = rawGamesData[u.uid] || {};
-    const bCount = gameSave.b ? Object.keys(gameSave.b).length : 0;
-    const nCount = gameSave.n ? Object.keys(gameSave.n).length : 0;
+    const res = gameSave.r || {};
     
-    // Quick resource counters for player directory cards
-    const woodCount = (gameSave.r && gameSave.r.wood) || 0;
-    const wheatCount = (gameSave.r && (gameSave.r.wheat || gameSave.r.food)) || 0;
+    // Parse resource values directly using short/long keys
+    const wood = Number(res.wo || res.wood || 0);
+    const water = Number(res.wa || res.water || 0);
+    const wheat = Number(res.w || res.wheat || 0);
+    const stone = Number(res.s || res.stone || 0);
 
     const card = document.createElement('div');
     card.className = 'card-box rounded-2xl p-4 flex items-center justify-between gap-3 hover:border-sky-500/50 cursor-pointer transition duration-300';
@@ -369,12 +385,12 @@ function renderDirectory() {
     left.append(img, details);
 
     const right = document.createElement('div');
-    right.className = 'flex items-center gap-1.5 shrink-0 bg-slate-900/90 px-2.5 py-1.5 rounded-xl border border-slate-800 text-[10px] font-bold text-slate-300 font-mono flex-wrap justify-end';
+    right.className = 'flex items-center gap-2 shrink-0 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800 text-[10px] font-bold text-slate-300 font-mono flex-wrap justify-end';
     right.innerHTML = `
-      <span>🪵 ${woodCount}</span>
-      <span>🌾 ${wheatCount}</span>
-      <span>🧱 ${bCount}</span>
-      <span>👤 ${nCount}</span>
+      <span>🪵 ${wood}</span>
+      <span>💧 ${water}</span>
+      <span>🌾 ${wheat}</span>
+      <span>🪨 ${stone}</span>
     `;
 
     card.append(left, right);
