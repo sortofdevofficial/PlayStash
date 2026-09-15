@@ -1,19 +1,11 @@
 export const GAME_ID = 1;
 
-// Game-internal resource name -> database field. Saved under short codes to
-// keep the Realtime Database payload small (wo/w/s/wa instead of the full
-// words), not because the resource itself has a different name anywhere.
-// The internal key for wood is `wh` (state.resources.wh in ui.js) - renaming
-// it here silently saves 0 and restores nothing, since both directions look
-// the key up in state.resources.
 export const RESOURCE_KEY_MAP = { wh: "wo", food: "w", stone: "s", water: "wa" };
 
 const RESOURCE_KEY_BY_SHORT = Object.fromEntries(
   Object.entries(RESOURCE_KEY_MAP).map(([internal, short]) => [short, internal])
 );
 
-// Build key prefix, so campfire 1 is stored as `c1`. tree/tower, stone/storage
-// and well/wall share a first letter, so those pairs take a second character.
 const BUILD_CODE = {
   tree: "t", stone: "s", hut: "h", campfire: "c", farm: "f", market: "m", gate: "g",
   tower: "tw", well: "w", wall: "wl", storage: "st"
@@ -23,7 +15,7 @@ const TYPE_BY_CODE = Object.fromEntries(
   Object.entries(BUILD_CODE).map(([type, code]) => [code, type])
 );
 
-const SAVE_INTERVAL_MS = 120000; // 2 minutes — was 3s, way too chatty for a Realtime Database write
+const SAVE_INTERVAL_MS = 120000;
 const AUTH_TIMEOUT_MS = 5000;
 
 const firebaseConfig = {
@@ -42,14 +34,9 @@ let update = null;
 let onDisconnect = null;
 let onAuthStateChanged = null;
 let signInAnonymously = null;
-let signInWithPopup = null;
-let linkWithPopup = null;
-let googleProvider = null;
 let db = null;
 let auth = null;
 
-// Dynamic import so an unreachable CDN degrades to a playable offline game
-// instead of throwing at module-evaluation time and killing the whole page.
 try {
   const [appMod, authMod, dbMod] = await Promise.all([
     import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
@@ -62,9 +49,6 @@ try {
   db = dbMod.getDatabase(app);
   onAuthStateChanged = authMod.onAuthStateChanged;
   signInAnonymously = authMod.signInAnonymously;
-  signInWithPopup = authMod.signInWithPopup;
-  linkWithPopup = authMod.linkWithPopup;
-  googleProvider = new authMod.GoogleAuthProvider();
   ref = dbMod.ref;
   get = dbMod.get;
   update = dbMod.update;
@@ -93,14 +77,10 @@ export function authReady() {
       clearTimeout(timer);
       resolve(playerId);
     };
-    // Never let a slow or blocked auth handshake stall the game forever.
     const timer = setTimeout(settle, AUTH_TIMEOUT_MS);
 
     onAuthStateChanged(auth, (user) => {
       if (!user) {
-        // No session yet (first visit, or the anonymous user was cleared) — the
-        // rules require auth != null, so without an explicit sign-in call the
-        // listener would just report null forever and every write would 403.
         if (signInAnonymously) {
           signInAnonymously(auth).catch((err) => {
             console.warn("[db] Anonymous sign-in failed:", err);
@@ -115,9 +95,6 @@ export function authReady() {
       playerId = user.uid;
       saveRef = ref(db, `G/${GAME_ID}/${playerId}`);
       settle();
-      // Auth outlived the timeout, so boot already committed to a fresh guest
-      // world whose ids (tree1, hut1, ...) would collide with a restored save.
-      // Autosaving here would overwrite the real save, so ask for a reload instead.
       if (sources && !autosaveTimer) onStatus("reload");
     });
   });
@@ -135,11 +112,6 @@ export async function loadSave() {
 }
 
 export function serializeWorld(placedObjects, activeNPCs, gameState) {
-  // Anything left at its restore-side default is omitted, so a full-health
-  // unrotated build stores nothing but its coordinates. Player name is
-  // deliberately NOT stored here - it already lives at u/{uid}/i/dn from
-  // the lobby's Google sign-in, and duplicating it into every game's save
-  // would just be two copies that can drift out of sync.
   const r = {};
   for (const [internal, short] of Object.entries(RESOURCE_KEY_MAP)) {
     const amount = Math.round(gameState.resources[internal] || 0);
@@ -176,8 +148,8 @@ export function serializeWorld(placedObjects, activeNPCs, gameState) {
     n[npc.id] = node;
   });
 
-  // null deletes the subtree, so a cleared world does not leave stale children behind.
   return {
+    ts: Date.now(),
     r: Object.keys(r).length ? r : null,
     b: Object.keys(b).length ? b : null,
     n: Object.keys(n).length ? n : null
@@ -198,12 +170,6 @@ async function writeWorld() {
   }
 }
 
-// Tells the Realtime Database server itself to write this payload the moment
-// our connection drops - tab crash, network loss, force-quit, anything that
-// never gives our own JS a chance to run. This is the actual "on disconnect"
-// save; browser events like pagehide only cover a clean, in-app tab close.
-// Re-registered after every successful save so the disconnect payload never
-// goes stale and writes back outdated progress from an earlier session.
 function registerDisconnectSave() {
   if (!onDisconnect || !saveRef || !sources) return;
   try {
@@ -216,7 +182,6 @@ function registerDisconnectSave() {
 function startTimer() {
   if (autosaveTimer || !saveRef) return;
   autosaveTimer = setInterval(() => {
-    // Throttle, not debounce: NPCs drift every frame, so a debounce would never fire.
     if (sources && sources.activeNPCs.length > 0) dirty = true;
     if (!dirty) return;
     dirty = false;
@@ -232,11 +197,6 @@ export function flushNow() {
   writeWorld();
 }
 
-// Lists other players' saved worlds for this game (read-only, public per the
-// database rules). Returns [{ uid, name, buildingCount, npcCount }], excluding
-// our own save since that one is already visible locally. Names come from
-// u/{uid}/i/dn - the same display name the PlayStash lobby shows and writes
-// on Google sign-in - rather than a separate copy stored per-game.
 export async function listOtherWorlds() {
   if (!get || !ref || !db) return [];
   try {
@@ -267,7 +227,6 @@ export async function listOtherWorlds() {
   }
 }
 
-// Fetches one specific player's saved world by uid (read-only).
 export async function loadWorldByUid(uid) {
   if (!get || !ref || !db || !uid) return null;
   try {
@@ -285,9 +244,6 @@ export function initAutosave(worldSources, statusCallback) {
   startTimer();
   registerDisconnectSave();
 
-  // pagehide/visibilitychange are a same-tab best-effort flush for a clean
-  // close; onDisconnect (registered above and refreshed on every save) is
-  // what actually covers crashes, lost network, or force-quitting the tab.
   document.addEventListener("visibilitychange", () => { if (document.hidden) flushNow(); });
   window.addEventListener("pagehide", flushNow);
 }
