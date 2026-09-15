@@ -51,6 +51,7 @@ const profileCardStatusText = document.getElementById('profile-card-status-text'
 const profileBuildingsCount = document.getElementById('profile-buildings-count');
 const profileNpcsCount = document.getElementById('profile-npcs-count');
 const profileResourcesCount = document.getElementById('profile-resources-count');
+const profileResourcesList = document.getElementById('profile-resources-list');
 
 // Change Name Elements
 const editUsernameCard = document.getElementById('edit-username-card');
@@ -67,11 +68,24 @@ const modalJoined = document.getElementById('modal-joined');
 const modalBuildings = document.getElementById('modal-buildings');
 const modalNpcs = document.getElementById('modal-npcs');
 const modalResources = document.getElementById('modal-resources');
+const modalResourcesList = document.getElementById('modal-resources-list');
 const closeModalBtn = document.getElementById('close-modal-btn');
 const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
 
 let rawUsersData = {};
 let rawGamesData = {};
+
+// Helper icons for item types
+const resourceIcons = {
+  wood: '🪵',
+  stone: '🪨',
+  food: '🌾',
+  gold: '🪙',
+  iron: '⚙️',
+  meat: '🥩',
+  fish: '🐟',
+  water: '💧'
+};
 
 function switchTab(selected) {
   const activeClass = "px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-sky-500/20 border border-sky-400/40 transition cursor-pointer";
@@ -106,6 +120,33 @@ function safeAvatarUrl(url) {
   }
 }
 
+// Function to render detailed list of items / resources
+function renderDetailedResources(resourceObj, containerElement) {
+  if (!containerElement) return;
+  containerElement.innerHTML = '';
+
+  if (!resourceObj || typeof resourceObj !== 'object' || Object.keys(resourceObj).length === 0) {
+    containerElement.innerHTML = '<span class="text-xs text-slate-400">No items collected yet</span>';
+    return;
+  }
+
+  const entries = Object.entries(resourceObj);
+  entries.forEach(([key, val]) => {
+    const icon = resourceIcons[key.toLowerCase()] || '📦';
+    const cleanName = key.charAt(0).toUpperCase() + key.slice(1);
+    const itemCard = document.createElement('div');
+    itemCard.className = 'bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs';
+    itemCard.innerHTML = `
+      <span class="text-slate-300 font-bold flex items-center gap-2">
+        <span>${icon}</span>
+        <span>${cleanName}</span>
+      </span>
+      <span class="font-black text-sky-400 font-mono">${val || 0}</span>
+    `;
+    containerElement.appendChild(itemCard);
+  });
+}
+
 const closeModal = () => profileModal?.classList.add('hidden');
 closeModalBtn?.addEventListener('click', closeModal);
 closeModalBottomBtn?.addEventListener('click', closeModal);
@@ -125,6 +166,9 @@ function openUserModal(user, uid) {
   if (modalBuildings) modalBuildings.textContent = bCount;
   if (modalNpcs) modalNpcs.textContent = nCount;
   if (modalResources) modalResources.textContent = rSum;
+
+  // Render detailed resources inside modal
+  renderDetailedResources(gameSave.r, modalResourcesList);
 
   profileModal.classList.remove('hidden');
 }
@@ -147,9 +191,9 @@ saveUsernameBtn?.addEventListener('click', async () => {
     if (profileCardName) profileCardName.textContent = newName;
     usernameInput.value = '';
 
-    showUsernameStatus('Name updated successfully!', true);
+    showUsernameStatus('Name saved successfully!', true);
   } catch (err) {
-    showUsernameStatus('Failed to update name.', false);
+    showUsernameStatus('Could not save name.', false);
   }
 });
 
@@ -235,6 +279,9 @@ function updatePersonalProfileStats(uid) {
   if (profileBuildingsCount) profileBuildingsCount.textContent = bCount;
   if (profileNpcsCount) profileNpcsCount.textContent = nCount;
   if (profileResourcesCount) profileResourcesCount.textContent = rSum;
+
+  // Detailed items display for user profile tab
+  renderDetailedResources(gameSave.r, profileResourcesList);
 }
 
 const connectedRef = ref(db, ".info/connected");
@@ -270,7 +317,7 @@ onValue(ref(db, 'u'), (snapshot) => {
 function renderDirectory() {
   if (!rawUsersData) {
     if (userCountEl) userCountEl.textContent = '0';
-    usersContainer.innerHTML = '<div class="console-glass rounded-2xl p-6 text-center text-slate-400 text-xs">No registered players yet.</div>';
+    usersContainer.innerHTML = '<div class="glass-box rounded-2xl p-6 text-center text-slate-400 text-xs">No registered players yet.</div>';
     return;
   }
 
@@ -287,7 +334,7 @@ function renderDirectory() {
     const nCount = gameSave.n ? Object.keys(gameSave.n).length : 0;
 
     const card = document.createElement('div');
-    card.className = 'console-card rounded-2xl p-4 flex items-center justify-between gap-3 hover:border-sky-500/50 cursor-pointer transition duration-300';
+    card.className = 'card-box rounded-2xl p-4 flex items-center justify-between gap-3 hover:border-sky-500/50 cursor-pointer transition duration-300';
     card.addEventListener('click', () => openUserModal(u, u.uid));
 
     const left = document.createElement('div');
