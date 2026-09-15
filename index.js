@@ -90,13 +90,13 @@ function switchTab(selected) {
   const activeClass = "pb-1 text-xs font-bold uppercase tracking-widest text-white border-b-2 border-sky-400 transition cursor-pointer";
   const inactiveClass = "pb-1 text-xs font-semibold uppercase tracking-widest text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition cursor-pointer";
 
-  if (tabGamesBtn) tabGamesBtn.className = selected === 'games' ? activeClass : inactiveClass;
-  if (tabPlayersBtn) tabPlayersBtn.className = selected === 'players' ? activeClass : inactiveClass;
-  if (tabProfileBtn) tabProfileBtn.className = selected === 'profile' ? activeClass : inactiveClass;
+  tabGamesBtn.className = selected === 'games' ? activeClass : inactiveClass;
+  tabPlayersBtn.className = selected === 'players' ? activeClass : inactiveClass;
+  tabProfileBtn.className = selected === 'profile' ? activeClass : inactiveClass;
 
-  if (gamesSection) gamesSection.classList.toggle('hidden', selected !== 'games');
-  if (playersSection) playersSection.classList.toggle('hidden', selected !== 'players');
-  if (profileSection) profileSection.classList.toggle('hidden', selected !== 'profile');
+  gamesSection.classList.toggle('hidden', selected !== 'games');
+  playersSection.classList.toggle('hidden', selected !== 'players');
+  profileSection.classList.toggle('hidden', selected !== 'profile');
 }
 
 tabGamesBtn?.addEventListener('click', () => switchTab('games'));
@@ -260,107 +260,48 @@ function safeAvatarUrl(url) {
   }
 }
 
-// Realtime Games & Players In-Game Data Network Sync
+// Realtime User Network Sync
 onValue(ref(db, 'u'), (snapshot) => {
   const data = snapshot.val();
   if (!data) {
     if (userCountEl) userCountEl.textContent = '0';
-    if (usersContainer) {
-      usersContainer.innerHTML = '<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">No active games or registered players found.</div>';
-    }
+    usersContainer.innerHTML = '<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">No registered players yet.</div>';
     return;
   }
 
-  const entries = Object.entries(data)
-    .filter(([uid, val]) => val && val.i)
-    .map(([uid, val]) => {
-      const info = val.i || {};
-      const world = val.w || val.save || val.g || {};
-      const objs = world.objs ? (Array.isArray(world.objs) ? world.objs.length : Object.keys(world.objs).length) : 0;
-      const npcs = world.npcs ? (Array.isArray(world.npcs) ? world.npcs.length : Object.keys(world.npcs).length) : 0;
-      const res = world.res || world.resources || {};
-      
-      return {
-        uid,
-        info,
-        stats: {
-          pop: npcs || world.pop || 0,
-          structures: objs || world.structures || 0,
-          wood: res.wood ?? world.wood ?? 0,
-          stone: res.stone ?? world.stone ?? 0,
-          food: res.food ?? world.food ?? 0,
-          water: res.water ?? world.water ?? 0
-        }
-      };
-    })
-    .sort((a, b) => (b.info.jt || 0) - (a.info.jt || 0));
+  const users = Object.values(data)
+    .map(u => u.i)
+    .filter(Boolean)
+    .sort((a, b) => (b.jt || 0) - (a.jt || 0));
 
-  if (userCountEl) userCountEl.textContent = entries.length;
+  if (userCountEl) userCountEl.textContent = users.length;
 
-  if (usersContainer) {
-    usersContainer.replaceChildren(...entries.map(entry => {
-      const u = entry.info;
-      const st = entry.stats;
+  usersContainer.replaceChildren(...users.map(u => {
+    const card = document.createElement('div');
+    card.className = 'ps-glass rounded-2xl p-3.5 flex items-center gap-3.5 hover:border-sky-500/50 cursor-pointer transition duration-300';
+    card.addEventListener('click', () => openUserModal(u));
 
-      const card = document.createElement('div');
-      card.className = 'ps-glass rounded-2xl p-3.5 flex flex-col gap-2.5 hover:border-sky-500/50 transition duration-300';
+    const img = document.createElement('img');
+    img.src = safeAvatarUrl(u.pe);
+    img.className = 'w-9 h-9 rounded-full border border-sky-400/50 object-cover shrink-0 shadow-sm';
+    img.alt = 'Profile';
 
-      // Header row: Avatar, Name, Joined date
-      const headerRow = document.createElement('div');
-      headerRow.className = 'flex items-center gap-3.5 cursor-pointer';
-      headerRow.addEventListener('click', () => openUserModal(u));
+    const details = document.createElement('div');
+    details.className = 'flex flex-col min-w-0 flex-1';
 
-      const img = document.createElement('img');
-      img.src = safeAvatarUrl(u.pe);
-      img.className = 'w-9 h-9 rounded-full border border-sky-400/50 object-cover shrink-0 shadow-sm';
-      img.alt = 'Profile';
+    const name = document.createElement('span');
+    name.className = 'font-bold text-xs text-white truncate';
+    name.textContent = u.dn || 'Player';
 
-      const details = document.createElement('div');
-      details.className = 'flex flex-col min-w-0 flex-1';
+    const joined = document.createElement('span');
+    joined.className = 'text-[10px] text-sky-400 font-medium truncate mt-0.5';
+    joined.textContent = `Joined ${formatDateDetailed(u.jt)}`;
 
-      const name = document.createElement('span');
-      name.className = 'font-bold text-xs text-white truncate';
-      name.textContent = u.dn || 'Player';
-
-      const joined = document.createElement('span');
-      joined.className = 'text-[10px] text-sky-400 font-medium truncate mt-0.5';
-      joined.textContent = `Joined ${formatDateDetailed(u.jt)}`;
-
-      details.append(name, joined);
-      headerRow.append(img, details);
-
-      // In-Game Player Data Grid
-      const gameDataRow = document.createElement('div');
-      gameDataRow.className = 'grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-700/50 text-[10px] font-semibold text-slate-300';
-
-      gameDataRow.innerHTML = `
-        <div class="flex items-center gap-1 bg-slate-800/60 px-2 py-1 rounded" title="Population">
-          <span>👤</span> <span class="text-sky-300">${st.pop}</span>
-        </div>
-        <div class="flex items-center gap-1 bg-slate-800/60 px-2 py-1 rounded" title="Structures">
-          <span>🧱</span> <span class="text-amber-300">${st.structures}</span>
-        </div>
-        <div class="flex items-center gap-1 bg-slate-800/60 px-2 py-1 rounded" title="Wood Stockpile">
-          <span>🪵</span> <span class="text-emerald-300">${st.wood}</span>
-        </div>
-        <div class="flex items-center gap-1 bg-slate-800/60 px-2 py-1 rounded" title="Stone Stockpile">
-          <span>🪨</span> <span class="text-slate-200">${st.stone}</span>
-        </div>
-        <div class="flex items-center gap-1 bg-slate-800/60 px-2 py-1 rounded" title="Food Stockpile">
-          <span>🌽</span> <span class="text-yellow-300">${st.food}</span>
-        </div>
-        <div class="flex items-center gap-1 bg-slate-800/60 px-2 py-1 rounded" title="Water Stockpile">
-          <span>💧</span> <span class="text-cyan-300">${st.water}</span>
-        </div>
-      `;
-
-      card.append(headerRow, gameDataRow);
-      return card;
-    }));
-  }
+    details.append(name, joined);
+    card.append(img, details);
+    return card;
+  }));
 }, () => {
   if (userCountEl) userCountEl.textContent = '—';
-  if (usersContainer) {
-    usersContainer.innerHTML = `<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">Games & player data network unavailable.</div>`;
-  }
+  usersContainer.innerHTML = `<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">Player network unavailable.</div>`;
 });
