@@ -53,15 +53,25 @@ const onlineCountEl = document.getElementById('online-count');
 const usersContainer = document.getElementById('users-container');
 const gameSaveStatusEl = document.getElementById('game-save-status');
 
+// Navigation Tabs
+const tabGamesBtn = document.getElementById('tab-games-btn');
+const tabPlayersBtn = document.getElementById('tab-players-btn');
+const tabProfileBtn = document.getElementById('tab-profile-btn');
+
+const gamesSection = document.getElementById('games-section');
+const playersSection = document.getElementById('players-section');
+const profileSection = document.getElementById('profile-section');
+const openMyProfileBtn = document.getElementById('open-my-profile-btn');
+
 // Profile Dashboard Elements
-const playerProfileSection = document.getElementById('player-profile-section');
 const profileCardAvatar = document.getElementById('profile-card-avatar');
 const profileCardName = document.getElementById('profile-card-name');
 const profileCardEmail = document.getElementById('profile-card-email');
 const profileCardJoined = document.getElementById('profile-card-joined');
 const profileCardSaveCount = document.getElementById('profile-card-save-count');
-const navProfileBtn = document.getElementById('nav-profile-btn');
-const openMyProfileBtn = document.getElementById('open-my-profile-btn');
+const profileCardLevel = document.getElementById('profile-card-level');
+const profileCardStatusDot = document.getElementById('profile-card-status-dot');
+const profileCardStatusText = document.getElementById('profile-card-status-text');
 
 // Modal Elements
 const profileModal = document.getElementById('profile-modal');
@@ -76,6 +86,25 @@ const GAME_ID = 1;
 const PILL_CLASSES = 'text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md border shrink-0';
 
 let unsubscribeGameSave = null;
+
+// --- TAB SWITCHER LOGIC ---
+function switchTab(selected) {
+  const activeClass = "pb-1 text-xs font-bold uppercase tracking-widest text-white border-b-2 border-sky-400 transition cursor-pointer";
+  const inactiveClass = "pb-1 text-xs font-semibold uppercase tracking-widest text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition cursor-pointer";
+
+  tabGamesBtn.className = selected === 'games' ? activeClass : inactiveClass;
+  tabPlayersBtn.className = selected === 'players' ? activeClass : inactiveClass;
+  tabProfileBtn.className = selected === 'profile' ? activeClass : inactiveClass;
+
+  gamesSection.classList.toggle('hidden', selected !== 'games');
+  playersSection.classList.toggle('hidden', selected !== 'players');
+  profileSection.classList.toggle('hidden', selected !== 'profile');
+}
+
+tabGamesBtn?.addEventListener('click', () => switchTab('games'));
+tabPlayersBtn?.addEventListener('click', () => switchTab('players'));
+tabProfileBtn?.addEventListener('click', () => switchTab('profile'));
+openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
 
 function watchGameSave(uid) {
   if (unsubscribeGameSave) {
@@ -121,19 +150,7 @@ function formatDateDetailed(timestamp) {
   });
 }
 
-function toggleProfileSection() {
-  if (playerProfileSection) {
-    playerProfileSection.classList.toggle('hidden');
-    if (!playerProfileSection.classList.contains('hidden')) {
-      playerProfileSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }
-}
-
-navProfileBtn?.addEventListener('click', toggleProfileSection);
-openMyProfileBtn?.addEventListener('click', toggleProfileSection);
-
-// Close Modal Controls
+// Modal Controls
 const closeModal = () => profileModal?.classList.add('hidden');
 closeModalBtn?.addEventListener('click', closeModal);
 closeModalBottomBtn?.addEventListener('click', closeModal);
@@ -142,8 +159,8 @@ function openUserModal(user) {
   if (!profileModal) return;
   modalAvatar.src = safeAvatarUrl(user.pe);
   modalName.textContent = user.dn || 'Anonymous Player';
-  modalEmail.textContent = user.e ? user.e.replace(/(?<=.{2}).(?=.*@)/g, "*") : 'Hidden';
-  modalJoined.textContent = `Registered: ${formatDateDetailed(user.jt)}`;
+  modalEmail.textContent = user.e ? user.e.replace(/(?<=.{2}).(?=.*@)/g, "*") : 'PlayStash Member';
+  modalJoined.textContent = `PlayStash Member Since: ${formatDateDetailed(user.jt)}`;
   profileModal.classList.remove('hidden');
 }
 
@@ -162,7 +179,6 @@ onAuthStateChanged(auth, async (user) => {
   if (user && !user.isAnonymous) {
     loginBtn?.classList.add('hidden');
     userProfile?.classList.remove('hidden');
-    playerProfileSection?.classList.remove('hidden');
 
     const displayName = user.displayName || user.email || 'Player';
     const avatarUrl = safeAvatarUrl(user.photoURL);
@@ -172,7 +188,16 @@ onAuthStateChanged(auth, async (user) => {
 
     if (profileCardAvatar) profileCardAvatar.src = avatarUrl;
     if (profileCardName) profileCardName.textContent = displayName;
-    if (profileCardEmail) profileCardEmail.textContent = user.email || 'Google Account Linked';
+    if (profileCardEmail) profileCardEmail.textContent = user.email || 'PlayStash Google Account';
+    if (profileCardLevel) {
+      profileCardLevel.textContent = 'LEVEL 1';
+      profileCardLevel.className = 'text-[10px] font-black uppercase px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30';
+    }
+    if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-2 border-[#060911] rounded-full';
+    if (profileCardStatusText) {
+      profileCardStatusText.textContent = 'ONLINE';
+      profileCardStatusText.className = 'text-xs font-extrabold text-emerald-400 block mt-1';
+    }
 
     const creationTime = user.metadata?.creationTime
       ? new Date(user.metadata.creationTime).getTime()
@@ -180,7 +205,7 @@ onAuthStateChanged(auth, async (user) => {
 
     const formattedDate = formatDateDetailed(creationTime);
     memberSince.textContent = `Joined ${formattedDate}`;
-    if (profileCardJoined) profileCardJoined.textContent = `PSN Member Since: ${formattedDate}`;
+    if (profileCardJoined) profileCardJoined.textContent = `PlayStash Member Since: ${formattedDate}`;
 
     try {
       await set(ref(db, `u/${user.uid}/i`), {
@@ -190,22 +215,36 @@ onAuthStateChanged(auth, async (user) => {
         jt: creationTime
       });
     } catch (err) {
-      // Ignored
+      // Console hidden
     }
 
     watchGameSave(user.uid);
   } else {
     loginBtn?.classList.remove('hidden');
     userProfile?.classList.add('hidden');
-    playerProfileSection?.classList.add('hidden');
     userEmail.textContent = '';
     userAvatar.src = '';
     memberSince.textContent = '';
+
+    if (profileCardAvatar) profileCardAvatar.src = 'favicon.png';
+    if (profileCardName) profileCardName.textContent = 'Guest Player';
+    if (profileCardEmail) profileCardEmail.textContent = 'Sign in to view full profile details';
+    if (profileCardJoined) profileCardJoined.textContent = 'PlayStash Member: Offline';
+    if (profileCardLevel) {
+      profileCardLevel.textContent = 'LOCKED';
+      profileCardLevel.className = 'text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700';
+    }
+    if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-slate-600 border-2 border-[#060911] rounded-full';
+    if (profileCardStatusText) {
+      profileCardStatusText.textContent = 'OFFLINE';
+      profileCardStatusText.className = 'text-xs font-extrabold text-slate-500 block mt-1';
+    }
+
     watchGameSave(null);
   }
 });
 
-// Telemetry & Presence
+// Telemetry & Presence System
 const connectedRef = ref(db, ".info/connected");
 const presenceRef = ref(db, "presence");
 
@@ -236,7 +275,7 @@ function safeAvatarUrl(url) {
   }
 }
 
-// Players Directory Sync
+// Realtime User Network Sync
 onValue(ref(db, 'u'), (snapshot) => {
   const data = snapshot.val();
   if (!data) {
