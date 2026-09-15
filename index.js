@@ -97,6 +97,78 @@ const resourceMap = {
   fish: { name: 'Fish', icon: '🐟' }
 };
 
+// Keyframe Animations for Auth Button Hover Tooltips
+const tooltipStyles = document.createElement('style');
+tooltipStyles.textContent = `
+  @keyframes popSmiley {
+    0% { transform: translateY(8px) scale(0.3) rotate(-15deg); opacity: 0; }
+    60% { transform: translateY(-4px) scale(1.25) rotate(10deg); opacity: 1; }
+    100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+  }
+  @keyframes slideWhyTooltip {
+    0% { transform: translateY(8px) scale(0.92); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .smiley-pop-anim {
+    animation: popSmiley 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+  .why-tooltip-anim {
+    animation: slideWhyTooltip 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+`;
+document.head.appendChild(tooltipStyles);
+
+// Animated Hover Tooltip for Sign In (Smiley) & Sign Out (Why Explanation)
+function setupButtonHoverEffects() {
+  if (loginBtn) {
+    if (getComputedStyle(loginBtn).position === 'static') {
+      loginBtn.style.position = 'relative';
+    }
+    
+    let smileyEl = null;
+
+    loginBtn.addEventListener('mouseenter', () => {
+      if (smileyEl) smileyEl.remove();
+      smileyEl = document.createElement('div');
+      smileyEl.className = 'absolute -top-11 left-1/2 -translate-x-1/2 px-2.5 py-1 bg-amber-500/20 backdrop-blur-md text-amber-300 rounded-full border border-amber-400/50 shadow-lg text-lg flex items-center justify-center pointer-events-none z-50 smiley-pop-anim';
+      smileyEl.innerHTML = '😊';
+      loginBtn.appendChild(smileyEl);
+    });
+
+    loginBtn.addEventListener('mouseleave', () => {
+      if (smileyEl) {
+        smileyEl.remove();
+        smileyEl = null;
+      }
+    });
+  }
+
+  if (logoutBtn) {
+    if (getComputedStyle(logoutBtn).position === 'static') {
+      logoutBtn.style.position = 'relative';
+    }
+
+    let whyTooltipEl = null;
+
+    logoutBtn.addEventListener('mouseenter', () => {
+      if (whyTooltipEl) whyTooltipEl.remove();
+      whyTooltipEl = document.createElement('div');
+      whyTooltipEl.className = 'absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-900/95 backdrop-blur-md text-slate-200 text-[11px] font-semibold rounded-xl border border-sky-400/40 shadow-2xl whitespace-nowrap pointer-events-none z-50 why-tooltip-anim flex items-center gap-1.5';
+      whyTooltipEl.innerHTML = '<span>🔒 Safely end your active game session</span>';
+      logoutBtn.appendChild(whyTooltipEl);
+    });
+
+    logoutBtn.addEventListener('mouseleave', () => {
+      if (whyTooltipEl) {
+        whyTooltipEl.remove();
+        whyTooltipEl = null;
+      }
+    });
+  }
+}
+
+setupButtonHoverEffects();
+
 function switchTab(selected) {
   const activeClass = "px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-sky-500/20 border border-sky-400/40 transition cursor-pointer";
   const inactiveClass = "px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer";
