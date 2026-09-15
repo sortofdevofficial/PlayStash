@@ -15,7 +15,10 @@ import {
   getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs
 } from "./npcBrain.js";
 import { state, updateResourceUI, showNotif } from "./ui.js";
-import { authReady, loadSave, loadWorldByUid, initAutosave, markDirty, getPlayerId, serializeWorld, BUILD_CODE } from "./db.js";
+import {
+  authReady, loadSave, loadWorldByUid, initAutosave, markDirty,
+  getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser
+} from "./db.js";
 import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById } from "./world.js";
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
 import { initNpcPanel, tickNpcPanel, getTrackedNpcId, clearTrackedNpc } from "./npcPanel.js";
@@ -51,6 +54,49 @@ function onWorldChanged() {
 function syncNPCs() {
   checkCampfireNPCSymmetry(activeNPCs, placedObjects, scene, undefined, updateStats);
   if (!state.isSpectating) markDirty();
+}
+
+function updateAuthUI() {
+  const signInBtn = document.getElementById("signInBtn");
+  const signOutBtn = document.getElementById("signOutBtn");
+  const user = getCurrentUser();
+
+  if (user && !user.isAnonymous) {
+    if (signInBtn) signInBtn.style.display = "none";
+    if (signOutBtn) signOutBtn.style.display = "flex";
+  } else {
+    if (signInBtn) signInBtn.style.display = "flex";
+    if (signOutBtn) signOutBtn.style.display = "none";
+  }
+}
+
+function initAuthHandlers() {
+  const signInBtn = document.getElementById("signInBtn");
+  const signOutBtn = document.getElementById("signOutBtn");
+
+  if (signInBtn) {
+    signInBtn.addEventListener("click", async () => {
+      try {
+        await signInWithGoogle();
+        showNotif("Signed in successfully!", "info");
+        window.location.reload();
+      } catch (err) {
+        showNotif("Sign in failed", "warn");
+      }
+    });
+  }
+
+  if (signOutBtn) {
+    signOutBtn.addEventListener("click", async () => {
+      try {
+        await signOutUser();
+        showNotif("Signed out", "info");
+        window.location.reload();
+      } catch (err) {
+        showNotif("Sign out failed", "warn");
+      }
+    });
+  }
 }
 
 function showSpectateBanner(uid) {
@@ -126,6 +172,7 @@ initInputHandlers({ placedObjects, occupiedGrid, activeNPCs, ghosts, removeGhost
 initNpcPanel();
 initVisitWorld(placedObjects, activeNPCs);
 initOtherWorldsPanel();
+initAuthHandlers();
 if (isTouchDevice) initMobileControls();
 
 function startWorldTicks() {
@@ -193,6 +240,7 @@ async function boot() {
 
   try {
     uid = await withTimeout(authReady(), 6000, null);
+    updateAuthUI();
 
     if (spectateUid) {
       data = await withTimeout(loadWorldByUid(spectateUid), 6000, null);

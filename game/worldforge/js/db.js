@@ -34,6 +34,9 @@ let update = null;
 let onDisconnect = null;
 let onAuthStateChanged = null;
 let signInAnonymously = null;
+let GoogleAuthProvider = null;
+let signInWithPopup = null;
+let signOut = null;
 let db = null;
 let auth = null;
 
@@ -49,6 +52,9 @@ try {
   db = dbMod.getDatabase(app);
   onAuthStateChanged = authMod.onAuthStateChanged;
   signInAnonymously = authMod.signInAnonymously;
+  GoogleAuthProvider = authMod.GoogleAuthProvider;
+  signInWithPopup = authMod.signInWithPopup;
+  signOut = authMod.signOut;
   ref = dbMod.ref;
   get = dbMod.get;
   update = dbMod.update;
@@ -66,6 +72,48 @@ let onStatus = () => {};
 
 export function getPlayerId() { return playerId; }
 
+export function getCurrentUser() {
+  return auth ? auth.currentUser : null;
+}
+
+export async function ensureJoinTime(uid) {
+  if (!uid || !db || !ref || !get || !update) return;
+  try {
+    const infoRef = ref(db, `G/${GAME_ID}/${uid}/i`);
+    const snap = await get(infoRef);
+    if (!snap.exists() || !snap.val()?.jt) {
+      await update(infoRef, { jt: Date.now() });
+    }
+  } catch (err) {
+    console.warn("[db] Setting join time failed:", err);
+  }
+}
+
+export async function signInWithGoogle() {
+  if (!auth || !GoogleAuthProvider || !signInWithPopup) return null;
+  const provider = new GoogleAuthProvider();
+  try {
+    const res = await signInWithPopup(auth, provider);
+    if (res.user) {
+      await ensureJoinTime(res.user.uid);
+    }
+    return res.user;
+  } catch (err) {
+    console.warn("[db] Google sign-in failed:", err);
+    throw err;
+  }
+}
+
+export async function signOutUser() {
+  if (!auth || !signOut) return;
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.warn("[db] Sign-out failed:", err);
+    throw err;
+  }
+}
+
 export function authReady() {
   if (!auth) return Promise.resolve(null);
 
@@ -79,7 +127,7 @@ export function authReady() {
     };
     const timer = setTimeout(settle, AUTH_TIMEOUT_MS);
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (!user) {
         if (signInAnonymously) {
           signInAnonymously(auth).catch((err) => {
@@ -94,6 +142,7 @@ export function authReady() {
 
       playerId = user.uid;
       saveRef = ref(db, `G/${GAME_ID}/${playerId}`);
+      await ensureJoinTime(playerId);
       settle();
       if (sources && !autosaveTimer) onStatus("reload");
     });

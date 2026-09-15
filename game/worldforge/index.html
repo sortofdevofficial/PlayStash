@@ -16,6 +16,126 @@
   <link rel="stylesheet" href="./css/panels.css" />
   <link rel="stylesheet" href="./css/buildMenu.css" />
   <link rel="stylesheet" href="./css/responsive.css" />
+  <style>
+    /* Auth Buttons & Hover Animations */
+    .auth-container {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .auth-btn {
+      position: relative;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 11px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #ffffff;
+      outline: none;
+    }
+
+    /* Sign In Style & Animated Smiley Hover */
+    .sign-in-btn {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+    }
+
+    .sign-in-btn:hover {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.6);
+    }
+
+    .smiley-emoji {
+      display: inline-block;
+      opacity: 0;
+      width: 0;
+      transform: scale(0) rotate(-45deg);
+      transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .sign-in-btn:hover .smiley-emoji {
+      opacity: 1;
+      width: auto;
+      transform: scale(1.25) rotate(0deg);
+      animation: smileyBounce 0.6s infinite alternate ease-in-out 0.2s;
+    }
+
+    @keyframes smileyBounce {
+      0% { transform: scale(1.25) translateY(0) rotate(0deg); }
+      100% { transform: scale(1.35) translateY(-3px) rotate(12deg); }
+    }
+
+    /* Sign Out Style & "Why" Tooltip Hover */
+    .sign-out-btn {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+    }
+
+    .sign-out-btn:hover {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 6px 16px rgba(239, 68, 68, 0.6);
+    }
+
+    .signout-tooltip {
+      position: absolute;
+      top: 130%;
+      right: 0;
+      width: 210px;
+      padding: 10px 12px;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      color: #e2e8f0;
+      font-size: 11px;
+      line-height: 1.4;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px) scale(0.95);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 9999;
+      text-align: left;
+    }
+
+    .signout-tooltip::before {
+      content: "";
+      position: absolute;
+      top: -6px;
+      right: 18px;
+      width: 10px;
+      height: 10px;
+      background: rgba(15, 23, 42, 0.95);
+      border-left: 1px solid rgba(239, 68, 68, 0.4);
+      border-top: 1px solid rgba(239, 68, 68, 0.4);
+      transform: rotate(45deg);
+    }
+
+    .sign-out-btn:hover .signout-tooltip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+
+    .tooltip-title {
+      font-weight: 700;
+      color: #f87171;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+  </style>
 </head>
 <body>
   <div id="mainMenu">
@@ -226,6 +346,21 @@
       <button id="removeBtn" title="Remove">🗑️</button>
       <button id="dayBtn" title="Toggle Day / Night">🌙</button>
       <button id="viewWorldsBtn" class="iconBtn" title="See other players' worlds">🌍</button>
+      
+      <div id="authBtnContainer" class="auth-container">
+        <button id="signInBtn" class="auth-btn sign-in-btn">
+          <span>Sign In</span>
+          <span class="smiley-emoji">😊</span>
+        </button>
+        <button id="signOutBtn" class="auth-btn sign-out-btn" style="display: none;">
+          <span>Sign Out</span>
+          <div class="signout-tooltip">
+            <div class="tooltip-title">💡 Why Sign Out?</div>
+            <div>Saves your progress to the cloud and lets you switch accounts or play anonymously safely.</div>
+          </div>
+        </button>
+      </div>
+
       <button id="clearBtn" class="danger">Clear</button>
     </div>
 
