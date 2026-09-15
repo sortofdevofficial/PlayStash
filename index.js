@@ -1,9 +1,33 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously,
-  linkWithPopup, signOut, onAuthStateChanged
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// --- ANTI-INSPECT & PROTECTION CONTROLS ---
+(() => {
+  // Disable Right Click
+  document.addEventListener('contextmenu', e => e.preventDefault());
+
+  // Disable Shortcut Keys (F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S)
+  document.addEventListener('keydown', e => {
+    if (
+      e.key === 'F12' ||
+      (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].includes(e.key)) ||
+      (e.ctrlKey && ['U', 'u', 'S', 's'].includes(e.key))
+    ) {
+      e.preventDefault();
+    }
+  });
+
+  // Neuter Console Output
+  const noop = () => {};
+  window.console.log = noop;
+  window.console.warn = noop;
+  window.console.error = noop;
+  window.console.info = noop;
+  window.console.debug = noop;
+})();
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -55,7 +79,7 @@ function watchGameSave(uid) {
 
     if (!data) {
       gameSaveStatusEl.textContent = 'New World';
-      gameSaveStatusEl.className = `${PILL_CLASSES} bg-blue-500/10 text-blue-400 border-blue-500/20`;
+      gameSaveStatusEl.className = `${PILL_CLASSES} bg-cyan-500/10 text-cyan-400 border-cyan-500/20`;
       return;
     }
 
@@ -69,7 +93,6 @@ function watchGameSave(uid) {
   });
 }
 
-// Date Formatter Helper (Includes Day, Month, Year, Hour, Minute, Second)
 function formatDateDetailed(timestamp) {
   if (!timestamp) return 'N/A';
   return new Date(timestamp).toLocaleString('en-US', {
@@ -78,33 +101,14 @@ function formatDateDetailed(timestamp) {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
     hour12: true
   });
 }
 
+// Google Sign In Only
 loginBtn.addEventListener('click', async () => {
   try {
-    if (auth.currentUser && auth.currentUser.isAnonymous) {
-      // The visitor may already have an anonymous session (e.g. from playing
-      // WorldForge before signing in). Linking preserves that UID — and with
-      // it, their existing game save — instead of creating a second, separate
-      // signed-in identity with an empty save.
-      try {
-        await linkWithPopup(auth.currentUser, provider);
-      } catch (linkErr) {
-        // Most common case: this Google account is already linked to a
-        // different UID from an earlier session. Fall back to a normal
-        // sign-in with that existing account rather than failing outright.
-        if (linkErr.code === "auth/credential-already-in-use" || linkErr.code === "auth/email-already-in-use") {
-          await signInWithPopup(auth, provider);
-        } else {
-          throw linkErr;
-        }
-      }
-    } else {
-      await signInWithPopup(auth, provider);
-    }
+    await signInWithPopup(auth, provider);
   } catch (err) {
     alert("Sign In Error: " + err.message);
   }
@@ -113,24 +117,12 @@ loginBtn.addEventListener('click', async () => {
 logoutBtn.addEventListener('click', () => signOut(auth));
 
 onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    // No session at all yet — establish an anonymous one immediately so this
-    // page's uid matches whatever uid WorldForge itself will create, letting
-    // "New World" vs "Continue" reflect real save state even before sign-in.
-    try {
-      await signInAnonymously(auth);
-    } catch (err) {
-      console.warn("Anonymous sign-in failed:", err);
-    }
-    return;
-  }
-
-  if (!user.isAnonymous) {
+  if (user && !user.isAnonymous) {
     loginBtn.classList.add('hidden');
     userProfile.classList.remove('hidden');
 
     userEmail.textContent = user.displayName || user.email;
-    userAvatar.src = user.photoURL || 'favicon.png';
+    userAvatar.src = safeAvatarUrl(user.photoURL);
 
     const creationTime = user.metadata?.creationTime
       ? new Date(user.metadata.creationTime).getTime()
@@ -139,32 +131,28 @@ onAuthStateChanged(auth, async (user) => {
     memberSince.textContent = `Joined ${formatDateDetailed(creationTime)}`;
 
     try {
-      // Path: u/{uid}/i (was users/{uid}/info) - shorter path, matches the
-      // terse schema used everywhere else (G/{gameId}/{uid}/r,b,n,ts etc).
       await set(ref(db, `u/${user.uid}/i`), {
         e: user.email || '',
         dn: user.displayName || 'Player',
         pe: user.photoURL || 'favicon.png',
         jt: creationTime
       });
-      console.log("✅ Successfully updated profile in Realtime Database!");
     } catch (err) {
-      alert("Database Save Error: " + err.message);
+      // Ignored due to console lock
     }
+
+    watchGameSave(user.uid);
   } else {
     loginBtn.classList.remove('hidden');
     userProfile.classList.add('hidden');
     userEmail.textContent = '';
     userAvatar.src = '';
     memberSince.textContent = '';
+    watchGameSave(null);
   }
-
-  // Whether anonymous or fully signed in, this uid is the one the game saves
-  // under, so the save-status pill should always reflect it.
-  watchGameSave(user.uid);
 });
 
-// Presence System: Tracks real-time online connections
+// Presence System
 const connectedRef = ref(db, ".info/connected");
 const presenceRef = ref(db, "presence");
 
@@ -185,10 +173,6 @@ onValue(presenceRef, (snap) => {
   onlineCountEl.textContent = onlineTotal;
 });
 
-// Anyone signed in can write their own u/{uid}/i record, so the avatar URL is
-// restricted to http(s) before it ever reaches an <img src>. Empty input must
-// be rejected first: new URL(undefined, base) does not throw, it resolves to
-// "<origin>/undefined" and 404s.
 function safeAvatarUrl(url) {
   if (typeof url !== 'string' || !url) return 'favicon.png';
   try {
@@ -199,13 +183,12 @@ function safeAvatarUrl(url) {
   }
 }
 
-// Realtime User Network Sync
-// Path: u/{uid}/i (was users/{uid}/info)
+// Sync Users
 onValue(ref(db, 'u'), (snapshot) => {
   const data = snapshot.val();
   if (!data) {
     userCountEl.textContent = '0';
-    usersContainer.innerHTML = '<div class="card-bg border border-gray-800/80 rounded-xl p-4 text-center text-gray-400 text-sm">No registered players yet.</div>';
+    usersContainer.innerHTML = '<div class="glass-card rounded-xl p-4 text-center text-gray-400 text-sm">No registered players yet.</div>';
     return;
   }
 
@@ -216,16 +199,13 @@ onValue(ref(db, 'u'), (snapshot) => {
 
   userCountEl.textContent = users.length;
 
-  // dn and pe are player-controlled, so rows are built as nodes and those two
-  // values are only ever assigned as text/attribute - interpolating them into
-  // markup would let any player run script in every visitor's browser.
   usersContainer.replaceChildren(...users.map(u => {
     const card = document.createElement('div');
-    card.className = 'card-bg border border-gray-800/80 rounded-xl p-3.5 flex items-center gap-3.5 hover:border-gray-700 transition';
+    card.className = 'glass-card rounded-xl p-3.5 flex items-center gap-3.5 hover:border-cyan-500/40 transition duration-300';
 
     const img = document.createElement('img');
     img.src = safeAvatarUrl(u.pe);
-    img.className = 'w-10 h-10 rounded-full border border-blue-500/40 object-cover shrink-0';
+    img.className = 'w-10 h-10 rounded-full border border-cyan-500/40 object-cover shrink-0';
     img.alt = 'Profile';
 
     const details = document.createElement('div');
@@ -233,17 +213,17 @@ onValue(ref(db, 'u'), (snapshot) => {
 
     const name = document.createElement('span');
     name.className = 'font-bold text-sm text-white truncate';
-    name.textContent = u.dn || 'Anonymous Player';
+    name.textContent = u.dn || 'Player';
 
     const joined = document.createElement('span');
-    joined.className = 'text-[11px] text-blue-400/90 font-medium truncate mt-0.5';
+    joined.className = 'text-[11px] text-cyan-400 font-medium truncate mt-0.5';
     joined.textContent = `Joined ${formatDateDetailed(u.jt)}`;
 
     details.append(name, joined);
     card.append(img, details);
     return card;
   }));
-}, (err) => {
+}, () => {
   userCountEl.textContent = '—';
-  usersContainer.innerHTML = `<div class="card-bg border border-gray-800/80 rounded-xl p-4 text-center text-gray-400 text-sm">Player network unavailable (${err.code || 'error'}).</div>`;
+  usersContainer.innerHTML = `<div class="glass-card rounded-xl p-4 text-center text-gray-400 text-sm">Player network unavailable.</div>`;
 });
