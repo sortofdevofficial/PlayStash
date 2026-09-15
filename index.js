@@ -4,12 +4,12 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// --- ANTI-INSPECT & PROTECTION CONTROLS ---
+// --- SECURITY & CONSOLE CONTROLS ---
 (() => {
-  // Disable Right Click
+  // Disable Right Click Context Menu
   document.addEventListener('contextmenu', e => e.preventDefault());
 
-  // Disable Shortcut Keys (F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S)
+  // Block Developer Shortcut Keys
   document.addEventListener('keydown', e => {
     if (
       e.key === 'F12' ||
@@ -20,7 +20,7 @@ import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } f
     }
   });
 
-  // Neuter Console Output
+  // Neuter Console Logs
   const noop = () => {};
   window.console.log = noop;
   window.console.warn = noop;
@@ -28,6 +28,16 @@ import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } f
   window.console.info = noop;
   window.console.debug = noop;
 })();
+
+// Dynamic Header Border on Scroll Effect
+const header = document.getElementById('main-header');
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 20) {
+    header?.classList.add('scrolled');
+  } else {
+    header?.classList.remove('scrolled');
+  }
+});
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -57,7 +67,7 @@ const usersContainer = document.getElementById('users-container');
 const gameSaveStatusEl = document.getElementById('game-save-status');
 
 const GAME_ID = 1;
-const PILL_CLASSES = 'text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0';
+const PILL_CLASSES = 'text-[10px] font-mono px-2 py-0.5 rounded border shrink-0';
 
 let unsubscribeGameSave = null;
 
@@ -70,7 +80,7 @@ function watchGameSave(uid) {
 
   if (!uid) {
     gameSaveStatusEl.textContent = 'Sign in to save';
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-amber-500/10 text-amber-400 border-amber-500/20`;
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 text-slate-400 border-slate-800`;
     return;
   }
 
@@ -79,17 +89,17 @@ function watchGameSave(uid) {
 
     if (!data) {
       gameSaveStatusEl.textContent = 'New World';
-      gameSaveStatusEl.className = `${PILL_CLASSES} bg-cyan-500/10 text-cyan-400 border-cyan-500/20`;
+      gameSaveStatusEl.className = `${PILL_CLASSES} bg-blue-950 text-blue-400 border-blue-800`;
       return;
     }
 
     const builds = data.b ? Object.keys(data.b).length : 0;
     const villagers = data.n ? Object.keys(data.n).length : 0;
     gameSaveStatusEl.textContent = `Continue · ${builds} builds · ${villagers} villagers`;
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-emerald-500/10 text-emerald-400 border-emerald-500/20`;
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-emerald-950 text-emerald-400 border-emerald-800`;
   }, () => {
-    gameSaveStatusEl.textContent = 'Save unavailable';
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-gray-800/80 text-gray-400 border-gray-700/80`;
+    gameSaveStatusEl.textContent = 'Save offline';
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 text-slate-500 border-slate-800`;
   });
 }
 
@@ -98,19 +108,16 @@ function formatDateDetailed(timestamp) {
   return new Date(timestamp).toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
+    year: 'numeric'
   });
 }
 
-// Google Sign In Only
+// Google Sign-In Only
 loginBtn.addEventListener('click', async () => {
   try {
     await signInWithPopup(auth, provider);
   } catch (err) {
-    alert("Sign In Error: " + err.message);
+    alert("Authentication Error: " + err.message);
   }
 });
 
@@ -152,7 +159,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Presence System
+// Telemetry & Presence System
 const connectedRef = ref(db, ".info/connected");
 const presenceRef = ref(db, "presence");
 
@@ -183,12 +190,12 @@ function safeAvatarUrl(url) {
   }
 }
 
-// Sync Users
+// User Roster Sync
 onValue(ref(db, 'u'), (snapshot) => {
   const data = snapshot.val();
   if (!data) {
     userCountEl.textContent = '0';
-    usersContainer.innerHTML = '<div class="glass-card rounded-xl p-4 text-center text-gray-400 text-sm">No registered players yet.</div>';
+    usersContainer.innerHTML = '<div class="console-card rounded-lg p-4 text-center text-slate-500 text-xs font-mono">No registered profiles in database.</div>';
     return;
   }
 
@@ -201,22 +208,22 @@ onValue(ref(db, 'u'), (snapshot) => {
 
   usersContainer.replaceChildren(...users.map(u => {
     const card = document.createElement('div');
-    card.className = 'glass-card rounded-xl p-3.5 flex items-center gap-3.5 hover:border-cyan-500/40 transition duration-300';
+    card.className = 'console-card rounded-lg p-3 flex items-center gap-3 hover:border-slate-700 transition duration-200';
 
     const img = document.createElement('img');
     img.src = safeAvatarUrl(u.pe);
-    img.className = 'w-10 h-10 rounded-full border border-cyan-500/40 object-cover shrink-0';
+    img.className = 'w-8 h-8 rounded border border-slate-700 object-cover shrink-0';
     img.alt = 'Profile';
 
     const details = document.createElement('div');
     details.className = 'flex flex-col min-w-0 flex-1';
 
     const name = document.createElement('span');
-    name.className = 'font-bold text-sm text-white truncate';
+    name.className = 'font-bold text-xs text-slate-200 truncate font-mono';
     name.textContent = u.dn || 'Player';
 
     const joined = document.createElement('span');
-    joined.className = 'text-[11px] text-cyan-400 font-medium truncate mt-0.5';
+    joined.className = 'text-[10px] text-slate-500 font-mono truncate';
     joined.textContent = `Joined ${formatDateDetailed(u.jt)}`;
 
     details.append(name, joined);
@@ -225,5 +232,5 @@ onValue(ref(db, 'u'), (snapshot) => {
   }));
 }, () => {
   userCountEl.textContent = '—';
-  usersContainer.innerHTML = `<div class="glass-card rounded-xl p-4 text-center text-gray-400 text-sm">Player network unavailable.</div>`;
+  usersContainer.innerHTML = `<div class="console-card rounded-lg p-4 text-center text-slate-500 text-xs font-mono">Directory sync error.</div>`;
 });
