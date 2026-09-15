@@ -17,20 +17,30 @@
   <link rel="stylesheet" href="./css/buildMenu.css" />
   <link rel="stylesheet" href="./css/responsive.css" />
   <style>
+    .menu-join-dates {
+      display: flex;
+      gap: 8px;
+      margin: 10px 0 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
     .auth-container {
       position: relative;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
+      margin-bottom: 14px;
     }
 
     .auth-btn {
       position: relative;
-      padding: 6px 14px;
+      padding: 7px 16px;
       border-radius: 8px;
       font-weight: 700;
       font-size: 11px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(0, 0, 0, 0.1);
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       display: flex;
@@ -145,14 +155,14 @@
     }
 
     #joinedPlayStashBadge {
-      color: #38bdf8;
-      background: rgba(14, 165, 233, 0.15);
+      color: #0284c7;
+      background: rgba(14, 165, 233, 0.12);
       border: 1px solid rgba(56, 189, 248, 0.3);
     }
 
     #joinedWorldForgeBadge {
-      color: #4ade80;
-      background: rgba(34, 197, 94, 0.15);
+      color: #15803d;
+      background: rgba(34, 197, 94, 0.12);
       border: 1px solid rgba(74, 222, 128, 0.3);
     }
   </style>
@@ -164,10 +174,38 @@
       <div id="menuIcon">🔥</div>
       <div id="menuTitle">World<span>Forge</span></div>
       <div id="menuStatus">Loading world...</div>
+
+      <!-- Join dates displayed only on Homepage -->
+      <div class="menu-join-dates">
+        <span id="joinedPlayStashBadge" class="join-badge">🌐 PlayStash: <span id="joinedPlayStashText">--</span></span>
+        <span id="joinedWorldForgeBadge" class="join-badge">🗓️ WorldForge: <span id="joinedWorldForgeText">--</span></span>
+      </div>
+
+      <!-- Auth Sign In / Sign Out displayed only on Homepage -->
+      <div id="authBtnContainer" class="auth-container">
+        <button id="signInBtn" class="auth-btn sign-in-btn">
+          <span>Sign In</span>
+          <span class="smiley-emoji">HALO 😇</span>
+        </button>
+        <button id="signOutBtn" class="auth-btn sign-out-btn" style="display: none;">
+          <span>Sign Out</span>
+          <div class="signout-tooltip">
+            <div class="tooltip-title">Why? 😭</div>
+            <div>Saves your progress to the cloud and lets you switch accounts safely.</div>
+          </div>
+        </button>
+      </div>
+
       <button id="menuPlayBtn" disabled>Play</button>
+
       <div class="menu-btn-row">
         <button id="menuGuideBtn" class="menu-sec-btn" type="button">📖 Guide</button>
         <button id="menuAudioBtn" class="menu-sec-btn" type="button">🔊 Sound: On</button>
+      </div>
+
+      <!-- Back to PlayStash Button -->
+      <div class="menu-btn-row">
+        <button id="menuPlayStashBtn" class="menu-sec-btn" type="button">🎮 Back to PlayStash</button>
       </div>
     </div>
   </div>
@@ -225,6 +263,7 @@
   <script>
     (function spawnEmbers() {
       const container = document.getElementById("menuEmbers");
+      if (!container) return;
       const count = 22;
       for (let i = 0; i < count; i++) {
         const ember = document.createElement("div");
@@ -357,32 +396,15 @@
 
     <div id="topbar" class="panel">
       <div id="brand">World<span>Forge</span></div>
-      <span id="saveStatus" data-state="ready">Connecting…</span>
+      <!-- Hidden span for background JS save status compatibility -->
+      <span id="saveStatus" style="display: none;"></span>
       <span id="worldStats" style="font-size: 10px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧱 <span id="itemCount">0</span> · 👤 <span id="npcCount">0</span></span>
-      
-      <!-- Distinct PlayStash & WorldForge Joined Badges -->
-      <span id="joinedPlayStashBadge" class="join-badge">🌐 PlayStash: <span id="joinedPlayStashText">--</span></span>
-      <span id="joinedWorldForgeBadge" class="join-badge">🗓️ WorldForge: <span id="joinedWorldForgeText">--</span></span>
 
       <button id="npcListBtn" class="iconBtn" title="View NPCs">👥</button>
       <button id="removeBtn" title="Remove">🗑️</button>
       <button id="dayBtn" title="Toggle Day / Night">🌙</button>
       <button id="viewWorldsBtn" class="iconBtn" title="See other players' worlds">🌍</button>
       
-      <div id="authBtnContainer" class="auth-container">
-        <button id="signInBtn" class="auth-btn sign-in-btn">
-          <span>Sign In</span>
-          <span class="smiley-emoji">HALO 😇</span>
-        </button>
-        <button id="signOutBtn" class="auth-btn sign-out-btn" style="display: none;">
-          <span>Sign Out</span>
-          <div class="signout-tooltip">
-            <div class="tooltip-title">Why? 😭</div>
-            <div>Saves your progress to the cloud and lets you switch accounts safely.</div>
-          </div>
-        </button>
-      </div>
-
       <button id="clearBtn" class="danger">Clear</button>
     </div>
 

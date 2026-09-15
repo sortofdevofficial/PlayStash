@@ -123,6 +123,15 @@ function initAuthHandlers() {
   }
 }
 
+function initPlayStashHandler() {
+  const playStashBtn = document.getElementById("menuPlayStashBtn");
+  if (playStashBtn) {
+    playStashBtn.addEventListener("click", () => {
+      window.location.href = "https://playstash.com";
+    });
+  }
+}
+
 function showSpectateBanner(uid) {
   const banner = document.createElement("div");
   banner.id = "spectateBanner";
@@ -197,6 +206,7 @@ initNpcPanel();
 initVisitWorld(placedObjects, activeNPCs);
 initOtherWorldsPanel();
 initAuthHandlers();
+initPlayStashHandler();
 if (isTouchDevice) initMobileControls();
 
 function startWorldTicks() {

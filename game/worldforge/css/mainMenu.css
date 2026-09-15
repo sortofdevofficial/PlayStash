@@ -1,5 +1,5 @@
 /* ============================================================
-   MAIN MENU - plain white, simple, with a small animated tree.
+   MAIN MENU
    ============================================================ */
 #mainMenu {
   position: fixed;
@@ -17,7 +17,6 @@
   pointer-events: none;
 }
 
-/* Embers were part of the old fire theme - hidden now in favor of the tree. */
 #menuEmbers { display: none; }
 
 #menuCard {
@@ -27,8 +26,8 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 36px 40px 28px;
-  max-width: 380px;
+  padding: 32px 36px 28px;
+  max-width: 400px;
   width: 90vw;
   background: #ffffff;
   border: 1px solid #e5e7eb;
@@ -36,16 +35,15 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
 }
 
-/* ---- Animated 2D tree, built from plain CSS shapes (no image assets) ---- */
+/* ---- Animated 2D tree ---- */
 #menuIcon {
   position: relative;
   width: 64px;
   height: 76px;
-  margin: 0 auto 14px;
-  font-size: 0; /* hides the old emoji text content without touching the HTML */
+  margin: 0 auto 10px;
+  font-size: 0;
 }
 #menuIcon::before {
-  /* trunk */
   content: "";
   position: absolute;
   bottom: 0;
@@ -57,7 +55,6 @@
   transform: translateX(-50%);
 }
 #menuIcon::after {
-  /* foliage: three overlapping circles via box-shadow, swaying from the base */
   content: "";
   position: absolute;
   top: 4px;
@@ -83,7 +80,7 @@
   font-size: 26px;
   font-weight: 800;
   color: #111827;
-  margin: 2px 0 10px;
+  margin: 2px 0 8px;
 }
 #menuTitle span { color: #16a34a; }
 
@@ -95,7 +92,7 @@
   border: 1px solid #e5e7eb;
   padding: 6px 16px;
   border-radius: 18px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   min-height: 14px;
 }
 
@@ -123,7 +120,7 @@
   display: flex;
   gap: 8px;
   width: 100%;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 .menu-sec-btn {
   flex: 1;
@@ -139,7 +136,7 @@
 }
 .menu-sec-btn:hover { background: #e5e7eb; }
 
-/* ---- Guide modal, same plain theme ---- */
+/* ---- Guide modal ---- */
 .game-modal {
   position: fixed;
   inset: 0;
