@@ -1,10 +1,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, update, onValue, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// --- SECURITY & CONSOLE CONTROLS ---
+// Security Controls
 (() => {
   document.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -51,9 +51,8 @@ const memberSince = document.getElementById('member-since');
 const userCountEl = document.getElementById('user-count');
 const onlineCountEl = document.getElementById('online-count');
 const usersContainer = document.getElementById('users-container');
-const gameSaveStatusEl = document.getElementById('game-save-status');
 
-// Navigation Tabs
+// Tabs
 const tabGamesBtn = document.getElementById('tab-games-btn');
 const tabPlayersBtn = document.getElementById('tab-players-btn');
 const tabProfileBtn = document.getElementById('tab-profile-btn');
@@ -68,10 +67,14 @@ const profileCardAvatar = document.getElementById('profile-card-avatar');
 const profileCardName = document.getElementById('profile-card-name');
 const profileCardEmail = document.getElementById('profile-card-email');
 const profileCardJoined = document.getElementById('profile-card-joined');
-const profileCardSaveCount = document.getElementById('profile-card-save-count');
-const profileCardLevel = document.getElementById('profile-card-level');
 const profileCardStatusDot = document.getElementById('profile-card-status-dot');
 const profileCardStatusText = document.getElementById('profile-card-status-text');
+
+// Username Change Elements
+const editUsernameCard = document.getElementById('edit-username-card');
+const usernameInput = document.getElementById('username-input');
+const saveUsernameBtn = document.getElementById('save-username-btn');
+const usernameStatusMsg = document.getElementById('username-status-msg');
 
 // Modal Elements
 const profileModal = document.getElementById('profile-modal');
@@ -81,11 +84,6 @@ const modalEmail = document.getElementById('modal-email');
 const modalJoined = document.getElementById('modal-joined');
 const closeModalBtn = document.getElementById('close-modal-btn');
 const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
-
-const GAME_ID = 1;
-const PILL_CLASSES = 'text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md border shrink-0';
-
-let unsubscribeGameSave = null;
 
 // --- TAB SWITCHER LOGIC ---
 function switchTab(selected) {
@@ -105,41 +103,6 @@ tabGamesBtn?.addEventListener('click', () => switchTab('games'));
 tabPlayersBtn?.addEventListener('click', () => switchTab('players'));
 tabProfileBtn?.addEventListener('click', () => switchTab('profile'));
 openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
-
-function watchGameSave(uid) {
-  if (unsubscribeGameSave) {
-    unsubscribeGameSave();
-    unsubscribeGameSave = null;
-  }
-  if (!gameSaveStatusEl) return;
-
-  if (!uid) {
-    gameSaveStatusEl.textContent = 'Sign in to save';
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-800 text-slate-400 border-slate-700`;
-    if (profileCardSaveCount) profileCardSaveCount.textContent = '0 Games';
-    return;
-  }
-
-  unsubscribeGameSave = onValue(ref(db, `G/${GAME_ID}/${uid}`), (snap) => {
-    const data = snap.val();
-
-    if (!data) {
-      gameSaveStatusEl.textContent = 'New Save State';
-      gameSaveStatusEl.className = `${PILL_CLASSES} bg-sky-500/20 text-sky-400 border-sky-500/30`;
-      if (profileCardSaveCount) profileCardSaveCount.textContent = '0 Saves';
-      return;
-    }
-
-    const builds = data.b ? Object.keys(data.b).length : 0;
-    const villagers = data.n ? Object.keys(data.n).length : 0;
-    gameSaveStatusEl.textContent = `Save Sync: ${builds} builds · ${villagers} villagers`;
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-emerald-500/20 text-emerald-400 border-emerald-500/30`;
-    if (profileCardSaveCount) profileCardSaveCount.textContent = '1 Active';
-  }, () => {
-    gameSaveStatusEl.textContent = 'Save Unavailable';
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-800 text-slate-500 border-slate-700`;
-  });
-}
 
 function formatDateDetailed(timestamp) {
   if (!timestamp) return 'N/A';
@@ -164,6 +127,38 @@ function openUserModal(user) {
   profileModal.classList.remove('hidden');
 }
 
+// Username Changing Logic
+saveUsernameBtn?.addEventListener('click', async () => {
+  const newName = usernameInput.value.trim();
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) return;
+  if (!newName) {
+    showUsernameStatus('Username cannot be empty', false);
+    return;
+  }
+
+  try {
+    await updateProfile(currentUser, { displayName: newName });
+    await update(ref(db, `u/${currentUser.uid}/i`), { dn: newName });
+
+    userEmail.textContent = newName;
+    if (profileCardName) profileCardName.textContent = newName;
+    usernameInput.value = '';
+
+    showUsernameStatus('Username updated successfully!', true);
+  } catch (err) {
+    showUsernameStatus('Failed to update username.', false);
+  }
+});
+
+function showUsernameStatus(msg, isSuccess) {
+  if (!usernameStatusMsg) return;
+  usernameStatusMsg.textContent = msg;
+  usernameStatusMsg.className = `text-[11px] font-medium ${isSuccess ? 'text-emerald-400' : 'text-red-400'} block`;
+  setTimeout(() => usernameStatusMsg.classList.add('hidden'), 3000);
+}
+
 // Google Authentication
 loginBtn?.addEventListener('click', async () => {
   try {
@@ -179,6 +174,7 @@ onAuthStateChanged(auth, async (user) => {
   if (user && !user.isAnonymous) {
     loginBtn?.classList.add('hidden');
     userProfile?.classList.remove('hidden');
+    editUsernameCard?.classList.remove('hidden');
 
     const displayName = user.displayName || user.email || 'Player';
     const avatarUrl = safeAvatarUrl(user.photoURL);
@@ -188,15 +184,11 @@ onAuthStateChanged(auth, async (user) => {
 
     if (profileCardAvatar) profileCardAvatar.src = avatarUrl;
     if (profileCardName) profileCardName.textContent = displayName;
-    if (profileCardEmail) profileCardEmail.textContent = user.email || 'PlayStash Google Account';
-    if (profileCardLevel) {
-      profileCardLevel.textContent = 'LEVEL 1';
-      profileCardLevel.className = 'text-[10px] font-black uppercase px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30';
-    }
+    if (profileCardEmail) profileCardEmail.textContent = user.email || 'PlayStash Account';
     if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-2 border-[#060911] rounded-full';
     if (profileCardStatusText) {
       profileCardStatusText.textContent = 'ONLINE';
-      profileCardStatusText.className = 'text-xs font-extrabold text-emerald-400 block mt-1';
+      profileCardStatusText.className = 'text-xs font-extrabold text-emerald-400 block';
     }
 
     const creationTime = user.metadata?.creationTime
@@ -208,20 +200,19 @@ onAuthStateChanged(auth, async (user) => {
     if (profileCardJoined) profileCardJoined.textContent = `PlayStash Member Since: ${formattedDate}`;
 
     try {
-      await set(ref(db, `u/${user.uid}/i`), {
+      await update(ref(db, `u/${user.uid}/i`), {
         e: user.email || '',
         dn: displayName,
         pe: user.photoURL || 'favicon.png',
         jt: creationTime
       });
     } catch (err) {
-      // Console hidden
+      // Quiet fail
     }
-
-    watchGameSave(user.uid);
   } else {
     loginBtn?.classList.remove('hidden');
     userProfile?.classList.add('hidden');
+    editUsernameCard?.classList.add('hidden');
     userEmail.textContent = '';
     userAvatar.src = '';
     memberSince.textContent = '';
@@ -230,17 +221,11 @@ onAuthStateChanged(auth, async (user) => {
     if (profileCardName) profileCardName.textContent = 'Guest Player';
     if (profileCardEmail) profileCardEmail.textContent = 'Sign in to view full profile details';
     if (profileCardJoined) profileCardJoined.textContent = 'PlayStash Member: Offline';
-    if (profileCardLevel) {
-      profileCardLevel.textContent = 'LOCKED';
-      profileCardLevel.className = 'text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700';
-    }
     if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-slate-600 border-2 border-[#060911] rounded-full';
     if (profileCardStatusText) {
       profileCardStatusText.textContent = 'OFFLINE';
-      profileCardStatusText.className = 'text-xs font-extrabold text-slate-500 block mt-1';
+      profileCardStatusText.className = 'text-xs font-extrabold text-slate-500 block';
     }
-
-    watchGameSave(null);
   }
 });
 
