@@ -1,307 +1,271 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+// Entry point. Owns the handful of collections every other module shares
+// (placedObjects, activeNPCs, occupiedGrid, the build ghosts) and wires the
+// split-out modules together. Each module below does one job:
+//   world.js          - create/place/remove/restore world objects
+//   inputHandlers.js  - pointer, keyboard, and build-menu/topbar clicks
+//   npcPanel.js       - the villager inspector panel + camera tracking
+//   mobileControls.js - touch-device detection + height-hold buttons
+//   mainMenu.js       - the title screen gating boot() on Play
+//   saveUI.js         - save-status pill + games & player browser panel
+import { createLowPolyHut } from "./models/hut.js";
+import { createCampfire } from "./models/campfire.js";
+import { createFarm, updateFarmWiggle } from "./models/farm.js";
+import { createWatchtower } from "./models/watchtower.js";
+import { createWell } from "./models/well.js";
+import { createStorage } from "./models/storage.js";
+import { createMarket } from "./models/market.js";
+import { updateGusts, initAmbientAudio } from "./audio.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, set, update, onValue, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  engine, scene, camera, updateCameraControls,
+  playableGround,
+  startDisasterSystem
+} from "./environment.js";
+import {
+  getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs
+} from "./npcBrain.js";
+import { state, updateResourceUI, showNotif } from "./ui.js";
+import { authReady, loadSave, loadWorldByUid, initAutosave, markDirty, getPlayerId, serializeWorld, BUILD_CODE } from "./db.js";
+import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById } from "./world.js";
+import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
+import { initNpcPanel, tickNpcPanel, getTrackedNpcId, clearTrackedNpc } from "./npcPanel.js";
+import { isTouchDevice, initMobileControls, applyMobileHeightHold } from "./mobileControls.js";
+import { waitForPlay } from "./mainMenu.js";
+import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
+import { initVisitWorld } from "./visitWorld.js";
 
-// Security Controls
-(() => {
-  document.addEventListener('contextmenu', e => e.preventDefault());
+// ?view={uid} in the URL means "load this player's game read-only". The
+// in-game Visit button renders the target game in place through visitWorld.js.
+const spectateUid = new URLSearchParams(window.location.search).get("view");
 
-  document.addEventListener('keydown', e => {
-    if (
-      e.key === 'F12' ||
-      (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].includes(e.key)) ||
-      (e.ctrlKey && ['U', 'u', 'S', 's'].includes(e.key))
-    ) {
-      e.preventDefault();
-    }
-  });
+const occupiedGrid = new Map();
+const placedObjects = new Map();
+const activeNPCs = [];
+const buildCounters = {};
 
-  const noop = () => {};
-  window.console.log = noop;
-  window.console.warn = noop;
-  window.console.error = noop;
-  window.console.info = noop;
-  window.console.debug = noop;
-})();
+function nextBuildKey(type) {
+  buildCounters[type] = (buildCounters[type] || 0) + 1;
+  return `${BUILD_CODE[type] || type}${buildCounters[type]}`;
+}
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
-  authDomain: "playstash0.firebaseapp.com",
-  projectId: "playstash0",
-  storageBucket: "playstash0.firebasestorage.app",
-  messagingSenderId: "1015051983836",
-  appId: "1:1015051983836:web:3c89a152ce8c476852cd19",
-  measurementId: "G-6JH69Z3HNQ",
-  databaseURL: "https://playstash0-default-rtdb.asia-southeast1.firebasedatabase.app"
+function updateStats() {
+  const itemEl = document.getElementById("itemCount");
+  const npcEl = document.getElementById("npcCount");
+  if (itemEl) itemEl.textContent = placedObjects.size;
+  if (npcEl) npcEl.textContent = activeNPCs.length;
+}
+
+function onWorldChanged() {
+  updateStats();
+  updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
+}
+
+function syncNPCs() {
+  checkCampfireNPCSymmetry(activeNPCs, placedObjects, scene, undefined, updateStats);
+  if (!state.isSpectating) markDirty();
+}
+
+// Shows a small fixed banner while spectating a player's game session.
+function showSpectateBanner(uid) {
+  const banner = document.createElement("div");
+  banner.id = "spectateBanner";
+  banner.textContent = `👁️ Spectating player game (read-only)`;
+  banner.style.cssText = `
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 5000; background: rgba(37, 99, 235, 0.9); color: #fff;
+    font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 20px;
+    border: 1px solid rgba(147, 197, 253, 0.5); backdrop-filter: blur(12px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4); pointer-events: none; white-space: nowrap;
+  `;
+  document.body.appendChild(banner);
+  document.body.classList.add("spectating");
+}
+
+// Utility to export full formatted player in-game data summary
+export function getPlayerIngameData() {
+  return {
+    playerId: getPlayerId() || "Anonymous",
+    pop: activeNPCs.length,
+    maxPop: getMaxNPCCapacity(placedObjects),
+    structures: placedObjects.size,
+    wood: state.resources.wood,
+    stone: state.resources.stone,
+    food: state.resources.food,
+    water: state.resources.water,
+    storageCap: state.resources.storageCap
+  };
+}
+
+scene.ambientColor = new BABYLON.Color3(0.5, 0.55, 0.6);
+
+const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, scene, [camera]);
+pipeline.fxaaEnabled = true;
+pipeline.bloomEnabled = true;
+pipeline.bloomThreshold = 0.85;
+pipeline.bloomWeight = 0.18;
+pipeline.imageProcessingEnabled = true;
+pipeline.imageProcessing.exposure = 1.0;
+pipeline.imageProcessing.contrast = 1.0;
+pipeline.imageProcessing.toneMappingEnabled = true;
+pipeline.imageProcessing.toneMappingType = BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
+pipeline.imageProcessing.vignetteEnabled = true;
+pipeline.imageProcessing.vignetteWeight = 0.4;
+
+if (playableGround) {
+  playableGround.position.set(0, 0, 0);
+  playableGround.isVisible = true;
+  playableGround.isPickable = true;
+}
+
+const ghosts = {
+  hut: createLowPolyHut("ghostHut", scene),
+  campfire: createCampfire("ghostCampfire", scene, true),
+  farm: createFarm("ghostFarm", scene),
+  tower: createWatchtower("ghostTower", scene),
+  well: createWell("ghostWell", scene),
+  storage: createStorage("ghostStorage", scene),
+  market: createMarket("ghostMarket", scene)
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-const provider = new GoogleAuthProvider();
+Object.values(ghosts).forEach((g) => {
+  g.setEnabled(false);
+  g.getChildMeshes().forEach((m) => {
+    m.isPickable = false;
+    const mat = new BABYLON.StandardMaterial("ghostMat_" + m.name, scene);
+    mat.diffuseColor = new BABYLON.Color3(0.2, 0.95, 0.4);
+    mat.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.2);
+    mat.alpha = 0.5;
+    mat.zOffset = -5;
+    m.material = mat;
+  });
+});
 
-const loginBtn = document.getElementById('login-btn');
-const logoutBtn = document.getElementById('logout-btn');
-const userProfile = document.getElementById('user-profile');
-const userEmail = document.getElementById('user-email');
-const userAvatar = document.getElementById('user-avatar');
-const memberSince = document.getElementById('member-since');
-const userCountEl = document.getElementById('user-count');
-const onlineCountEl = document.getElementById('online-count');
-const usersContainer = document.getElementById('users-container');
+const removeGhostBox = BABYLON.MeshBuilder.CreateBox("removeGhostBox", { width: 2, depth: 2, height: 3 }, scene);
+const removeMat = new BABYLON.StandardMaterial("removeGhostMat", scene);
+removeMat.diffuseColor = removeMat.emissiveColor = new BABYLON.Color3(1, 0.2, 0.2);
+removeMat.alpha = 0.45;
+removeMat.zOffset = -5;
+removeGhostBox.material = removeMat;
+removeGhostBox.isPickable = false;
+removeGhostBox.isVisible = false;
 
-// Tabs
-const tabGamesBtn = document.getElementById('tab-games-btn');
-const tabPlayersBtn = document.getElementById('tab-players-btn');
-const tabProfileBtn = document.getElementById('tab-profile-btn');
+initWorld({ scene, placedObjects, occupiedGrid, activeNPCs, buildCounters, onStatsChanged: onWorldChanged, nextBuildKey });
+initInputHandlers({ placedObjects, occupiedGrid, activeNPCs, ghosts, removeGhostBox, onWorldChanged, onSyncNPCs: syncNPCs });
+initNpcPanel();
+initVisitWorld(placedObjects, activeNPCs);
+initOtherWorldsPanel();
+if (isTouchDevice) initMobileControls();
 
-const gamesSection = document.getElementById('games-section');
-const playersSection = document.getElementById('players-section');
-const profileSection = document.getElementById('profile-section');
-const openMyProfileBtn = document.getElementById('open-my-profile-btn');
-
-// Profile Dashboard Elements
-const profileCardAvatar = document.getElementById('profile-card-avatar');
-const profileCardName = document.getElementById('profile-card-name');
-const profileCardEmail = document.getElementById('profile-card-email');
-const profileCardJoined = document.getElementById('profile-card-joined');
-const profileCardStatusDot = document.getElementById('profile-card-status-dot');
-const profileCardStatusText = document.getElementById('profile-card-status-text');
-
-// Username Change Elements
-const editUsernameCard = document.getElementById('edit-username-card');
-const usernameInput = document.getElementById('username-input');
-const saveUsernameBtn = document.getElementById('save-username-btn');
-const usernameStatusMsg = document.getElementById('username-status-msg');
-
-// Modal Elements
-const profileModal = document.getElementById('profile-modal');
-const modalAvatar = document.getElementById('modal-avatar');
-const modalName = document.getElementById('modal-name');
-const modalEmail = document.getElementById('modal-email');
-const modalJoined = document.getElementById('modal-joined');
-const closeModalBtn = document.getElementById('close-modal-btn');
-const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
-
-// --- TAB SWITCHER LOGIC ---
-function switchTab(selected) {
-  const activeClass = "pb-1 text-xs font-bold uppercase tracking-widest text-white border-b-2 border-sky-400 transition cursor-pointer";
-  const inactiveClass = "pb-1 text-xs font-semibold uppercase tracking-widest text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition cursor-pointer";
-
-  tabGamesBtn.className = selected === 'games' ? activeClass : inactiveClass;
-  tabPlayersBtn.className = selected === 'players' ? activeClass : inactiveClass;
-  tabProfileBtn.className = selected === 'profile' ? activeClass : inactiveClass;
-
-  gamesSection.classList.toggle('hidden', selected !== 'games');
-  playersSection.classList.toggle('hidden', selected !== 'players');
-  profileSection.classList.toggle('hidden', selected !== 'profile');
+function startWorldTicks() {
+  setInterval(spawnRandomWildernessNode, 3500);
 }
 
-tabGamesBtn?.addEventListener('click', () => switchTab('games'));
-tabPlayersBtn?.addEventListener('click', () => switchTab('players'));
-tabProfileBtn?.addEventListener('click', () => switchTab('profile'));
-openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
+let elapsedTime = 0;
 
-function formatDateDetailed(timestamp) {
-  if (!timestamp) return 'N/A';
-  return new Date(timestamp).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
+function updateCameraControlsWithMobile(delta) {
+  updateCameraControls();
+  applyMobileHeightHold(delta);
+}
+
+function startRenderLoop() {
+  engine.runRenderLoop(() => {
+    const delta = engine.getDeltaTime() / 1000;
+    elapsedTime += delta;
+    updateGusts();
+
+    const trackedNpcId = getTrackedNpcId();
+    if (trackedNpcId) {
+      const tNpc = activeNPCs.find((n) => n.id === trackedNpcId);
+      if (tNpc) {
+        camera.target = BABYLON.Vector3.Lerp(camera.target, tNpc.root.position, 0.05);
+      } else {
+        clearTrackedNpc();
+      }
+    } else {
+      updateCameraControlsWithMobile(delta);
+    }
+
+    const rotateBtn = document.getElementById("mobileRotateBtn");
+    if (rotateBtn) rotateBtn.style.display = state.mode === "plant" ? "flex" : "none";
+
+    if (state.mode === "plant") {
+      const activeGhost = ghosts[state.buildType];
+      if (activeGhost && activeGhost.isEnabled()) {
+        activeGhost.position = BABYLON.Vector3.Lerp(activeGhost.position, getTargetGhostPos(), 0.35);
+        activeGhost.rotation.y = state.buildRotation;
+      }
+    }
+
+    tickNpcPanel(activeNPCs);
+
+    placedObjects.forEach((obj) => {
+      if (obj.type === "farm" && obj.root) updateFarmWiggle(obj.root, elapsedTime);
+    });
+    if (ghosts.farm) updateFarmWiggle(ghosts.farm, elapsedTime);
+
+    updateNPCs(delta, activeNPCs, placedObjects, occupiedGrid, scene, camera, engine, (id) => removeObjectById(id));
+    scene.render();
   });
 }
 
-// Modal Controls
-const closeModal = () => profileModal?.classList.add('hidden');
-closeModalBtn?.addEventListener('click', closeModal);
-closeModalBottomBtn?.addEventListener('click', closeModal);
-
-function openUserModal(user) {
-  if (!profileModal) return;
-  modalAvatar.src = safeAvatarUrl(user.pe);
-  modalName.textContent = user.dn || 'Anonymous Player';
-  modalEmail.textContent = user.e ? user.e.replace(/(?<=.{2}).(?=.*@)/g, "*") : 'PlayStash Member';
-  modalJoined.textContent = `PlayStash Member Since: ${formatDateDetailed(user.jt)}`;
-  profileModal.classList.remove('hidden');
+function withTimeout(promise, ms, fallback) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallback), ms))
+  ]);
 }
 
-// Username Changing Logic
-saveUsernameBtn?.addEventListener('click', async () => {
-  const newName = usernameInput.value.trim();
-  const currentUser = auth.currentUser;
+async function boot() {
+  let uid = null;
+  let data = null;
 
-  if (!currentUser) return;
-  if (!newName) {
-    showUsernameStatus('Username cannot be empty', false);
+  try {
+    uid = await withTimeout(authReady(), 6000, null);
+
+    if (spectateUid) {
+      data = await withTimeout(loadWorldByUid(spectateUid), 6000, null);
+    } else {
+      data = uid ? await withTimeout(loadSave(), 6000, null) : null;
+    }
+  } catch (err) {
+    console.warn("[boot] Cloud save unavailable, continuing offline:", err);
+  }
+
+  try { initAmbientAudio(); } catch (e) {}
+
+  if (data) {
+    restoreWorld(data);
+    syncNPCs();
+  } else if (!spectateUid) {
+    for (let i = 0; i < 25; i++) spawnRandomWildernessNode();
+  }
+
+  updateStats();
+  updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
+
+  startRenderLoop();
+
+  if (spectateUid) {
+    state.isSpectating = true;
+    showSpectateBanner(spectateUid);
+    setSaveStatus("spectating");
     return;
   }
 
-  try {
-    await updateProfile(currentUser, { displayName: newName });
-    await update(ref(db, `u/${currentUser.uid}/i`), { dn: newName });
+  await waitForPlay(data);
 
-    userEmail.textContent = newName;
-    if (profileCardName) profileCardName.textContent = newName;
-    usernameInput.value = '';
-
-    showUsernameStatus('Username updated successfully!', true);
-  } catch (err) {
-    showUsernameStatus('Failed to update username.', false);
-  }
-});
-
-function showUsernameStatus(msg, isSuccess) {
-  if (!usernameStatusMsg) return;
-  usernameStatusMsg.textContent = msg;
-  usernameStatusMsg.className = `text-[11px] font-medium ${isSuccess ? 'text-emerald-400' : 'text-red-400'} block`;
-  setTimeout(() => usernameStatusMsg.classList.add('hidden'), 3000);
+  startWorldTicks();
+  startDisasterSystem(activeNPCs, (name) => showNotif(`${name} incoming!`, "warn"));
+  initAutosave({ placedObjects, activeNPCs, state }, setSaveStatus);
+  setSaveStatus(uid ? "ready" : "offline");
 }
 
-// Google Authentication
-loginBtn?.addEventListener('click', async () => {
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (err) {
-    alert("Sign In Error: " + err.message);
-  }
-});
+updateResourceUI(0, 0, placedObjects);
+boot();
 
-logoutBtn?.addEventListener('click', () => signOut(auth));
+window.__worldforge = {
+  placedObjects, activeNPCs, state, occupiedGrid,
+  serializeWorld, restoreWorld, instantiateObject, getPlayerId, getPlayerIngameData
+};
 
-onAuthStateChanged(auth, async (user) => {
-  if (user && !user.isAnonymous) {
-    loginBtn?.classList.add('hidden');
-    userProfile?.classList.remove('hidden');
-    editUsernameCard?.classList.remove('hidden');
-
-    const displayName = user.displayName || user.email || 'Player';
-    const avatarUrl = safeAvatarUrl(user.photoURL);
-
-    userEmail.textContent = displayName;
-    userAvatar.src = avatarUrl;
-
-    if (profileCardAvatar) profileCardAvatar.src = avatarUrl;
-    if (profileCardName) profileCardName.textContent = displayName;
-    if (profileCardEmail) profileCardEmail.textContent = user.email || 'PlayStash Account';
-    if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-2 border-[#060911] rounded-full';
-    if (profileCardStatusText) {
-      profileCardStatusText.textContent = 'ONLINE';
-      profileCardStatusText.className = 'text-xs font-extrabold text-emerald-400 block';
-    }
-
-    const creationTime = user.metadata?.creationTime
-      ? new Date(user.metadata.creationTime).getTime()
-      : Date.now();
-
-    const formattedDate = formatDateDetailed(creationTime);
-    memberSince.textContent = `Joined ${formattedDate}`;
-    if (profileCardJoined) profileCardJoined.textContent = `PlayStash Member Since: ${formattedDate}`;
-
-    try {
-      await update(ref(db, `u/${user.uid}/i`), {
-        e: user.email || '',
-        dn: displayName,
-        pe: user.photoURL || 'favicon.png',
-        jt: creationTime
-      });
-    } catch (err) {
-      // Quiet fail
-    }
-  } else {
-    loginBtn?.classList.remove('hidden');
-    userProfile?.classList.add('hidden');
-    editUsernameCard?.classList.add('hidden');
-    userEmail.textContent = '';
-    userAvatar.src = '';
-    memberSince.textContent = '';
-
-    if (profileCardAvatar) profileCardAvatar.src = 'favicon.png';
-    if (profileCardName) profileCardName.textContent = 'Guest Player';
-    if (profileCardEmail) profileCardEmail.textContent = 'Sign in to view full profile details';
-    if (profileCardJoined) profileCardJoined.textContent = 'PlayStash Member: Offline';
-    if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-slate-600 border-2 border-[#060911] rounded-full';
-    if (profileCardStatusText) {
-      profileCardStatusText.textContent = 'OFFLINE';
-      profileCardStatusText.className = 'text-xs font-extrabold text-slate-500 block';
-    }
-  }
-});
-
-// Telemetry & Presence System
-const connectedRef = ref(db, ".info/connected");
-const presenceRef = ref(db, "presence");
-
-onValue(connectedRef, (snap) => {
-  if (snap.val() === true) {
-    const myPresenceRef = push(presenceRef);
-    onDisconnect(myPresenceRef).remove();
-    set(myPresenceRef, {
-      online: true,
-      ts: serverTimestamp()
-    });
-  }
-});
-
-onValue(presenceRef, (snap) => {
-  const onlineData = snap.val();
-  const onlineTotal = onlineData ? Object.keys(onlineData).length : 0;
-  if (onlineCountEl) onlineCountEl.textContent = onlineTotal;
-});
-
-function safeAvatarUrl(url) {
-  if (typeof url !== 'string' || !url) return 'favicon.png';
-  try {
-    const parsed = new URL(url, window.location.href);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : 'favicon.png';
-  } catch {
-    return 'favicon.png';
-  }
-}
-
-// Realtime User Network Sync
-onValue(ref(db, 'u'), (snapshot) => {
-  const data = snapshot.val();
-  if (!data) {
-    if (userCountEl) userCountEl.textContent = '0';
-    usersContainer.innerHTML = '<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">No registered players yet.</div>';
-    return;
-  }
-
-  const users = Object.values(data)
-    .map(u => u.i)
-    .filter(Boolean)
-    .sort((a, b) => (b.jt || 0) - (a.jt || 0));
-
-  if (userCountEl) userCountEl.textContent = users.length;
-
-  usersContainer.replaceChildren(...users.map(u => {
-    const card = document.createElement('div');
-    card.className = 'ps-glass rounded-2xl p-3.5 flex items-center gap-3.5 hover:border-sky-500/50 cursor-pointer transition duration-300';
-    card.addEventListener('click', () => openUserModal(u));
-
-    const img = document.createElement('img');
-    img.src = safeAvatarUrl(u.pe);
-    img.className = 'w-9 h-9 rounded-full border border-sky-400/50 object-cover shrink-0 shadow-sm';
-    img.alt = 'Profile';
-
-    const details = document.createElement('div');
-    details.className = 'flex flex-col min-w-0 flex-1';
-
-    const name = document.createElement('span');
-    name.className = 'font-bold text-xs text-white truncate';
-    name.textContent = u.dn || 'Player';
-
-    const joined = document.createElement('span');
-    joined.className = 'text-[10px] text-sky-400 font-medium truncate mt-0.5';
-    joined.textContent = `Joined ${formatDateDetailed(u.jt)}`;
-
-    details.append(name, joined);
-    card.append(img, details);
-    return card;
-  }));
-}, () => {
-  if (userCountEl) userCountEl.textContent = '—';
-  usersContainer.innerHTML = `<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">Player network unavailable.</div>`;
-});
+window.addEventListener("resize", () => engine.resize());
+window.addEventListener("orientationchange", () => setTimeout(() => engine.resize(), 300));
