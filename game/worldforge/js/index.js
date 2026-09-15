@@ -17,7 +17,7 @@ import {
 import { state, updateResourceUI, showNotif } from "./ui.js";
 import {
   authReady, loadSave, loadWorldByUid, initAutosave, markDirty,
-  getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser, getJoinTime
+  getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser, getJoinTimes
 } from "./db.js";
 import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById } from "./world.js";
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
@@ -56,25 +56,26 @@ function syncNPCs() {
   if (!state.isSpectating) markDirty();
 }
 
+function formatJoinDate(ts) {
+  if (!ts) return "Offline";
+  return new Date(ts).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric'
+  });
+}
+
 async function updateJoinedTimeUI(uid) {
-  const timeTextEl = document.getElementById("joinedTimeText");
-  if (!timeTextEl) return;
+  const psTextEl = document.getElementById("joinedPlayStashText");
+  const wfTextEl = document.getElementById("joinedWorldForgeText");
 
   if (!uid) {
-    timeTextEl.textContent = "Offline";
+    if (psTextEl) psTextEl.textContent = "Offline";
+    if (wfTextEl) wfTextEl.textContent = "Offline";
     return;
   }
 
-  const jt = await getJoinTime(uid);
-  if (jt) {
-    const d = new Date(jt);
-    timeTextEl.textContent = d.toLocaleString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-  } else {
-    timeTextEl.textContent = "Just joined";
-  }
+  const times = await getJoinTimes(uid);
+  if (psTextEl) psTextEl.textContent = formatJoinDate(times.playstash);
+  if (wfTextEl) wfTextEl.textContent = formatJoinDate(times.worldforge);
 }
 
 function updateAuthUI() {
@@ -101,7 +102,7 @@ function initAuthHandlers() {
     signInBtn.addEventListener("click", async () => {
       try {
         await signInWithGoogle();
-        showNotif("Signed in successfully!", "info");
+        showNotif("Signed in successfully! HALO 😇", "info");
         window.location.reload();
       } catch (err) {
         showNotif("Sign in failed", "warn");
@@ -112,8 +113,8 @@ function initAuthHandlers() {
   if (signOutBtn) {
     signOutBtn.addEventListener("click", async () => {
       try {
+        showNotif("Why? 😭", "warn");
         await signOutUser();
-        showNotif("Signed out", "info");
         window.location.reload();
       } catch (err) {
         showNotif("Sign out failed", "warn");

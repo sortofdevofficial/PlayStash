@@ -79,25 +79,36 @@ export function getCurrentUser() {
 export async function ensureJoinTime(uid) {
   if (!uid || !db || !ref || !get || !update) return;
   try {
-    const infoRef = ref(db, `G/${GAME_ID}/${uid}/i`);
-    const snap = await get(infoRef);
-    if (!snap.exists() || !snap.val()?.jt) {
-      await update(infoRef, { jt: Date.now() });
+    const now = Date.now();
+    const wfRef = ref(db, `G/${GAME_ID}/${uid}/i`);
+    const wfSnap = await get(wfRef);
+    if (!wfSnap.exists() || !wfSnap.val()?.jt) {
+      await update(wfRef, { jt: now });
+    }
+
+    const psRef = ref(db, `u/${uid}/i`);
+    const psSnap = await get(psRef);
+    if (!psSnap.exists() || !psSnap.val()?.jt) {
+      await update(psRef, { jt: now });
     }
   } catch (err) {
     console.warn("[db] Setting join time failed:", err);
   }
 }
 
-export async function getJoinTime(uid) {
-  if (!uid || !db || !ref || !get) return null;
+export async function getJoinTimes(uid) {
+  if (!uid || !db || !ref || !get) return { playstash: null, worldforge: null };
   try {
-    const snap = await get(ref(db, `G/${GAME_ID}/${uid}/i/jt`));
-    if (snap.exists()) return snap.val();
-    const userSnap = await get(ref(db, `u/${uid}/i/jt`));
-    return userSnap.exists() ? userSnap.val() : null;
+    const [wfSnap, psSnap] = await Promise.all([
+      get(ref(db, `G/${GAME_ID}/${uid}/i/jt`)),
+      get(ref(db, `u/${uid}/i/jt`))
+    ]);
+    return {
+      worldforge: wfSnap.exists() ? wfSnap.val() : null,
+      playstash: psSnap.exists() ? psSnap.val() : null
+    };
   } catch (err) {
-    return null;
+    return { playstash: null, worldforge: null };
   }
 }
 

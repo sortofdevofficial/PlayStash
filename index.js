@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, set, update, onValue, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, update, onValue, push, onDisconnect, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -43,7 +43,8 @@ const openMyProfileBtn = document.getElementById('open-my-profile-btn');
 const profileCardAvatar = document.getElementById('profile-card-avatar');
 const profileCardName = document.getElementById('profile-card-name');
 const profileCardEmail = document.getElementById('profile-card-email');
-const profileCardJoined = document.getElementById('profile-card-joined');
+const profileCardJoinedPs = document.getElementById('profile-card-joined-ps');
+const profileCardJoinedWf = document.getElementById('profile-card-joined-wf');
 const profileCardStatusDot = document.getElementById('profile-card-status-dot');
 const profileCardStatusText = document.getElementById('profile-card-status-text');
 
@@ -64,7 +65,8 @@ const profileModal = document.getElementById('profile-modal');
 const modalAvatar = document.getElementById('modal-avatar');
 const modalName = document.getElementById('modal-name');
 const modalEmail = document.getElementById('modal-email');
-const modalJoined = document.getElementById('modal-joined');
+const modalJoinedPs = document.getElementById('modal-joined-ps');
+const modalJoinedWf = document.getElementById('modal-joined-wf');
 const modalBuildings = document.getElementById('modal-buildings');
 const modalNpcs = document.getElementById('modal-npcs');
 const modalResources = document.getElementById('modal-resources');
@@ -75,7 +77,6 @@ const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
 let rawUsersData = {};
 let rawGamesData = {};
 
-// Abbreviation mapping dictionary for resource keys
 const resourceMap = {
   wo: { name: 'Wood', icon: '🪵' },
   wood: { name: 'Wood', icon: '🪵' },
@@ -97,7 +98,6 @@ const resourceMap = {
   fish: { name: 'Fish', icon: '🐟' }
 };
 
-// Keyframe Animations for Auth Button Hover Tooltips
 const tooltipStyles = document.createElement('style');
 tooltipStyles.textContent = `
   @keyframes popSmiley {
@@ -129,8 +129,8 @@ function setupButtonHoverEffects() {
     loginBtn.addEventListener('mouseenter', () => {
       if (smileyEl) smileyEl.remove();
       smileyEl = document.createElement('div');
-      smileyEl.className = 'absolute -top-11 left-1/2 -translate-x-1/2 px-2.5 py-1 bg-amber-500/20 backdrop-blur-md text-amber-300 rounded-full border border-amber-400/50 shadow-lg text-lg flex items-center justify-center pointer-events-none z-50 smiley-pop-anim';
-      smileyEl.innerHTML = '😊';
+      smileyEl.className = 'absolute -top-11 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-500/20 backdrop-blur-md text-amber-300 rounded-full border border-amber-400/50 shadow-lg text-xs font-bold flex items-center justify-center pointer-events-none z-50 smiley-pop-anim whitespace-nowrap';
+      smileyEl.innerHTML = 'HALO 😇';
       loginBtn.appendChild(smileyEl);
     });
 
@@ -152,8 +152,8 @@ function setupButtonHoverEffects() {
     logoutBtn.addEventListener('mouseenter', () => {
       if (whyTooltipEl) whyTooltipEl.remove();
       whyTooltipEl = document.createElement('div');
-      whyTooltipEl.className = 'absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-900/95 backdrop-blur-md text-slate-200 text-[11px] font-semibold rounded-xl border border-sky-400/40 shadow-2xl whitespace-nowrap pointer-events-none z-50 why-tooltip-anim flex items-center gap-1.5';
-      whyTooltipEl.innerHTML = '<span>🔒 Safely end your active game session</span>';
+      whyTooltipEl.className = 'absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-900/95 backdrop-blur-md text-slate-200 text-[11px] font-bold rounded-xl border border-red-500/40 shadow-2xl whitespace-nowrap pointer-events-none z-50 why-tooltip-anim flex items-center gap-1.5';
+      whyTooltipEl.innerHTML = '<span class="text-red-400 font-extrabold">Why? 😭</span>';
       logoutBtn.appendChild(whyTooltipEl);
     });
 
@@ -246,7 +246,7 @@ const closeModal = () => profileModal?.classList.add('hidden');
 closeModalBtn?.addEventListener('click', closeModal);
 closeModalBottomBtn?.addEventListener('click', closeModal);
 
-function openUserModal(user, uid) {
+async function openUserModal(user, uid) {
   if (!profileModal) return;
   const gameSave = rawGamesData[uid] || {};
   const bCount = gameSave.b ? Object.keys(gameSave.b).length : 0;
@@ -256,7 +256,21 @@ function openUserModal(user, uid) {
   modalAvatar.src = safeAvatarUrl(user.pe);
   modalName.textContent = user.dn || 'Player';
   modalEmail.textContent = user.e ? user.e.replace(/(?<=.{2}).(?=.*@)/g, "*") : 'PlayStash Member';
-  modalJoined.textContent = `Joined WorldForge: ${formatDateDetailed(user.jt)}`;
+
+  const playstashJoined = formatDateDetailed(user.jt);
+  let worldforgeJoined = 'Not played yet';
+
+  if (gameSave.i && gameSave.i.jt) {
+    worldforgeJoined = formatDateDetailed(gameSave.i.jt);
+  } else {
+    try {
+      const snap = await get(ref(db, `G/1/${uid}/i/jt`));
+      if (snap.exists()) worldforgeJoined = formatDateDetailed(snap.val());
+    } catch(e) {}
+  }
+
+  if (modalJoinedPs) modalJoinedPs.textContent = `Joined PlayStash: ${playstashJoined}`;
+  if (modalJoinedWf) modalJoinedWf.textContent = `Joined WorldForge: ${worldforgeJoined}`;
 
   if (modalBuildings) modalBuildings.textContent = bCount;
   if (modalNpcs) modalNpcs.textContent = nCount;
@@ -306,7 +320,10 @@ loginBtn?.addEventListener('click', async () => {
   }
 });
 
-logoutBtn?.addEventListener('click', () => signOut(auth));
+logoutBtn?.addEventListener('click', async () => {
+  alert("Why? 😭");
+  await signOut(auth);
+});
 
 onAuthStateChanged(auth, async (user) => {
   if (user && !user.isAnonymous) {
@@ -330,18 +347,25 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     const creationTime = user.metadata?.creationTime ? new Date(user.metadata.creationTime).getTime() : Date.now();
-    const formattedDate = formatDateDetailed(creationTime);
-    memberSince.textContent = `Joined ${formattedDate}`;
-    if (profileCardJoined) profileCardJoined.textContent = `Joined WorldForge: ${formattedDate}`;
+    const formattedPsDate = formatDateDetailed(creationTime);
+    memberSince.textContent = `Joined ${formattedPsDate}`;
+    if (profileCardJoinedPs) profileCardJoinedPs.textContent = `Joined PlayStash: ${formattedPsDate}`;
+
+    let wfJoinedTime = null;
+    try {
+      const snap = await get(ref(db, `G/1/${user.uid}/i/jt`));
+      if (snap.exists()) wfJoinedTime = snap.val();
+    } catch(e) {}
+
+    if (profileCardJoinedWf) {
+      profileCardJoinedWf.textContent = `Joined WorldForge: ${wfJoinedTime ? formatDateDetailed(wfJoinedTime) : 'Not played yet'}`;
+    }
 
     try {
       await update(ref(db, `u/${user.uid}/i`), {
         e: user.email || '',
         dn: displayName,
         pe: user.photoURL || 'favicon.png',
-        jt: creationTime
-      });
-      await update(ref(db, `G/1/${user.uid}/i`), {
         jt: creationTime
       });
     } catch (err) {}
@@ -358,7 +382,8 @@ onAuthStateChanged(auth, async (user) => {
     if (profileCardAvatar) profileCardAvatar.src = 'favicon.png';
     if (profileCardName) profileCardName.textContent = 'Guest Player';
     if (profileCardEmail) profileCardEmail.textContent = 'Sign in to view profile details';
-    if (profileCardJoined) profileCardJoined.textContent = 'Status: Offline';
+    if (profileCardJoinedPs) profileCardJoinedPs.textContent = 'Joined PlayStash: -';
+    if (profileCardJoinedWf) profileCardJoinedWf.textContent = 'Joined WorldForge: -';
     if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-slate-600 border-2 border-[#030712] rounded-full';
     if (profileCardStatusText) {
       profileCardStatusText.textContent = 'OFFLINE';
@@ -433,6 +458,8 @@ function renderDirectory() {
     const wheat = Number(res.w || res.wheat || 0);
     const stone = Number(res.s || res.stone || 0);
 
+    const wfJoinedDate = gameSave.i && gameSave.i.jt ? formatDateDetailed(gameSave.i.jt) : 'Not played yet';
+
     const card = document.createElement('div');
     card.className = 'card-box rounded-2xl p-4 flex items-center justify-between gap-3 hover:border-sky-500/50 cursor-pointer transition duration-300';
     card.addEventListener('click', () => openUserModal(u, u.uid));
@@ -452,11 +479,15 @@ function renderDirectory() {
     name.className = 'font-bold text-xs text-white truncate';
     name.textContent = u.dn || 'Player';
 
-    const joined = document.createElement('span');
-    joined.className = 'text-[10px] text-sky-400 font-medium truncate mt-0.5';
-    joined.textContent = `Joined WorldForge: ${formatDateDetailed(u.jt)}`;
+    const psJoined = document.createElement('span');
+    psJoined.className = 'text-[10px] text-sky-400 font-medium truncate mt-0.5';
+    psJoined.textContent = `Joined PlayStash: ${formatDateDetailed(u.jt)}`;
 
-    details.append(name, joined);
+    const wfJoined = document.createElement('span');
+    wfJoined.className = 'text-[10px] text-emerald-400 font-medium truncate';
+    wfJoined.textContent = `Joined WorldForge: ${wfJoinedDate}`;
+
+    details.append(name, psJoined, wfJoined);
     left.append(img, details);
 
     const right = document.createElement('div');

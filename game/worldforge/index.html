@@ -133,18 +133,27 @@
       gap: 4px;
     }
 
-    #joinedWorldForgeBadge {
+    .join-badge {
       font-size: 10px;
       font-weight: 700;
-      color: #38bdf8;
-      background: rgba(14, 165, 233, 0.15);
-      border: 1px solid rgba(56, 189, 248, 0.3);
       padding: 4px 10px;
       border-radius: 20px;
       white-space: nowrap;
       display: inline-flex;
       align-items: center;
       gap: 4px;
+    }
+
+    #joinedPlayStashBadge {
+      color: #38bdf8;
+      background: rgba(14, 165, 233, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    #joinedWorldForgeBadge {
+      color: #4ade80;
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(74, 222, 128, 0.3);
     }
   </style>
 </head>
@@ -351,8 +360,9 @@
       <span id="saveStatus" data-state="ready">Connecting…</span>
       <span id="worldStats" style="font-size: 10px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧱 <span id="itemCount">0</span> · 👤 <span id="npcCount">0</span></span>
       
-      <!-- In-Game Area Joined WorldForge & Time Display -->
-      <span id="joinedWorldForgeBadge">🗓️ Joined WorldForge: <span id="joinedTimeText">--</span></span>
+      <!-- Distinct PlayStash & WorldForge Joined Badges -->
+      <span id="joinedPlayStashBadge" class="join-badge">🌐 PlayStash: <span id="joinedPlayStashText">--</span></span>
+      <span id="joinedWorldForgeBadge" class="join-badge">🗓️ WorldForge: <span id="joinedWorldForgeText">--</span></span>
 
       <button id="npcListBtn" class="iconBtn" title="View NPCs">👥</button>
       <button id="removeBtn" title="Remove">🗑️</button>
@@ -362,13 +372,13 @@
       <div id="authBtnContainer" class="auth-container">
         <button id="signInBtn" class="auth-btn sign-in-btn">
           <span>Sign In</span>
-          <span class="smiley-emoji">😊</span>
+          <span class="smiley-emoji">HALO 😇</span>
         </button>
         <button id="signOutBtn" class="auth-btn sign-out-btn" style="display: none;">
           <span>Sign Out</span>
           <div class="signout-tooltip">
-            <div class="tooltip-title">💡 Why Sign Out?</div>
-            <div>Saves your progress to the cloud and lets you switch accounts or play anonymously safely.</div>
+            <div class="tooltip-title">Why? 😭</div>
+            <div>Saves your progress to the cloud and lets you switch accounts safely.</div>
           </div>
         </button>
       </div>
