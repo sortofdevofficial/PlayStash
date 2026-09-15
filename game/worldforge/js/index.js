@@ -1,12 +1,3 @@
-// Entry point. Owns the handful of collections every other module shares
-// (placedObjects, activeNPCs, occupiedGrid, the build ghosts) and wires the
-// split-out modules together. Each module below does one job:
-//   world.js          - create/place/remove/restore world objects
-//   inputHandlers.js  - pointer, keyboard, and build-menu/topbar clicks
-//   npcPanel.js       - the villager inspector panel + camera tracking
-//   mobileControls.js - touch-device detection + height-hold buttons
-//   mainMenu.js       - the title screen gating boot() on Play
-//   saveUI.js         - save-status pill + other-worlds browser panel
 import { createLowPolyHut } from "./models/hut.js";
 import { createCampfire } from "./models/campfire.js";
 import { createFarm, updateFarmWiggle } from "./models/farm.js";
@@ -33,9 +24,6 @@ import { waitForPlay } from "./mainMenu.js";
 import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
 import { initVisitWorld } from "./visitWorld.js";
 
-// ?view={uid} in the URL means "load this player's world read-only". The
-// in-game Visit button no longer produces these - it renders the other world
-// in place through visitWorld.js - but hand-shared deep links still land here.
 const spectateUid = new URLSearchParams(window.location.search).get("view");
 
 const occupiedGrid = new Map();
@@ -65,8 +53,6 @@ function syncNPCs() {
   if (!state.isSpectating) markDirty();
 }
 
-// Shows a small fixed banner while spectating, created on the fly so no HTML
-// changes are required elsewhere to get this working.
 function showSpectateBanner(uid) {
   const banner = document.createElement("div");
   banner.id = "spectateBanner";
@@ -194,9 +180,6 @@ function startRenderLoop() {
   });
 }
 
-// Races a promise against a timeout so a hung/blocked network call can never
-// strand the player on the static "Loading world..." HTML forever - it
-// falls back to `fallback` and lets the game continue offline instead.
 function withTimeout(promise, ms, fallback) {
   return Promise.race([
     promise,
@@ -212,9 +195,6 @@ async function boot() {
     uid = await withTimeout(authReady(), 6000, null);
 
     if (spectateUid) {
-      // Read-only path: fetch someone else's save directly by uid. Never
-      // touches loadSave()/our own saveRef, so there is no chance of this
-      // accidentally reading or writing the visitor's own world.
       data = await withTimeout(loadWorldByUid(spectateUid), 6000, null);
     } else {
       data = uid ? await withTimeout(loadSave(), 6000, null) : null;
@@ -231,9 +211,6 @@ async function boot() {
   } else if (!spectateUid) {
     for (let i = 0; i < 25; i++) spawnRandomWildernessNode();
   }
-  // If spectating and the fetch failed/came back empty, we deliberately
-  // don't fall back to generating wilderness - an empty result should read
-  // as "this player has no saved world yet", not manufacture one for them.
 
   updateStats();
   updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
@@ -241,8 +218,6 @@ async function boot() {
   startRenderLoop();
 
   if (spectateUid) {
-    // Spectators skip the main menu and autosave entirely - this is a
-    // read-only peek, not a session of their own to "start" or "continue".
     state.isSpectating = true;
     showSpectateBanner(spectateUid);
     setSaveStatus("spectating");
@@ -250,9 +225,6 @@ async function boot() {
   }
 
   await waitForPlay(data);
-
-  // Player naming is handled entirely by the PlayStash lobby's Google sign-in
-  // (u/{uid}/i/dn) - the game itself never prompts for or stores a name.
 
   startWorldTicks();
   startDisasterSystem(activeNPCs, (name) => showNotif(`${name} incoming!`, "warn"));
@@ -263,14 +235,10 @@ async function boot() {
 updateResourceUI(0, 0, placedObjects);
 boot();
 
-// Exposed for debugging the serialized payload without a signed-in session.
 window.__worldforge = {
   placedObjects, activeNPCs, state, occupiedGrid,
   serializeWorld, restoreWorld, instantiateObject, getPlayerId
 };
 
 window.addEventListener("resize", () => engine.resize());
-// iOS/Android report stale window dimensions for a moment right after a
-// rotation, so a resize fired immediately still uses the old aspect ratio.
-// Waiting one tick past the OS animation settles on the correct size.
 window.addEventListener("orientationchange", () => setTimeout(() => engine.resize(), 300));

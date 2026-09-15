@@ -4,28 +4,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, update, onValue, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// Security Controls
-(() => {
-  document.addEventListener('contextmenu', e => e.preventDefault());
-
-  document.addEventListener('keydown', e => {
-    if (
-      e.key === 'F12' ||
-      (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].includes(e.key)) ||
-      (e.ctrlKey && ['U', 'u', 'S', 's'].includes(e.key))
-    ) {
-      e.preventDefault();
-    }
-  });
-
-  const noop = () => {};
-  window.console.log = noop;
-  window.console.warn = noop;
-  window.console.error = noop;
-  window.console.info = noop;
-  window.console.debug = noop;
-})();
-
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
   authDomain: "playstash0.firebaseapp.com",
@@ -33,7 +11,6 @@ const firebaseConfig = {
   storageBucket: "playstash0.firebasestorage.app",
   messagingSenderId: "1015051983836",
   appId: "1:1015051983836:web:3c89a152ce8c476852cd19",
-  measurementId: "G-6JH69Z3HNQ",
   databaseURL: "https://playstash0-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
@@ -70,6 +47,11 @@ const profileCardJoined = document.getElementById('profile-card-joined');
 const profileCardStatusDot = document.getElementById('profile-card-status-dot');
 const profileCardStatusText = document.getElementById('profile-card-status-text');
 
+// Personal Stats Elements
+const profileBuildingsCount = document.getElementById('profile-buildings-count');
+const profileNpcsCount = document.getElementById('profile-npcs-count');
+const profileResourcesCount = document.getElementById('profile-resources-count');
+
 // Username Change Elements
 const editUsernameCard = document.getElementById('edit-username-card');
 const usernameInput = document.getElementById('username-input');
@@ -82,10 +64,16 @@ const modalAvatar = document.getElementById('modal-avatar');
 const modalName = document.getElementById('modal-name');
 const modalEmail = document.getElementById('modal-email');
 const modalJoined = document.getElementById('modal-joined');
+const modalBuildings = document.getElementById('modal-buildings');
+const modalNpcs = document.getElementById('modal-npcs');
+const modalResources = document.getElementById('modal-resources');
+const modalVisitBtn = document.getElementById('modal-visit-btn');
 const closeModalBtn = document.getElementById('close-modal-btn');
 const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
 
-// --- TAB SWITCHER LOGIC ---
+let rawUsersData = {};
+let rawGamesData = {};
+
 function switchTab(selected) {
   const activeClass = "pb-1 text-xs font-bold uppercase tracking-widest text-white border-b-2 border-sky-400 transition cursor-pointer";
   const inactiveClass = "pb-1 text-xs font-semibold uppercase tracking-widest text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition cursor-pointer";
@@ -106,28 +94,46 @@ openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
 
 function formatDateDetailed(timestamp) {
   if (!timestamp) return 'N/A';
-  return new Date(timestamp).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  return new Date(timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Modal Controls
+function safeAvatarUrl(url) {
+  if (typeof url !== 'string' || !url) return 'favicon.png';
+  try {
+    const parsed = new URL(url, window.location.href);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : 'favicon.png';
+  } catch {
+    return 'favicon.png';
+  }
+}
+
 const closeModal = () => profileModal?.classList.add('hidden');
 closeModalBtn?.addEventListener('click', closeModal);
 closeModalBottomBtn?.addEventListener('click', closeModal);
 
-function openUserModal(user) {
+function openUserModal(user, uid) {
   if (!profileModal) return;
+  const gameSave = rawGamesData[uid] || {};
+  const bCount = gameSave.b ? Object.keys(gameSave.b).length : 0;
+  const nCount = gameSave.n ? Object.keys(gameSave.n).length : 0;
+  const rSum = gameSave.r ? Object.values(gameSave.r).reduce((a, b) => a + Number(b || 0), 0) : 0;
+
   modalAvatar.src = safeAvatarUrl(user.pe);
   modalName.textContent = user.dn || 'Anonymous Player';
   modalEmail.textContent = user.e ? user.e.replace(/(?<=.{2}).(?=.*@)/g, "*") : 'PlayStash Member';
-  modalJoined.textContent = `PlayStash Member Since: ${formatDateDetailed(user.jt)}`;
+  modalJoined.textContent = `Registered: ${formatDateDetailed(user.jt)}`;
+
+  if (modalBuildings) modalBuildings.textContent = bCount;
+  if (modalNpcs) modalNpcs.textContent = nCount;
+  if (modalResources) modalResources.textContent = rSum;
+
+  if (modalVisitBtn) {
+    modalVisitBtn.href = `game/worldforge/index.html?view=${uid}`;
+  }
+
   profileModal.classList.remove('hidden');
 }
 
-// Username Changing Logic
 saveUsernameBtn?.addEventListener('click', async () => {
   const newName = usernameInput.value.trim();
   const currentUser = auth.currentUser;
@@ -159,7 +165,6 @@ function showUsernameStatus(msg, isSuccess) {
   setTimeout(() => usernameStatusMsg.classList.add('hidden'), 3000);
 }
 
-// Google Authentication
 loginBtn?.addEventListener('click', async () => {
   try {
     await signInWithPopup(auth, provider);
@@ -191,10 +196,7 @@ onAuthStateChanged(auth, async (user) => {
       profileCardStatusText.className = 'text-xs font-extrabold text-emerald-400 block';
     }
 
-    const creationTime = user.metadata?.creationTime
-      ? new Date(user.metadata.creationTime).getTime()
-      : Date.now();
-
+    const creationTime = user.metadata?.creationTime ? new Date(user.metadata.creationTime).getTime() : Date.now();
     const formattedDate = formatDateDetailed(creationTime);
     memberSince.textContent = `Joined ${formattedDate}`;
     if (profileCardJoined) profileCardJoined.textContent = `PlayStash Member Since: ${formattedDate}`;
@@ -206,9 +208,9 @@ onAuthStateChanged(auth, async (user) => {
         pe: user.photoURL || 'favicon.png',
         jt: creationTime
       });
-    } catch (err) {
-      // Quiet fail
-    }
+    } catch (err) {}
+
+    updatePersonalProfileStats(user.uid);
   } else {
     loginBtn?.classList.remove('hidden');
     userProfile?.classList.add('hidden');
@@ -229,7 +231,17 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Telemetry & Presence System
+function updatePersonalProfileStats(uid) {
+  const gameSave = rawGamesData[uid] || {};
+  const bCount = gameSave.b ? Object.keys(gameSave.b).length : 0;
+  const nCount = gameSave.n ? Object.keys(gameSave.n).length : 0;
+  const rSum = gameSave.r ? Object.values(gameSave.r).reduce((a, b) => a + Number(b || 0), 0) : 0;
+
+  if (profileBuildingsCount) profileBuildingsCount.textContent = bCount;
+  if (profileNpcsCount) profileNpcsCount.textContent = nCount;
+  if (profileResourcesCount) profileResourcesCount.textContent = rSum;
+}
+
 const connectedRef = ref(db, ".info/connected");
 const presenceRef = ref(db, "presence");
 
@@ -237,10 +249,7 @@ onValue(connectedRef, (snap) => {
   if (snap.val() === true) {
     const myPresenceRef = push(presenceRef);
     onDisconnect(myPresenceRef).remove();
-    set(myPresenceRef, {
-      online: true,
-      ts: serverTimestamp()
-    });
+    set(myPresenceRef, { online: true, ts: serverTimestamp() });
   }
 });
 
@@ -250,44 +259,52 @@ onValue(presenceRef, (snap) => {
   if (onlineCountEl) onlineCountEl.textContent = onlineTotal;
 });
 
-function safeAvatarUrl(url) {
-  if (typeof url !== 'string' || !url) return 'favicon.png';
-  try {
-    const parsed = new URL(url, window.location.href);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : 'favicon.png';
-  } catch {
-    return 'favicon.png';
-  }
-}
+// Synchronize Game State Snapshot
+onValue(ref(db, 'G/1'), (snapshot) => {
+  rawGamesData = snapshot.val() || {};
+  renderDirectory();
+  if (auth.currentUser) updatePersonalProfileStats(auth.currentUser.uid);
+});
 
-// Realtime User Network Sync
+// Synchronize User Snapshot
 onValue(ref(db, 'u'), (snapshot) => {
-  const data = snapshot.val();
-  if (!data) {
+  rawUsersData = snapshot.val() || {};
+  renderDirectory();
+});
+
+function renderDirectory() {
+  if (!rawUsersData) {
     if (userCountEl) userCountEl.textContent = '0';
     usersContainer.innerHTML = '<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">No registered players yet.</div>';
     return;
   }
 
-  const users = Object.values(data)
-    .map(u => u.i)
-    .filter(Boolean)
+  const entries = Object.entries(rawUsersData)
+    .filter(([uid, u]) => u && u.i)
+    .map(([uid, u]) => ({ uid, ...u.i }))
     .sort((a, b) => (b.jt || 0) - (a.jt || 0));
 
-  if (userCountEl) userCountEl.textContent = users.length;
+  if (userCountEl) userCountEl.textContent = entries.length;
 
-  usersContainer.replaceChildren(...users.map(u => {
+  usersContainer.replaceChildren(...entries.map(u => {
+    const gameSave = rawGamesData[u.uid] || {};
+    const bCount = gameSave.b ? Object.keys(gameSave.b).length : 0;
+    const nCount = gameSave.n ? Object.keys(gameSave.n).length : 0;
+
     const card = document.createElement('div');
-    card.className = 'ps-glass rounded-2xl p-3.5 flex items-center gap-3.5 hover:border-sky-500/50 cursor-pointer transition duration-300';
-    card.addEventListener('click', () => openUserModal(u));
+    card.className = 'ps-glass rounded-2xl p-3.5 flex items-center justify-between gap-3 hover:border-sky-500/50 cursor-pointer transition duration-300';
+    card.addEventListener('click', () => openUserModal(u, u.uid));
+
+    const left = document.createElement('div');
+    left.className = 'flex items-center gap-3 min-w-0';
 
     const img = document.createElement('img');
     img.src = safeAvatarUrl(u.pe);
-    img.className = 'w-9 h-9 rounded-full border border-sky-400/50 object-cover shrink-0 shadow-sm';
+    img.className = 'w-10 h-10 rounded-full border border-sky-400/50 object-cover shrink-0 shadow-sm';
     img.alt = 'Profile';
 
     const details = document.createElement('div');
-    details.className = 'flex flex-col min-w-0 flex-1';
+    details.className = 'flex flex-col min-w-0';
 
     const name = document.createElement('span');
     name.className = 'font-bold text-xs text-white truncate';
@@ -298,10 +315,13 @@ onValue(ref(db, 'u'), (snapshot) => {
     joined.textContent = `Joined ${formatDateDetailed(u.jt)}`;
 
     details.append(name, joined);
-    card.append(img, details);
+    left.append(img, details);
+
+    const right = document.createElement('div');
+    right.className = 'flex items-center gap-2 shrink-0 bg-slate-900/80 px-2.5 py-1 rounded-xl border border-slate-800 text-[11px] font-bold text-slate-300';
+    right.innerHTML = `<span>🧱 ${bCount}</span> <span class="text-slate-600">|</span> <span>👤 ${nCount}</span>`;
+
+    card.append(left, right);
     return card;
   }));
-}, () => {
-  if (userCountEl) userCountEl.textContent = '—';
-  usersContainer.innerHTML = `<div class="ps-glass rounded-2xl p-4 text-center text-slate-400 text-xs">Player network unavailable.</div>`;
-});
+}
