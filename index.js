@@ -4,12 +4,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// --- SECURITY & CONSOLE CONTROLS ---
+// --- SECURITY & CONSOLE PROTECTION ---
 (() => {
-  // Disable Right Click Context Menu
   document.addEventListener('contextmenu', e => e.preventDefault());
 
-  // Block Developer Shortcut Keys
   document.addEventListener('keydown', e => {
     if (
       e.key === 'F12' ||
@@ -20,7 +18,6 @@ import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } f
     }
   });
 
-  // Neuter Console Logs
   const noop = () => {};
   window.console.log = noop;
   window.console.warn = noop;
@@ -29,10 +26,9 @@ import { getDatabase, ref, set, onValue, push, onDisconnect, serverTimestamp } f
   window.console.debug = noop;
 })();
 
-// Dynamic Header Border on Scroll Effect
 const header = document.getElementById('main-header');
 window.addEventListener('scroll', () => {
-  if (window.scrollY > 20) {
+  if (window.scrollY > 10) {
     header?.classList.add('scrolled');
   } else {
     header?.classList.remove('scrolled');
@@ -67,7 +63,7 @@ const usersContainer = document.getElementById('users-container');
 const gameSaveStatusEl = document.getElementById('game-save-status');
 
 const GAME_ID = 1;
-const PILL_CLASSES = 'text-[10px] font-mono px-2 py-0.5 rounded border shrink-0';
+const PILL_CLASSES = 'text-[10px] px-1.5 py-0.5 rounded border shrink-0';
 
 let unsubscribeGameSave = null;
 
@@ -79,8 +75,8 @@ function watchGameSave(uid) {
   if (!gameSaveStatusEl) return;
 
   if (!uid) {
-    gameSaveStatusEl.textContent = 'Sign in to save';
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 text-slate-400 border-slate-800`;
+    gameSaveStatusEl.textContent = 'NO_AUTH';
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 border-slate-800 text-slate-500`;
     return;
   }
 
@@ -88,36 +84,32 @@ function watchGameSave(uid) {
     const data = snap.val();
 
     if (!data) {
-      gameSaveStatusEl.textContent = 'New World';
-      gameSaveStatusEl.className = `${PILL_CLASSES} bg-blue-950 text-blue-400 border-blue-800`;
+      gameSaveStatusEl.textContent = 'NEW_STATE';
+      gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 border-slate-700 text-slate-300`;
       return;
     }
 
     const builds = data.b ? Object.keys(data.b).length : 0;
     const villagers = data.n ? Object.keys(data.n).length : 0;
-    gameSaveStatusEl.textContent = `Continue · ${builds} builds · ${villagers} villagers`;
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-emerald-950 text-emerald-400 border-emerald-800`;
+    gameSaveStatusEl.textContent = `SAVED (${builds}b/${villagers}v)`;
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 border-slate-700 text-slate-200`;
   }, () => {
-    gameSaveStatusEl.textContent = 'Save offline';
-    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 text-slate-500 border-slate-800`;
+    gameSaveStatusEl.textContent = 'OFFLINE';
+    gameSaveStatusEl.className = `${PILL_CLASSES} bg-slate-900 border-slate-800 text-slate-600`;
   });
 }
 
 function formatDateDetailed(timestamp) {
   if (!timestamp) return 'N/A';
-  return new Date(timestamp).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  return new Date(timestamp).toISOString().split('T')[0];
 }
 
-// Google Sign-In Only
+// Strictly Google Auth Only
 loginBtn.addEventListener('click', async () => {
   try {
     await signInWithPopup(auth, provider);
   } catch (err) {
-    alert("Authentication Error: " + err.message);
+    alert("Auth Failed: " + err.message);
   }
 });
 
@@ -135,7 +127,7 @@ onAuthStateChanged(auth, async (user) => {
       ? new Date(user.metadata.creationTime).getTime()
       : Date.now();
 
-    memberSince.textContent = `Joined ${formatDateDetailed(creationTime)}`;
+    memberSince.textContent = `REG:${formatDateDetailed(creationTime)}`;
 
     try {
       await set(ref(db, `u/${user.uid}/i`), {
@@ -145,7 +137,7 @@ onAuthStateChanged(auth, async (user) => {
         jt: creationTime
       });
     } catch (err) {
-      // Ignored due to console lock
+      // Console hidden
     }
 
     watchGameSave(user.uid);
@@ -159,7 +151,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Telemetry & Presence System
+// Telemetry/Presence
 const connectedRef = ref(db, ".info/connected");
 const presenceRef = ref(db, "presence");
 
@@ -190,12 +182,12 @@ function safeAvatarUrl(url) {
   }
 }
 
-// User Roster Sync
+// Directory Sync
 onValue(ref(db, 'u'), (snapshot) => {
   const data = snapshot.val();
   if (!data) {
     userCountEl.textContent = '0';
-    usersContainer.innerHTML = '<div class="console-card rounded-lg p-4 text-center text-slate-500 text-xs font-mono">No registered profiles in database.</div>';
+    usersContainer.innerHTML = '<div class="term-panel rounded p-3 text-center text-slate-600 text-xs">Directory empty.</div>';
     return;
   }
 
@@ -208,29 +200,29 @@ onValue(ref(db, 'u'), (snapshot) => {
 
   usersContainer.replaceChildren(...users.map(u => {
     const card = document.createElement('div');
-    card.className = 'console-card rounded-lg p-3 flex items-center gap-3 hover:border-slate-700 transition duration-200';
+    card.className = 'term-panel rounded p-2.5 flex items-center gap-2.5';
 
     const img = document.createElement('img');
     img.src = safeAvatarUrl(u.pe);
-    img.className = 'w-8 h-8 rounded border border-slate-700 object-cover shrink-0';
-    img.alt = 'Profile';
+    img.className = 'w-7 h-7 rounded border border-slate-800 object-cover shrink-0';
+    img.alt = 'User';
 
     const details = document.createElement('div');
     details.className = 'flex flex-col min-w-0 flex-1';
 
     const name = document.createElement('span');
-    name.className = 'font-bold text-xs text-slate-200 truncate font-mono';
-    name.textContent = u.dn || 'Player';
+    name.className = 'font-bold text-xs text-slate-300 truncate';
+    name.textContent = u.dn || 'Anonymous';
 
     const joined = document.createElement('span');
-    joined.className = 'text-[10px] text-slate-500 font-mono truncate';
-    joined.textContent = `Joined ${formatDateDetailed(u.jt)}`;
+    joined.className = 'text-[10px] text-slate-600 truncate';
+    joined.textContent = `TS:${formatDateDetailed(u.jt)}`;
 
     details.append(name, joined);
     card.append(img, details);
     return card;
   }));
 }, () => {
-  userCountEl.textContent = '—';
-  usersContainer.innerHTML = `<div class="console-card rounded-lg p-4 text-center text-slate-500 text-xs font-mono">Directory sync error.</div>`;
+  userCountEl.textContent = 'ERR';
+  usersContainer.innerHTML = `<div class="term-panel rounded p-3 text-center text-slate-600 text-xs">Sync exception.</div>`;
 });
