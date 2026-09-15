@@ -29,7 +29,7 @@ const userCountEl = document.getElementById('user-count');
 const onlineCountEl = document.getElementById('online-count');
 const usersContainer = document.getElementById('users-container');
 
-// Tabs
+// Navigation Tabs
 const tabGamesBtn = document.getElementById('tab-games-btn');
 const tabPlayersBtn = document.getElementById('tab-players-btn');
 const tabProfileBtn = document.getElementById('tab-profile-btn');
@@ -39,7 +39,7 @@ const playersSection = document.getElementById('players-section');
 const profileSection = document.getElementById('profile-section');
 const openMyProfileBtn = document.getElementById('open-my-profile-btn');
 
-// Profile Dashboard Elements
+// Profile Page Elements
 const profileCardAvatar = document.getElementById('profile-card-avatar');
 const profileCardName = document.getElementById('profile-card-name');
 const profileCardEmail = document.getElementById('profile-card-email');
@@ -47,12 +47,12 @@ const profileCardJoined = document.getElementById('profile-card-joined');
 const profileCardStatusDot = document.getElementById('profile-card-status-dot');
 const profileCardStatusText = document.getElementById('profile-card-status-text');
 
-// Personal Stats Elements
+// Stats Elements
 const profileBuildingsCount = document.getElementById('profile-buildings-count');
 const profileNpcsCount = document.getElementById('profile-npcs-count');
 const profileResourcesCount = document.getElementById('profile-resources-count');
 
-// Username Change Elements
+// Change Name Elements
 const editUsernameCard = document.getElementById('edit-username-card');
 const usernameInput = document.getElementById('username-input');
 const saveUsernameBtn = document.getElementById('save-username-btn');
@@ -118,9 +118,9 @@ function openUserModal(user, uid) {
   const rSum = gameSave.r ? Object.values(gameSave.r).reduce((a, b) => a + Number(b || 0), 0) : 0;
 
   modalAvatar.src = safeAvatarUrl(user.pe);
-  modalName.textContent = user.dn || 'Anonymous Player';
+  modalName.textContent = user.dn || 'Player';
   modalEmail.textContent = user.e ? user.e.replace(/(?<=.{2}).(?=.*@)/g, "*") : 'PlayStash Member';
-  modalJoined.textContent = `Registered: ${formatDateDetailed(user.jt)}`;
+  modalJoined.textContent = `Joined: ${formatDateDetailed(user.jt)}`;
 
   if (modalBuildings) modalBuildings.textContent = bCount;
   if (modalNpcs) modalNpcs.textContent = nCount;
@@ -135,7 +135,7 @@ saveUsernameBtn?.addEventListener('click', async () => {
 
   if (!currentUser) return;
   if (!newName) {
-    showUsernameStatus('Gamertag cannot be empty', false);
+    showUsernameStatus('Name cannot be empty', false);
     return;
   }
 
@@ -147,9 +147,9 @@ saveUsernameBtn?.addEventListener('click', async () => {
     if (profileCardName) profileCardName.textContent = newName;
     usernameInput.value = '';
 
-    showUsernameStatus('Gamertag updated successfully!', true);
+    showUsernameStatus('Name updated successfully!', true);
   } catch (err) {
-    showUsernameStatus('Failed to update gamertag.', false);
+    showUsernameStatus('Failed to update name.', false);
   }
 });
 
@@ -194,7 +194,7 @@ onAuthStateChanged(auth, async (user) => {
     const creationTime = user.metadata?.creationTime ? new Date(user.metadata.creationTime).getTime() : Date.now();
     const formattedDate = formatDateDetailed(creationTime);
     memberSince.textContent = `Joined ${formattedDate}`;
-    if (profileCardJoined) profileCardJoined.textContent = `PlayStash Member Since: ${formattedDate}`;
+    if (profileCardJoined) profileCardJoined.textContent = `Joined: ${formattedDate}`;
 
     try {
       await update(ref(db, `u/${user.uid}/i`), {
@@ -216,8 +216,8 @@ onAuthStateChanged(auth, async (user) => {
 
     if (profileCardAvatar) profileCardAvatar.src = 'favicon.png';
     if (profileCardName) profileCardName.textContent = 'Guest Player';
-    if (profileCardEmail) profileCardEmail.textContent = 'Sign in to view full profile details';
-    if (profileCardJoined) profileCardJoined.textContent = 'PlayStash Member: Offline';
+    if (profileCardEmail) profileCardEmail.textContent = 'Sign in to view profile details';
+    if (profileCardJoined) profileCardJoined.textContent = 'Status: Offline';
     if (profileCardStatusDot) profileCardStatusDot.className = 'absolute bottom-1 right-1 w-5 h-5 bg-slate-600 border-2 border-[#030712] rounded-full';
     if (profileCardStatusText) {
       profileCardStatusText.textContent = 'OFFLINE';
@@ -254,14 +254,14 @@ onValue(presenceRef, (snap) => {
   if (onlineCountEl) onlineCountEl.textContent = onlineTotal;
 });
 
-// Synchronize Game State Snapshot
+// Sync Game Data
 onValue(ref(db, 'G/1'), (snapshot) => {
   rawGamesData = snapshot.val() || {};
   renderDirectory();
   if (auth.currentUser) updatePersonalProfileStats(auth.currentUser.uid);
 });
 
-// Synchronize User Snapshot
+// Sync Users
 onValue(ref(db, 'u'), (snapshot) => {
   rawUsersData = snapshot.val() || {};
   renderDirectory();
