@@ -75,17 +75,21 @@ const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
 let rawUsersData = {};
 let rawGamesData = {};
 
-// Helper icons for item types
+// Expanded resource icon dictionary with explicitly defined Wheat & Food
 const resourceIcons = {
   wood: '🪵',
+  wheat: '🌾',
+  food: '🍲',
   stone: '🪨',
-  food: '🌾',
   gold: '🪙',
   iron: '⚙️',
   meat: '🥩',
   fish: '🐟',
   water: '💧'
 };
+
+// Core default items list to always show in player profile & modal view
+const defaultResourceKeys = ['wood', 'wheat', 'stone', 'food', 'gold', 'iron'];
 
 function switchTab(selected) {
   const activeClass = "px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-sky-500/20 border border-sky-400/40 transition cursor-pointer";
@@ -120,19 +124,22 @@ function safeAvatarUrl(url) {
   }
 }
 
-// Function to render detailed list of items / resources
+// Function to render full list of items/resources including Wood, Wheat, Stone, etc.
 function renderDetailedResources(resourceObj, containerElement) {
   if (!containerElement) return;
   containerElement.innerHTML = '';
 
-  if (!resourceObj || typeof resourceObj !== 'object' || Object.keys(resourceObj).length === 0) {
-    containerElement.innerHTML = '<span class="text-xs text-slate-400">No items collected yet</span>';
-    return;
+  const mergedResources = {};
+  defaultResourceKeys.forEach(k => { mergedResources[k] = 0; });
+
+  if (resourceObj && typeof resourceObj === 'object') {
+    Object.entries(resourceObj).forEach(([key, val]) => {
+      mergedResources[key.toLowerCase()] = Number(val || 0);
+    });
   }
 
-  const entries = Object.entries(resourceObj);
-  entries.forEach(([key, val]) => {
-    const icon = resourceIcons[key.toLowerCase()] || '📦';
+  Object.entries(mergedResources).forEach(([key, val]) => {
+    const icon = resourceIcons[key] || '📦';
     const cleanName = key.charAt(0).toUpperCase() + key.slice(1);
     const itemCard = document.createElement('div');
     itemCard.className = 'bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs';
@@ -141,7 +148,7 @@ function renderDetailedResources(resourceObj, containerElement) {
         <span>${icon}</span>
         <span>${cleanName}</span>
       </span>
-      <span class="font-black text-sky-400 font-mono">${val || 0}</span>
+      <span class="font-black text-sky-400 font-mono">${val}</span>
     `;
     containerElement.appendChild(itemCard);
   });
@@ -167,7 +174,6 @@ function openUserModal(user, uid) {
   if (modalNpcs) modalNpcs.textContent = nCount;
   if (modalResources) modalResources.textContent = rSum;
 
-  // Render detailed resources inside modal
   renderDetailedResources(gameSave.r, modalResourcesList);
 
   profileModal.classList.remove('hidden');
@@ -280,7 +286,6 @@ function updatePersonalProfileStats(uid) {
   if (profileNpcsCount) profileNpcsCount.textContent = nCount;
   if (profileResourcesCount) profileResourcesCount.textContent = rSum;
 
-  // Detailed items display for user profile tab
   renderDetailedResources(gameSave.r, profileResourcesList);
 }
 
@@ -332,6 +337,10 @@ function renderDirectory() {
     const gameSave = rawGamesData[u.uid] || {};
     const bCount = gameSave.b ? Object.keys(gameSave.b).length : 0;
     const nCount = gameSave.n ? Object.keys(gameSave.n).length : 0;
+    
+    // Quick resource counters for player directory cards
+    const woodCount = (gameSave.r && gameSave.r.wood) || 0;
+    const wheatCount = (gameSave.r && (gameSave.r.wheat || gameSave.r.food)) || 0;
 
     const card = document.createElement('div');
     card.className = 'card-box rounded-2xl p-4 flex items-center justify-between gap-3 hover:border-sky-500/50 cursor-pointer transition duration-300';
@@ -360,8 +369,13 @@ function renderDirectory() {
     left.append(img, details);
 
     const right = document.createElement('div');
-    right.className = 'flex items-center gap-2 shrink-0 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800 text-[11px] font-bold text-slate-300 font-mono';
-    right.innerHTML = `<span>🧱 ${bCount}</span> <span class="text-slate-700">|</span> <span>👤 ${nCount}</span>`;
+    right.className = 'flex items-center gap-1.5 shrink-0 bg-slate-900/90 px-2.5 py-1.5 rounded-xl border border-slate-800 text-[10px] font-bold text-slate-300 font-mono flex-wrap justify-end';
+    right.innerHTML = `
+      <span>🪵 ${woodCount}</span>
+      <span>🌾 ${wheatCount}</span>
+      <span>🧱 ${bCount}</span>
+      <span>👤 ${nCount}</span>
+    `;
 
     card.append(left, right);
     return card;
