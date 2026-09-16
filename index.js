@@ -428,7 +428,6 @@ onValue(ref(db, "presence"), (snap) => {
   
   let playstashCount = 0;
   let worldforgeCount = 0;
-  let totalOnline = 0;
 
   if (presenceData.homepage && typeof presenceData.homepage === 'object') {
     playstashCount = Object.keys(presenceData.homepage).length;
@@ -438,11 +437,8 @@ onValue(ref(db, "presence"), (snap) => {
     worldforgeCount = Object.keys(presenceData.worldforge).length;
   }
 
-  Object.values(presenceData).forEach((group) => {
-    if (group && typeof group === 'object') {
-      totalOnline += Object.keys(group).length;
-    }
-  });
+  // Calculate strict active total across monitored games & hub
+  const totalOnline = playstashCount + worldforgeCount;
 
   if (playstashOnlineCountEl) playstashOnlineCountEl.textContent = playstashCount;
   if (worldforgeOnlineCountEl) worldforgeOnlineCountEl.textContent = worldforgeCount;
