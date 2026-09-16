@@ -26,7 +26,12 @@ const userEmail = document.getElementById('user-email');
 const userAvatar = document.getElementById('user-avatar');
 const memberSince = document.getElementById('member-since');
 const userCountEl = document.getElementById('user-count');
+
+// Presence Counters
+const playstashOnlineCountEl = document.getElementById('playstash-online-count');
+const worldforgeOnlineCountEl = document.getElementById('worldforge-online-count');
 const onlineCountEl = document.getElementById('online-count');
+
 const usersContainer = document.getElementById('users-container');
 
 // Navigation Tabs
@@ -417,17 +422,30 @@ onValue(connectedRef, (snap) => {
   }
 });
 
-// Calculate total online users across all sections (homepage + worldforge)
+// Calculate and display online users breakdown for PlayStash, WorldForge, and total
 onValue(ref(db, "presence"), (snap) => {
   const presenceData = snap.val() || {};
-  let totalOnline = 0;
   
+  let playstashCount = 0;
+  let worldforgeCount = 0;
+  let totalOnline = 0;
+
+  if (presenceData.homepage && typeof presenceData.homepage === 'object') {
+    playstashCount = Object.keys(presenceData.homepage).length;
+  }
+
+  if (presenceData.worldforge && typeof presenceData.worldforge === 'object') {
+    worldforgeCount = Object.keys(presenceData.worldforge).length;
+  }
+
   Object.values(presenceData).forEach((group) => {
     if (group && typeof group === 'object') {
       totalOnline += Object.keys(group).length;
     }
   });
 
+  if (playstashOnlineCountEl) playstashOnlineCountEl.textContent = playstashCount;
+  if (worldforgeOnlineCountEl) worldforgeOnlineCountEl.textContent = worldforgeCount;
   if (onlineCountEl) onlineCountEl.textContent = totalOnline;
 });
 

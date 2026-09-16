@@ -120,7 +120,7 @@
 
   <main class="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-10 space-y-8 relative z-10">
     
-    <!-- Status Banner -->
+    <!-- Status Banner with Game Online Breakdown -->
     <section class="glass-box rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 border border-slate-800">
       <div class="flex items-center gap-3.5">
         <span class="relative flex h-3.5 w-3.5 shrink-0">
@@ -129,15 +129,25 @@
         </span>
         <div>
           <h3 class="text-white font-extrabold text-xs uppercase tracking-wider flex items-center gap-2">
-            PlayStash Online <span class="px-2 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-400 font-mono border border-emerald-500/30">ONLINE</span>
+            Network Presence <span class="px-2 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-400 font-mono border border-emerald-500/30">LIVE</span>
           </h3>
-          <p class="text-[11px] text-slate-400">Real-time player updates and saved progress</p>
+          <p class="text-[11px] text-slate-400">Real-time breakdown of online players across games and hub</p>
         </div>
       </div>
       
-      <div class="flex items-center gap-8">
+      <div class="flex items-center gap-4 sm:gap-6 flex-wrap">
         <div class="flex flex-col items-end">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Players Online</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">PlayStash</span>
+          <span id="playstash-online-count" class="text-lg font-black text-sky-400 font-mono">0</span>
+        </div>
+        <div class="h-6 w-[1px] bg-slate-800"></div>
+        <div class="flex flex-col items-end">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">WorldForge</span>
+          <span id="worldforge-online-count" class="text-lg font-black text-amber-400 font-mono">0</span>
+        </div>
+        <div class="h-6 w-[1px] bg-slate-800"></div>
+        <div class="flex flex-col items-end">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total Online</span>
           <span id="online-count" class="text-xl font-black text-emerald-400 font-mono">0</span>
         </div>
         <div class="h-6 w-[1px] bg-slate-800"></div>
