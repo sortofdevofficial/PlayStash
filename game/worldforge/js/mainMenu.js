@@ -1,6 +1,7 @@
 import { audioCtx, isAudioMuted, setAudioMuted } from "./audio.js";
 
 let pendingPlayResolve = null;
+let isMenuInitialized = false;
 
 export function waitForPlay(data) {
   return new Promise((resolve) => {
@@ -9,7 +10,7 @@ export function waitForPlay(data) {
   });
 }
 
-function showMainMenu(data) {
+export function showMainMenu(data, isMidGame = false) {
   const menu = document.getElementById("mainMenu");
   const statusEl = document.getElementById("menuStatus");
   const playBtn = document.getElementById("menuPlayBtn");
@@ -26,8 +27,11 @@ function showMainMenu(data) {
     return;
   }
 
-  // Minimal Status Logic: merge everything into one line
-  if (data) {
+  menu.classList.remove("hidden");
+
+  if (isMidGame) {
+    playBtn.textContent = "Resume World";
+  } else if (data) {
     const builds = data.b ? Object.keys(data.b).length : 0;
     const npcs = data.n ? Object.keys(data.n).length : 0;
     statusEl.textContent = `World saved: ${builds} buildings, ${npcs} NPCs`;
@@ -39,38 +43,43 @@ function showMainMenu(data) {
 
   playBtn.disabled = false;
 
-  playBtn.onclick = () => {
-    playBtn.disabled = true;
-    menu.classList.add("hidden");
-    if (pendingPlayResolve) {
-      pendingPlayResolve();
-      pendingPlayResolve = null;
-    }
-    if (audioCtx && audioCtx.state === "suspended" && !isAudioMuted()) {
-      audioCtx.resume();
-    }
-  };
+  if (!isMenuInitialized) {
+    isMenuInitialized = true;
 
-  if (guideBtn && guideModal) {
-    guideBtn.onclick = () => {
-      guideModal.classList.remove("hidden");
+    playBtn.onclick = () => {
+      playBtn.disabled = true;
+      menu.classList.add("hidden");
+      if (pendingPlayResolve) {
+        pendingPlayResolve();
+        pendingPlayResolve = null;
+      }
+      if (audioCtx && audioCtx.state === "suspended" && !isAudioMuted()) {
+        audioCtx.resume();
+      }
+      playBtn.disabled = false;
     };
-  }
-  if (closeGuideBtn && guideModal) {
-    closeGuideBtn.onclick = () => {
-      guideModal.classList.add("hidden");
-    };
-  }
-  if (guideModal) {
-    guideModal.onclick = (e) => {
-      if (e.target === guideModal) guideModal.classList.add("hidden");
-    };
-  }
 
-  if (audioBtn) {
-    audioBtn.onclick = () => {
-      setAudioMuted(!isAudioMuted());
-      audioBtn.textContent = isAudioMuted() ? "🔇 Sound: Off" : "🔊 Sound: On";
-    };
+    if (guideBtn && guideModal) {
+      guideBtn.onclick = () => {
+        guideModal.classList.remove("hidden");
+      };
+    }
+    if (closeGuideBtn && guideModal) {
+      closeGuideBtn.onclick = () => {
+        guideModal.classList.add("hidden");
+      };
+    }
+    if (guideModal) {
+      guideModal.onclick = (e) => {
+        if (e.target === guideModal) guideModal.classList.add("hidden");
+      };
+    }
+
+    if (audioBtn) {
+      audioBtn.onclick = () => {
+        setAudioMuted(!isAudioMuted());
+        audioBtn.textContent = isAudioMuted() ? "🔇 Sound: Off" : "🔊 Sound: On";
+      };
+    }
   }
 }

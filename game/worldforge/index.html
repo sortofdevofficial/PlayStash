@@ -32,6 +32,7 @@
       justify-content: center;
       gap: 8px;
       margin-bottom: 14px;
+      z-index: 10;
     }
 
     .auth-btn {
@@ -64,21 +65,23 @@
     .smiley-emoji {
       display: inline-block;
       opacity: 0;
-      width: 0;
+      max-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
       transform: scale(0) rotate(-45deg);
-      transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      transition: opacity 0.3s ease, max-width 0.3s ease, transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
     .sign-in-btn:hover .smiley-emoji {
       opacity: 1;
-      width: auto;
-      transform: scale(1.25) rotate(0deg);
+      max-width: 80px;
+      transform: scale(1.1) rotate(0deg);
       animation: smileyBounce 0.6s infinite alternate ease-in-out 0.2s;
     }
 
     @keyframes smileyBounce {
-      0% { transform: scale(1.25) translateY(0) rotate(0deg); }
-      100% { transform: scale(1.35) translateY(-3px) rotate(12deg); }
+      0% { transform: scale(1.1) translateY(0) rotate(0deg); }
+      100% { transform: scale(1.2) translateY(-2px) rotate(10deg); }
     }
 
     .sign-out-btn {
@@ -94,8 +97,10 @@
 
     .signout-tooltip {
       position: absolute;
-      top: 130%;
-      right: 0;
+      bottom: 125%;
+      top: auto;
+      left: 50%;
+      right: auto;
       width: 210px;
       padding: 10px 12px;
       background: rgba(15, 23, 42, 0.95);
@@ -109,7 +114,7 @@
       pointer-events: none;
       opacity: 0;
       visibility: hidden;
-      transform: translateY(-8px) scale(0.95);
+      transform: translateX(-50%) translateY(8px) scale(0.95);
       transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
       z-index: 9999;
       text-align: left;
@@ -118,20 +123,22 @@
     .signout-tooltip::before {
       content: "";
       position: absolute;
-      top: -6px;
-      right: 18px;
+      bottom: -6px;
+      top: auto;
+      left: 50%;
+      right: auto;
       width: 10px;
       height: 10px;
       background: rgba(15, 23, 42, 0.95);
-      border-left: 1px solid rgba(239, 68, 68, 0.4);
-      border-top: 1px solid rgba(239, 68, 68, 0.4);
-      transform: rotate(45deg);
+      border-right: 1px solid rgba(239, 68, 68, 0.4);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.4);
+      transform: translateX(-50%) rotate(45deg);
     }
 
     .sign-out-btn:hover .signout-tooltip {
       opacity: 1;
       visibility: visible;
-      transform: translateY(0) scale(1);
+      transform: translateX(-50%) translateY(0) scale(1);
     }
 
     .tooltip-title {
@@ -404,6 +411,7 @@
       <button id="removeBtn" title="Remove">🗑️</button>
       <button id="dayBtn" title="Toggle Day / Night">🌙</button>
       <button id="viewWorldsBtn" class="iconBtn" title="See other players' worlds">🌍</button>
+      <button id="menuBtn" class="iconBtn" title="Back to Main Menu">🏠 Menu</button>
       
       <button id="clearBtn" class="danger">Clear</button>
     </div>

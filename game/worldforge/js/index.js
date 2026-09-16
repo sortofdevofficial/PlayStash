@@ -23,7 +23,7 @@ import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, 
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
 import { initNpcPanel, tickNpcPanel, getTrackedNpcId, clearTrackedNpc } from "./npcPanel.js";
 import { isTouchDevice, initMobileControls, applyMobileHeightHold } from "./mobileControls.js";
-import { waitForPlay } from "./mainMenu.js";
+import { waitForPlay, showMainMenu } from "./mainMenu.js";
 import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
 import { initVisitWorld } from "./visitWorld.js";
 
@@ -132,6 +132,15 @@ function initPlayStashHandler() {
   }
 }
 
+function initMenuHandler() {
+  const menuBtn = document.getElementById("menuBtn");
+  if (menuBtn) {
+    menuBtn.addEventListener("click", () => {
+      showMainMenu(null, true);
+    });
+  }
+}
+
 function showSpectateBanner(uid) {
   const banner = document.createElement("div");
   banner.id = "spectateBanner";
@@ -207,6 +216,7 @@ initVisitWorld(placedObjects, activeNPCs);
 initOtherWorldsPanel();
 initAuthHandlers();
 initPlayStashHandler();
+initMenuHandler();
 if (isTouchDevice) initMobileControls();
 
 function startWorldTicks() {
