@@ -27,7 +27,7 @@ import { waitForPlay, showMainMenu } from "./mainMenu.js";
 import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
 import { initVisitWorld } from "./visitWorld.js";
 
-// Setup Firebase Presence under presence/worldforge/
+// Setup Firebase Presence under presence/worldforge/ and presence/playstash/
 (async () => {
   try {
     const [dbMod] = await Promise.all([
@@ -48,6 +48,7 @@ import { initVisitWorld } from "./visitWorld.js";
 
     const connectedRef = dbMod.ref(db, ".info/connected");
     const wfPresenceRef = dbMod.ref(db, "presence/worldforge");
+    const psPresenceRef = dbMod.ref(db, "presence/playstash");
 
     dbMod.onValue(connectedRef, (snap) => {
       if (snap.val() === true) {
@@ -56,8 +57,38 @@ import { initVisitWorld } from "./visitWorld.js";
         dbMod.set(myPresence, { online: true, ts: dbMod.serverTimestamp() });
       }
     });
+
+    const updateCountsUI = (wfCount, psCount) => {
+      const wfEls = [
+        document.getElementById("wfOnlineCountText"),
+        document.getElementById("topbarWfOnlineCount"),
+        document.getElementById("panelWfOnlineCount")
+      ];
+      const psEls = [
+        document.getElementById("psOnlineCountText"),
+        document.getElementById("topbarPsOnlineCount"),
+        document.getElementById("panelPsOnlineCount")
+      ];
+
+      wfEls.forEach((el) => { if (el) el.textContent = wfCount; });
+      psEls.forEach((el) => { if (el) el.textContent = psCount; });
+    };
+
+    let wfOnline = 0;
+    let psOnline = 0;
+
+    dbMod.onValue(wfPresenceRef, (snap) => {
+      wfOnline = snap.exists() ? Object.keys(snap.val()).length : 0;
+      updateCountsUI(wfOnline, psOnline);
+    });
+
+    dbMod.onValue(psPresenceRef, (snap) => {
+      psOnline = snap.exists() ? Object.keys(snap.val()).length : 0;
+      updateCountsUI(wfOnline, psOnline);
+    });
+
   } catch (err) {
-    console.warn("[presence] WorldForge presence failed to initialize:", err);
+    console.warn("[presence] Presence failed to initialize:", err);
   }
 })();
 

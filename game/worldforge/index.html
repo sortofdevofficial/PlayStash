@@ -173,13 +173,13 @@
       border: 1px solid rgba(74, 222, 128, 0.3);
     }
 
-    #onlinePlayersBadge {
+    #wfOnlineBadge {
       color: #22c55e;
       background: rgba(34, 197, 94, 0.12);
       border: 1px solid rgba(74, 222, 128, 0.3);
     }
 
-    #totalPlayersBadge {
+    #psOnlineBadge {
       color: #38bdf8;
       background: rgba(56, 189, 248, 0.12);
       border: 1px solid rgba(56, 189, 248, 0.3);
@@ -200,10 +200,10 @@
         <span id="joinedWorldForgeBadge" class="join-badge">🗓️ WorldForge: <span id="joinedWorldForgeText">--</span></span>
       </div>
 
-      <!-- Live Player Counts (Online & Total) -->
+      <!-- Live Player Counts (WorldForge & PlayStash Online) -->
       <div class="menu-join-dates">
-        <span id="onlinePlayersBadge" class="join-badge">🟢 Online: <span id="onlineCountText">0</span></span>
-        <span id="totalPlayersBadge" class="join-badge">👥 Total: <span id="totalCountText">0</span></span>
+        <span id="wfOnlineBadge" class="join-badge">🔥 WF Online: <span id="wfOnlineCountText">0</span></span>
+        <span id="psOnlineBadge" class="join-badge">🎮 PlayStash Online: <span id="psOnlineCountText">0</span></span>
       </div>
 
       <!-- Auth Sign In / Sign Out displayed only on Homepage -->
@@ -359,8 +359,8 @@
         </div>
         <!-- Live Player Counts inside Panel -->
         <div style="display:flex; gap:10px; margin-bottom:8px; font-size:10px; color:#94a3b8; font-weight:700;">
-          <span>🟢 Online: <span id="panelOnlineCount" style="color:#4ade80;">0</span></span>
-          <span>👥 Total: <span id="panelTotalCount" style="color:#38bdf8;">0</span></span>
+          <span>🔥 WF: <span id="panelWfOnlineCount" style="color:#4ade80;">0</span></span>
+          <span>🎮 PS: <span id="panelPsOnlineCount" style="color:#38bdf8;">0</span></span>
         </div>
         <div id="otherWorldsList" style="font-size:11px; color:#e5e5e5; display:flex; flex-direction:column; gap:6px;">
           Loading…
@@ -426,10 +426,9 @@
 
     <div id="topbar" class="panel">
       <div id="brand">World<span>Forge</span></div>
-      <!-- Hidden span for background JS save status compatibility -->
       <span id="saveStatus" style="display: none;"></span>
       <span id="worldStats" style="font-size: 10px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧱 <span id="itemCount">0</span> · 👤 <span id="npcCount">0</span></span>
-      <span id="playerStatsHud" style="font-size: 10px; font-weight: 700; color: #4ade80; white-space: nowrap;">🟢 <span id="topbarOnlineCount">0</span> · 👥 <span id="topbarTotalCount">0</span></span>
+      <span id="playerStatsHud" style="font-size: 10px; font-weight: 700; color: #4ade80; white-space: nowrap;">🔥 WF: <span id="topbarWfOnlineCount">0</span> · 🎮 PS: <span id="topbarPsOnlineCount">0</span></span>
 
       <button id="npcListBtn" class="iconBtn" title="View NPCs">👥</button>
       <button id="removeBtn" title="Remove">🗑️</button>
