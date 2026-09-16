@@ -172,6 +172,18 @@
       background: rgba(34, 197, 94, 0.12);
       border: 1px solid rgba(74, 222, 128, 0.3);
     }
+
+    #onlinePlayersBadge {
+      color: #22c55e;
+      background: rgba(34, 197, 94, 0.12);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+    }
+
+    #totalPlayersBadge {
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
   </style>
 </head>
 <body>
@@ -186,6 +198,12 @@
       <div class="menu-join-dates">
         <span id="joinedPlayStashBadge" class="join-badge">🌐 PlayStash: <span id="joinedPlayStashText">--</span></span>
         <span id="joinedWorldForgeBadge" class="join-badge">🗓️ WorldForge: <span id="joinedWorldForgeText">--</span></span>
+      </div>
+
+      <!-- Live Player Counts (Online & Total) -->
+      <div class="menu-join-dates">
+        <span id="onlinePlayersBadge" class="join-badge">🟢 Online: <span id="onlineCountText">0</span></span>
+        <span id="totalPlayersBadge" class="join-badge">👥 Total: <span id="totalCountText">0</span></span>
       </div>
 
       <!-- Auth Sign In / Sign Out displayed only on Homepage -->
@@ -335,9 +353,14 @@
       </div>
 
       <div id="otherWorldsPanel" class="panel" style="display: none; width: 240px; padding: 12px 14px; max-height: 320px; overflow-y: auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
           <b style="font-size:12px; color:#fff;">Other Players' Worlds</b>
           <button id="closeOtherWorldsBtn" title="Close">✕</button>
+        </div>
+        <!-- Live Player Counts inside Panel -->
+        <div style="display:flex; gap:10px; margin-bottom:8px; font-size:10px; color:#94a3b8; font-weight:700;">
+          <span>🟢 Online: <span id="panelOnlineCount" style="color:#4ade80;">0</span></span>
+          <span>👥 Total: <span id="panelTotalCount" style="color:#38bdf8;">0</span></span>
         </div>
         <div id="otherWorldsList" style="font-size:11px; color:#e5e5e5; display:flex; flex-direction:column; gap:6px;">
           Loading…
@@ -406,6 +429,7 @@
       <!-- Hidden span for background JS save status compatibility -->
       <span id="saveStatus" style="display: none;"></span>
       <span id="worldStats" style="font-size: 10px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧱 <span id="itemCount">0</span> · 👤 <span id="npcCount">0</span></span>
+      <span id="playerStatsHud" style="font-size: 10px; font-weight: 700; color: #4ade80; white-space: nowrap;">🟢 <span id="topbarOnlineCount">0</span> · 👥 <span id="topbarTotalCount">0</span></span>
 
       <button id="npcListBtn" class="iconBtn" title="View NPCs">👥</button>
       <button id="removeBtn" title="Remove">🗑️</button>
