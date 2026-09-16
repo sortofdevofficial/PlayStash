@@ -27,7 +27,7 @@ import { waitForPlay, showMainMenu } from "./mainMenu.js";
 import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
 import { initVisitWorld } from "./visitWorld.js";
 
-// Setup Firebase Presence under presence/worldforge/ and presence/playstash/
+// Realtime Presence Logic
 (async () => {
   try {
     const [dbMod] = await Promise.all([
@@ -54,7 +54,10 @@ import { initVisitWorld } from "./visitWorld.js";
       if (snap.val() === true) {
         const myPresence = dbMod.push(wfPresenceRef);
         dbMod.onDisconnect(myPresence).remove();
-        dbMod.set(myPresence, { online: true, ts: dbMod.serverTimestamp() });
+        dbMod.set(myPresence, {
+          online: true,
+          ts: dbMod.serverTimestamp()
+        });
       }
     });
 
@@ -88,7 +91,7 @@ import { initVisitWorld } from "./visitWorld.js";
     });
 
   } catch (err) {
-    console.warn("[presence] Presence failed to initialize:", err);
+    console.warn("[presence] Realtime presence failed to initialize:", err);
   }
 })();
 
@@ -192,7 +195,7 @@ function initPlayStashHandler() {
   const playStashBtn = document.getElementById("menuPlayStashBtn");
   if (playStashBtn) {
     playStashBtn.addEventListener("click", () => {
-      window.location.href = "https://playstash.com";
+      window.location.href = "https://sortofdevofficial.github.io/PlayStash/";
     });
   }
 }
