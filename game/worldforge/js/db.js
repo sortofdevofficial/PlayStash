@@ -15,7 +15,6 @@ const TYPE_BY_CODE = Object.fromEntries(
   Object.entries(BUILD_CODE).map(([type, code]) => [code, type])
 );
 
-const SAVE_INTERVAL_MS = 120000;
 const AUTH_TIMEOUT_MS = 5000;
 
 const firebaseConfig = {
@@ -66,9 +65,9 @@ try {
 let playerId = null;
 let saveRef = null;
 let dirty = false;
-let autosaveTimer = null;
 let sources = null;
 let onStatus = () => {};
+let updateDisconnectTimeout = null;
 
 export function getPlayerId() { return playerId; }
 
@@ -167,7 +166,6 @@ export function authReady() {
       saveRef = ref(db, `G/${GAME_ID}/${playerId}`);
       await ensureJoinTime(playerId);
       settle();
-      if (sources && !autosaveTimer) onStatus("reload");
     });
   });
 }
@@ -232,6 +230,7 @@ async function writeWorld() {
   onStatus("saving");
   try {
     await update(saveRef, serializeWorld(sources.placedObjects, sources.activeNPCs, sources.state));
+    dirty = false;
     onStatus("saved");
     registerDisconnectSave();
   } catch (err) {
@@ -250,21 +249,18 @@ function registerDisconnectSave() {
   }
 }
 
-function startTimer() {
-  if (autosaveTimer || !saveRef) return;
-  autosaveTimer = setInterval(() => {
-    if (sources && sources.activeNPCs.length > 0) dirty = true;
-    if (!dirty) return;
-    dirty = false;
-    writeWorld();
-  }, SAVE_INTERVAL_MS);
+export function markDirty() { 
+  dirty = true; 
+  if (saveRef && onDisconnect && sources) {
+    if (updateDisconnectTimeout) clearTimeout(updateDisconnectTimeout);
+    updateDisconnectTimeout = setTimeout(() => {
+      registerDisconnectSave();
+    }, 3000);
+  }
 }
-
-export function markDirty() { dirty = true; }
 
 export function flushNow() {
   if (!dirty || !saveRef) return;
-  dirty = false;
   writeWorld();
 }
 
@@ -312,11 +308,12 @@ export async function loadWorldByUid(uid) {
 export function initAutosave(worldSources, statusCallback) {
   sources = worldSources;
   if (statusCallback) onStatus = statusCallback;
-  startTimer();
+
   registerDisconnectSave();
 
   document.addEventListener("visibilitychange", () => { if (document.hidden) flushNow(); });
   window.addEventListener("pagehide", flushNow);
+  window.addEventListener("beforeunload", flushNow);
 }
 
 export { RESOURCE_KEY_BY_SHORT, BUILD_CODE, TYPE_BY_CODE };
