@@ -405,21 +405,30 @@ function updatePersonalProfileStats(uid) {
   renderDetailedResources(gameSave.r, profileResourcesList);
 }
 
+// Presence tracking specifically for PlayStash Homepage
 const connectedRef = ref(db, ".info/connected");
-const presenceRef = ref(db, "presence");
+const homepagePresenceRef = ref(db, "presence/homepage");
 
 onValue(connectedRef, (snap) => {
   if (snap.val() === true) {
-    const myPresenceRef = push(presenceRef);
+    const myPresenceRef = push(homepagePresenceRef);
     onDisconnect(myPresenceRef).remove();
     set(myPresenceRef, { online: true, ts: serverTimestamp() });
   }
 });
 
-onValue(presenceRef, (snap) => {
-  const onlineData = snap.val();
-  const onlineTotal = onlineData ? Object.keys(onlineData).length : 0;
-  if (onlineCountEl) onlineCountEl.textContent = onlineTotal;
+// Calculate total online users across all sections (homepage + worldforge)
+onValue(ref(db, "presence"), (snap) => {
+  const presenceData = snap.val() || {};
+  let totalOnline = 0;
+  
+  Object.values(presenceData).forEach((group) => {
+    if (group && typeof group === 'object') {
+      totalOnline += Object.keys(group).length;
+    }
+  });
+
+  if (onlineCountEl) onlineCountEl.textContent = totalOnline;
 });
 
 // Sync Game Data

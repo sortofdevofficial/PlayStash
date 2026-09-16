@@ -27,6 +27,40 @@ import { waitForPlay, showMainMenu } from "./mainMenu.js";
 import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
 import { initVisitWorld } from "./visitWorld.js";
 
+// Setup Firebase Presence under presence/worldforge/
+(async () => {
+  try {
+    const [dbMod] = await Promise.all([
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")
+    ]);
+    const firebaseConfig = {
+      apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
+      authDomain: "playstash0.firebaseapp.com",
+      projectId: "playstash0",
+      storageBucket: "playstash0.firebasestorage.app",
+      messagingSenderId: "1015051983836",
+      appId: "1:1015051983836:web:3c89a152ce8c476852cd19",
+      databaseURL: "https://playstash0-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
+    const appMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+    const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(firebaseConfig);
+    const db = dbMod.getDatabase(app);
+
+    const connectedRef = dbMod.ref(db, ".info/connected");
+    const wfPresenceRef = dbMod.ref(db, "presence/worldforge");
+
+    dbMod.onValue(connectedRef, (snap) => {
+      if (snap.val() === true) {
+        const myPresence = dbMod.push(wfPresenceRef);
+        dbMod.onDisconnect(myPresence).remove();
+        dbMod.set(myPresence, { online: true, ts: dbMod.serverTimestamp() });
+      }
+    });
+  } catch (err) {
+    console.warn("[presence] WorldForge presence failed to initialize:", err);
+  }
+})();
+
 const spectateUid = new URLSearchParams(window.location.search).get("view");
 
 const occupiedGrid = new Map();
