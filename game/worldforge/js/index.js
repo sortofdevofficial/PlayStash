@@ -17,7 +17,7 @@ import {
 import { state, updateResourceUI, showNotif } from "./ui.js";
 import {
   authReady, loadSave, loadWorldByUid, initAutosave, markDirty,
-  getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser, getJoinTimes
+  getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser, getJoinTimes, initPresence
 } from "./db.js";
 import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById } from "./world.js";
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
@@ -27,80 +27,28 @@ import { waitForPlay, showMainMenu } from "./mainMenu.js";
 import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
 import { initVisitWorld } from "./visitWorld.js";
 
-// Realtime Presence Logic
-(async () => {
-  try {
-    const [dbMod] = await Promise.all([
-      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")
-    ]);
-    const firebaseConfig = {
-      apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
-      authDomain: "playstash0.firebaseapp.com",
-      projectId: "playstash0",
-      storageBucket: "playstash0.firebasestorage.app",
-      messagingSenderId: "1015051983836",
-      appId: "1:1015051983836:web:3c89a152ce8c476852cd19",
-      databaseURL: "https://playstash0-default-rtdb.asia-southeast1.firebasedatabase.app"
-    };
-    const appMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
-    const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(firebaseConfig);
-    const db = dbMod.getDatabase(app);
-
-    const connectedRef = dbMod.ref(db, ".info/connected");
-    const wfPresenceRef = dbMod.ref(db, "presence/worldforge");
-    const psPresenceRef = dbMod.ref(db, "presence/playstash");
-
-    dbMod.onValue(connectedRef, (snap) => {
-      if (snap.val() === true) {
-        const myPresence = dbMod.push(wfPresenceRef);
-        dbMod.onDisconnect(myPresence).remove();
-        dbMod.set(myPresence, {
-          online: true,
-          ts: dbMod.serverTimestamp()
-        });
-      }
-    });
-
-    const updateCountsUI = (wfCount, psCount) => {
-      const wfEls = [
-        document.getElementById("wfOnlineCountText"),
-        document.getElementById("topbarWfOnlineCount"),
-        document.getElementById("panelWfOnlineCount")
-      ];
-      const psEls = [
-        document.getElementById("psOnlineCountText"),
-        document.getElementById("topbarPsOnlineCount"),
-        document.getElementById("panelPsOnlineCount")
-      ];
-
-      wfEls.forEach((el) => { if (el) el.textContent = wfCount; });
-      psEls.forEach((el) => { if (el) el.textContent = psCount; });
-    };
-
-    let wfOnline = 0;
-    let psOnline = 0;
-
-    dbMod.onValue(wfPresenceRef, (snap) => {
-      wfOnline = snap.exists() ? Object.keys(snap.val()).length : 0;
-      updateCountsUI(wfOnline, psOnline);
-    });
-
-    dbMod.onValue(psPresenceRef, (snap) => {
-      psOnline = snap.exists() ? Object.keys(snap.val()).length : 0;
-      updateCountsUI(wfOnline, psOnline);
-    });
-
-  } catch (err) {
-    console.warn("[presence] Realtime presence failed to initialize:", err);
-  }
-})();
-
 const spectateUid = new URLSearchParams(window.location.search).get("view");
 
 const occupiedGrid = new Map();
 const placedObjects = new Map();
 const activeNPCs = [];
 const buildCounters = {};
+
+function updateCountsUI(wfCount, psCount) {
+  const wfEls = [
+    document.getElementById("wfOnlineCountText"),
+    document.getElementById("topbarWfOnlineCount"),
+    document.getElementById("panelWfOnlineCount")
+  ];
+  const psEls = [
+    document.getElementById("psOnlineCountText"),
+    document.getElementById("topbarPsOnlineCount"),
+    document.getElementById("panelPsOnlineCount")
+  ];
+
+  wfEls.forEach((el) => { if (el) el.textContent = wfCount; });
+  psEls.forEach((el) => { if (el) el.textContent = psCount; });
+}
 
 function nextBuildKey(type) {
   buildCounters[type] = (buildCounters[type] || 0) + 1;
@@ -353,6 +301,11 @@ async function boot() {
   try {
     uid = await withTimeout(authReady(), 6000, null);
     updateAuthUI();
+
+    // Start presence tracking AFTER auth settles
+    initPresence((wfCount, psCount) => {
+      updateCountsUI(wfCount, psCount);
+    });
 
     if (spectateUid) {
       data = await withTimeout(loadWorldByUid(spectateUid), 6000, null);
