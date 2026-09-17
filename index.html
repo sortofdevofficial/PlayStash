@@ -27,6 +27,8 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
+      /* Safe bottom offset prevents floating Social Bar ads from obscuring page content */
+      padding-bottom: calc(4rem + env(safe-area-inset-bottom));
     }
 
     .glass-box {
@@ -384,5 +386,8 @@
   </div>
 
   <script type="module" src="index.js"></script>
+
+  <!-- Adsterra Social Bar Ad Unit -->
+  <script src="https://pl31387303.profitableratecpmnetwork.com/f4/46/a0/f446a082d9286e5e0ee4792f45e9710c.js"></script>
 </body>
 </html>
