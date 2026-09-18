@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, set, update, onValue, push, onDisconnect, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, update, onValue, off, onDisconnect, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -23,10 +23,8 @@ const provider = new GoogleAuthProvider();
 // 🛡️ SECURITY MODULE (Anti-Inspect & Anti-XSS)
 // ==========================================
 
-// Prevent Right-Click
 document.addEventListener('contextmenu', event => event.preventDefault());
 
-// Prevent F12, Ctrl+Shift+I, Ctrl+U, etc.
 document.addEventListener('keydown', (e) => {
   if (
     e.key === 'F12' || 
@@ -38,12 +36,12 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// XSS Sanitizer Function
 function sanitizeHTML(str) {
   const temp = document.createElement('div');
   temp.textContent = str;
   return temp.innerHTML;
 }
+
 // ==========================================
 
 const loginBtn = document.getElementById('login-btn');
@@ -54,14 +52,12 @@ const userAvatar = document.getElementById('user-avatar');
 const memberSince = document.getElementById('member-since');
 const userCountEl = document.getElementById('user-count');
 
-// Presence Counters
 const playstashOnlineCountEl = document.getElementById('playstash-online-count');
 const worldforgeOnlineCountEl = document.getElementById('worldforge-online-count');
 const onlineCountEl = document.getElementById('online-count');
 
 const usersContainer = document.getElementById('users-container');
 
-// Navigation Tabs
 const tabGamesBtn = document.getElementById('tab-games-btn');
 const tabPlayersBtn = document.getElementById('tab-players-btn');
 const tabProfileBtn = document.getElementById('tab-profile-btn');
@@ -71,7 +67,6 @@ const playersSection = document.getElementById('players-section');
 const profileSection = document.getElementById('profile-section');
 const openMyProfileBtn = document.getElementById('open-my-profile-btn');
 
-// Profile Page Elements
 const profileCardAvatar = document.getElementById('profile-card-avatar');
 const profileCardName = document.getElementById('profile-card-name');
 const profileCardEmail = document.getElementById('profile-card-email');
@@ -80,19 +75,16 @@ const profileCardJoinedWf = document.getElementById('profile-card-joined-wf');
 const profileCardStatusDot = document.getElementById('profile-card-status-dot');
 const profileCardStatusText = document.getElementById('profile-card-status-text');
 
-// Stats Elements
 const profileBuildingsCount = document.getElementById('profile-buildings-count');
 const profileNpcsCount = document.getElementById('profile-npcs-count');
 const profileResourcesCount = document.getElementById('profile-resources-count');
 const profileResourcesList = document.getElementById('profile-resources-list');
 
-// Change Name Elements
 const editUsernameCard = document.getElementById('edit-username-card');
 const usernameInput = document.getElementById('username-input');
 const saveUsernameBtn = document.getElementById('save-username-btn');
 const usernameStatusMsg = document.getElementById('username-status-msg');
 
-// Modal Elements
 const profileModal = document.getElementById('profile-modal');
 const modalAvatar = document.getElementById('modal-avatar');
 const modalName = document.getElementById('modal-name');
@@ -108,6 +100,7 @@ const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
 
 let rawUsersData = {};
 let rawGamesData = {};
+let activePresenceRef = null;
 
 const resourceMap = {
   wo: { name: 'Wood', icon: '🪵' },
@@ -294,7 +287,7 @@ async function openUserModal(user, uid) {
 
   if (gameSave.i && gameSave.i.jt) {
     worldforgeJoined = formatDateDetailed(gameSave.i.jt);
-  } else {
+  } else if (auth.currentUser) {
     try {
       const snap = await get(ref(db, `G/1/${uid}/i/jt`));
       if (snap.exists()) worldforgeJoined = formatDateDetailed(snap.val());
@@ -314,7 +307,6 @@ async function openUserModal(user, uid) {
 }
 
 saveUsernameBtn?.addEventListener('click', async () => {
-  // Apply XSS sanitization
   const rawName = usernameInput.value.trim();
   const newName = sanitizeHTML(rawName); 
   const currentUser = auth.currentUser;
@@ -355,8 +347,71 @@ loginBtn?.addEventListener('click', async () => {
 });
 
 logoutBtn?.addEventListener('click', async () => {
+  if (activePresenceRef) {
+    await set(activePresenceRef, null);
+    activePresenceRef = null;
+  }
   await signOut(auth);
 });
+
+// Setup presence tracking per user ID (presence/$uid)
+function initPresence(uid) {
+  const connectedRef = ref(db, ".info/connected");
+  activePresenceRef = ref(db, `presence/${uid}`);
+
+  onValue(connectedRef, (snap) => {
+    if (snap.val() === true && auth.currentUser) {
+      onDisconnect(activePresenceRef).remove();
+      set(activePresenceRef, { online: true, loc: 'homepage', ts: serverTimestamp() });
+    }
+  });
+}
+
+// Authenticated Listeners Setup
+function startAuthDatabaseListeners() {
+  onValue(ref(db, 'u'), (snapshot) => {
+    rawUsersData = snapshot.val() || {};
+    renderDirectory();
+  }, (err) => console.warn("u listener:", err.message));
+
+  onValue(ref(db, 'G/1'), (snapshot) => {
+    rawGamesData = snapshot.val() || {};
+    renderDirectory();
+    if (auth.currentUser) updatePersonalProfileStats(auth.currentUser.uid);
+  }, (err) => console.warn("G listener:", err.message));
+
+  onValue(ref(db, 'presence'), (snap) => {
+    const presenceData = snap.val() || {};
+    let playstashCount = 0;
+    let worldforgeCount = 0;
+
+    Object.values(presenceData).forEach(p => {
+      if (p && p.online) {
+        if (p.loc === 'worldforge') worldforgeCount++;
+        else playstashCount++;
+      }
+    });
+
+    const totalOnline = playstashCount + worldforgeCount;
+    if (playstashOnlineCountEl) playstashOnlineCountEl.textContent = playstashCount;
+    if (worldforgeOnlineCountEl) worldforgeOnlineCountEl.textContent = worldforgeCount;
+    if (onlineCountEl) onlineCountEl.textContent = totalOnline;
+  }, (err) => console.warn("presence listener:", err.message));
+}
+
+function stopAuthDatabaseListeners() {
+  off(ref(db, 'u'));
+  off(ref(db, 'G/1'));
+  off(ref(db, 'presence'));
+  
+  rawUsersData = {};
+  rawGamesData = {};
+  renderDirectory();
+
+  if (playstashOnlineCountEl) playstashOnlineCountEl.textContent = '0';
+  if (worldforgeOnlineCountEl) worldforgeOnlineCountEl.textContent = '0';
+  if (onlineCountEl) onlineCountEl.textContent = '0';
+}
 
 onAuthStateChanged(auth, async (user) => {
   if (user && !user.isAnonymous) {
@@ -384,6 +439,20 @@ onAuthStateChanged(auth, async (user) => {
     memberSince.textContent = `Joined ${formattedPsDate}`;
     if (profileCardJoinedPs) profileCardJoinedPs.textContent = `Joined PlayStash: ${formattedPsDate}`;
 
+    // Write user info to matching path u/$uid/i
+    try {
+      await update(ref(db, `u/${user.uid}/i`), {
+        e: user.email || '',
+        dn: displayName,
+        pe: user.photoURL || 'favicon.png',
+        jt: creationTime
+      });
+    } catch (err) {}
+
+    // Initialize user presence & start reading protected paths
+    initPresence(user.uid);
+    startAuthDatabaseListeners();
+
     let wfJoinedTime = null;
     try {
       const snap = await get(ref(db, `G/1/${user.uid}/i/jt`));
@@ -394,17 +463,10 @@ onAuthStateChanged(auth, async (user) => {
       profileCardJoinedWf.textContent = `Joined WorldForge: ${wfJoinedTime ? formatDateDetailed(wfJoinedTime) : 'Not played yet'}`;
     }
 
-    try {
-      await update(ref(db, `u/${user.uid}/i`), {
-        e: user.email || '',
-        dn: displayName,
-        pe: user.photoURL || 'favicon.png',
-        jt: creationTime
-      });
-    } catch (err) {}
-
     updatePersonalProfileStats(user.uid);
   } else {
+    stopAuthDatabaseListeners();
+
     loginBtn?.classList.remove('hidden');
     userProfile?.classList.add('hidden');
     editUsernameCard?.classList.add('hidden');
@@ -438,53 +500,10 @@ function updatePersonalProfileStats(uid) {
   renderDetailedResources(gameSave.r, profileResourcesList);
 }
 
-// Presence tracking
-const connectedRef = ref(db, ".info/connected");
-const homepagePresenceRef = ref(db, "presence/homepage");
-
-onValue(connectedRef, (snap) => {
-  if (snap.val() === true) {
-    const myPresenceRef = push(homepagePresenceRef);
-    onDisconnect(myPresenceRef).remove();
-    set(myPresenceRef, { online: true, ts: serverTimestamp() });
-  }
-});
-
-onValue(ref(db, "presence"), (snap) => {
-  const presenceData = snap.val() || {};
-  let playstashCount = 0;
-  let worldforgeCount = 0;
-
-  if (presenceData.homepage && typeof presenceData.homepage === 'object') {
-    playstashCount = Object.keys(presenceData.homepage).length;
-  }
-  if (presenceData.worldforge && typeof presenceData.worldforge === 'object') {
-    worldforgeCount = Object.keys(presenceData.worldforge).length;
-  }
-
-  const totalOnline = playstashCount + worldforgeCount;
-  if (playstashOnlineCountEl) playstashOnlineCountEl.textContent = playstashCount;
-  if (worldforgeOnlineCountEl) worldforgeOnlineCountEl.textContent = worldforgeCount;
-  if (onlineCountEl) onlineCountEl.textContent = totalOnline;
-});
-
-// Sync Game Data
-onValue(ref(db, 'G/1'), (snapshot) => {
-  rawGamesData = snapshot.val() || {};
-  renderDirectory();
-  if (auth.currentUser) updatePersonalProfileStats(auth.currentUser.uid);
-});
-
-// Sync Users
-onValue(ref(db, 'u'), (snapshot) => {
-  rawUsersData = snapshot.val() || {};
-  renderDirectory();
-});
-
 function renderDirectory() {
-  if (!rawUsersData) {
+  if (!rawUsersData || Object.keys(rawUsersData).length === 0) {
     if (userCountEl) userCountEl.textContent = '0';
-    usersContainer.innerHTML = '<div class="glass-box rounded-2xl p-6 text-center text-slate-400 text-xs">No registered players yet.</div>';
+    usersContainer.innerHTML = '<div class="glass-box rounded-2xl p-6 text-center text-slate-400 text-xs">Sign in to view registered players.</div>';
     return;
   }
 
@@ -523,7 +542,7 @@ function renderDirectory() {
 
     const name = document.createElement('span');
     name.className = 'font-bold text-xs text-white truncate';
-    name.textContent = u.dn || 'Player'; // Text content prevents XSS
+    name.textContent = u.dn || 'Player';
 
     const psJoined = document.createElement('span');
     psJoined.className = 'text-[10px] text-sky-400 font-medium truncate mt-0.5';
