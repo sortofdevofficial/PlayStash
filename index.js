@@ -19,6 +19,33 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 const provider = new GoogleAuthProvider();
 
+// ==========================================
+// 🛡️ SECURITY MODULE (Anti-Inspect & Anti-XSS)
+// ==========================================
+
+// Prevent Right-Click
+document.addEventListener('contextmenu', event => event.preventDefault());
+
+// Prevent F12, Ctrl+Shift+I, Ctrl+U, etc.
+document.addEventListener('keydown', (e) => {
+  if (
+    e.key === 'F12' || 
+    (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || 
+    (e.ctrlKey && e.key === 'U') ||
+    (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'J' || e.key === 'U'))
+  ) {
+    e.preventDefault();
+  }
+});
+
+// XSS Sanitizer Function
+function sanitizeHTML(str) {
+  const temp = document.createElement('div');
+  temp.textContent = str;
+  return temp.innerHTML;
+}
+// ==========================================
+
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
 const userProfile = document.getElementById('user-profile');
@@ -239,9 +266,9 @@ function renderDetailedResources(resourceObj, containerElement) {
     itemCard.innerHTML = `
       <span class="text-slate-300 font-bold flex items-center gap-2">
         <span>${data.icon}</span>
-        <span>${name}</span>
+        <span>${sanitizeHTML(name)}</span>
       </span>
-      <span class="font-black text-sky-400 font-mono">${data.amount}</span>
+      <span class="font-black text-sky-400 font-mono">${Number(data.amount)}</span>
     `;
     containerElement.appendChild(itemCard);
   });
@@ -287,12 +314,14 @@ async function openUserModal(user, uid) {
 }
 
 saveUsernameBtn?.addEventListener('click', async () => {
-  const newName = usernameInput.value.trim();
+  // Apply XSS sanitization
+  const rawName = usernameInput.value.trim();
+  const newName = sanitizeHTML(rawName); 
   const currentUser = auth.currentUser;
 
   if (!currentUser) return;
   if (!newName) {
-    showUsernameStatus('Name cannot be empty', false);
+    showUsernameStatus('Name cannot be empty or invalid', false);
     return;
   }
 
@@ -326,7 +355,6 @@ loginBtn?.addEventListener('click', async () => {
 });
 
 logoutBtn?.addEventListener('click', async () => {
-  alert("Why? 😭");
   await signOut(auth);
 });
 
@@ -410,7 +438,7 @@ function updatePersonalProfileStats(uid) {
   renderDetailedResources(gameSave.r, profileResourcesList);
 }
 
-// Presence tracking specifically for PlayStash Homepage
+// Presence tracking
 const connectedRef = ref(db, ".info/connected");
 const homepagePresenceRef = ref(db, "presence/homepage");
 
@@ -422,24 +450,19 @@ onValue(connectedRef, (snap) => {
   }
 });
 
-// Calculate and display online users breakdown for PlayStash, WorldForge, and total
 onValue(ref(db, "presence"), (snap) => {
   const presenceData = snap.val() || {};
-  
   let playstashCount = 0;
   let worldforgeCount = 0;
 
   if (presenceData.homepage && typeof presenceData.homepage === 'object') {
     playstashCount = Object.keys(presenceData.homepage).length;
   }
-
   if (presenceData.worldforge && typeof presenceData.worldforge === 'object') {
     worldforgeCount = Object.keys(presenceData.worldforge).length;
   }
 
-  // Calculate strict active total across monitored games & hub
   const totalOnline = playstashCount + worldforgeCount;
-
   if (playstashOnlineCountEl) playstashOnlineCountEl.textContent = playstashCount;
   if (worldforgeOnlineCountEl) worldforgeOnlineCountEl.textContent = worldforgeCount;
   if (onlineCountEl) onlineCountEl.textContent = totalOnline;
@@ -500,7 +523,7 @@ function renderDirectory() {
 
     const name = document.createElement('span');
     name.className = 'font-bold text-xs text-white truncate';
-    name.textContent = u.dn || 'Player';
+    name.textContent = u.dn || 'Player'; // Text content prevents XSS
 
     const psJoined = document.createElement('span');
     psJoined.className = 'text-[10px] text-sky-400 font-medium truncate mt-0.5';
