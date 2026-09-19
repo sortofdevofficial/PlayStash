@@ -53,6 +53,32 @@ const onlineCountEl = document.getElementById('online-count');
 
 const usersContainer = document.getElementById('users-container');
 
+const heroOnlineCountEl = document.getElementById('hero-online-count');
+const cardOnlineCountEl = document.getElementById('card-online-count');
+const heroPlayersBtn = document.getElementById('hero-players-btn');
+const profileSigninBtn = document.getElementById('profile-signin-btn');
+const playerSearchEl = document.getElementById('player-search');
+const playerSortEl = document.getElementById('player-sort');
+const playerResultCountEl = document.getElementById('player-result-count');
+
+function toast(msg, type = 'info') {
+  const box = document.getElementById('toast-container');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icon = document.createElement('span');
+  icon.textContent = type === 'success' ? '✅' : type === 'error' ? '⚠️' : 'ℹ️';
+  const text = document.createElement('span');
+  text.textContent = msg;
+  el.append(icon, text);
+  box.appendChild(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => {
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 300);
+  }, 3500);
+}
+
 const tabGamesBtn = document.getElementById('tab-games-btn');
 const tabPlayersBtn = document.getElementById('tab-players-btn');
 const tabProfileBtn = document.getElementById('tab-profile-btn');
@@ -108,23 +134,48 @@ const resourceMap = {
   fi: { name: 'Fish', icon: '🐟' }, fish: { name: 'Fish', icon: '🐟' }
 };
 
-function switchTab(selected) {
-  const activeClass = "px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-sky-500/20 border border-sky-400/40 transition cursor-pointer";
-  const inactiveClass = "px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer";
+const TAB_BASE = 'nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition cursor-pointer';
+const TAB_ACTIVE = TAB_BASE + ' text-white bg-sky-500/20 border border-sky-400/40';
+const TAB_INACTIVE = TAB_BASE + ' text-slate-400 hover:text-slate-200 border border-transparent';
+const TAB_NAMES = ['games', 'players', 'profile'];
 
-  if (tabGamesBtn) tabGamesBtn.className = selected === 'games' ? activeClass : inactiveClass;
-  if (tabPlayersBtn) tabPlayersBtn.className = selected === 'players' ? activeClass : inactiveClass;
-  if (tabProfileBtn) tabProfileBtn.className = selected === 'profile' ? activeClass : inactiveClass;
+function switchTab(selected, { updateHash = true } = {}) {
+  [[tabGamesBtn, 'games'], [tabPlayersBtn, 'players'], [tabProfileBtn, 'profile']].forEach(([btn, name]) => {
+    if (!btn) return;
+    btn.className = selected === name ? TAB_ACTIVE : TAB_INACTIVE;
+    btn.setAttribute('aria-selected', String(selected === name));
+  });
 
-  gamesSection?.classList.toggle('hidden', selected !== 'games');
-  playersSection?.classList.toggle('hidden', selected !== 'players');
-  profileSection?.classList.toggle('hidden', selected !== 'profile');
+  [[gamesSection, 'games'], [playersSection, 'players'], [profileSection, 'profile']].forEach(([el, name]) => {
+    if (!el) return;
+    const show = selected === name;
+    el.classList.toggle('hidden', !show);
+    if (show) {
+      el.classList.remove('fade-in');
+      void el.offsetWidth; // restart the entrance animation
+      el.classList.add('fade-in');
+    }
+  });
+
+  if (updateHash) {
+    try { history.replaceState(null, '', '#' + selected); } catch (e) {}
+  }
 }
 
 tabGamesBtn?.addEventListener('click', () => switchTab('games'));
 tabPlayersBtn?.addEventListener('click', () => switchTab('players'));
 tabProfileBtn?.addEventListener('click', () => switchTab('profile'));
 openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
+heroPlayersBtn?.addEventListener('click', () => { switchTab('players'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+profileSigninBtn?.addEventListener('click', () => loginBtn?.click());
+
+// Remember the tab across reloads / shared links (#players, #profile)
+const initialTab = location.hash.replace('#', '');
+if (TAB_NAMES.includes(initialTab)) switchTab(initialTab, { updateHash: false });
+window.addEventListener('hashchange', () => {
+  const t = location.hash.replace('#', '');
+  if (TAB_NAMES.includes(t)) switchTab(t, { updateHash: false });
+});
 
 function formatDateDetailed(timestamp) {
   if (!timestamp) return 'N/A';
@@ -185,6 +236,8 @@ function renderDetailedResources(resourceObj, containerElement) {
 const closeModal = () => profileModal?.classList.add('hidden');
 closeModalBtn?.addEventListener('click', closeModal);
 closeModalBottomBtn?.addEventListener('click', closeModal);
+profileModal?.addEventListener('click', (e) => { if (e.target === profileModal) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
 async function openUserModal(user, uid) {
   if (!profileModal) return;
@@ -250,13 +303,15 @@ function showUsernameStatus(msg, isSuccess) {
   usernameStatusMsg.textContent = msg;
   usernameStatusMsg.className = `text-[11px] font-medium ${isSuccess ? 'text-emerald-400' : 'text-red-400'} block`;
   setTimeout(() => usernameStatusMsg.classList.add('hidden'), 3000);
+  toast(msg, isSuccess ? 'success' : 'error');
 }
 
 loginBtn?.addEventListener('click', async () => {
   try {
     await signInWithPopup(auth, provider);
   } catch (err) {
-    alert("Sign In Error: " + err.message);
+    if (err && (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request')) return;
+    toast('Sign in failed: ' + (err && err.message ? err.message : 'please try again'), 'error');
   }
 });
 
@@ -300,22 +355,49 @@ function presencePayload() {
 function computePresenceCounts(val, offset, selfId) {
   const now = Date.now() + offset;
   const ps = new Set(), wf = new Set(), all = new Set();
+  const who = new Map(); // uid -> 'worldforge' | 'playstash'  (worldforge wins if in both)
   for (const key in val) {
     const p = val[key];
     if (!p || p.online === false) continue;
     if (typeof p.ts === 'number' && now - p.ts > PRESENCE_STALE_MS) continue;
-    const id = p.uid || key;
+    const uid = p.uid || (key.startsWith('s_') ? null : key);
+    const id = uid || key;
     all.add(id);
-    if (p.loc === 'worldforge') wf.add(id); else ps.add(id);
+    const inWf = p.loc === 'worldforge';
+    if (inWf) wf.add(id); else ps.add(id);
+    if (uid && (inWf || !who.has(uid))) who.set(uid, inWf ? 'worldforge' : 'playstash');
   }
   if (ps.size === 0 && wf.size === 0) { ps.add(selfId); all.add(selfId); }
-  return { ps: ps.size, wf: wf.size, total: all.size };
+  return { ps: ps.size, wf: wf.size, total: all.size, who };
 }
 
+function setCount(el, value) {
+  if (!el) return;
+  const text = String(value);
+  if (el.textContent === text) return;
+  el.textContent = text;
+  el.classList.remove('bump');
+  void el.offsetWidth;
+  el.classList.add('bump');
+}
+
+let presenceWho = new Map();
+let presenceWhoKey = '';
+
 function renderPresenceCounts(c) {
-  if (playstashOnlineCountEl) playstashOnlineCountEl.textContent = c.ps;
-  if (worldforgeOnlineCountEl) worldforgeOnlineCountEl.textContent = c.wf;
-  if (onlineCountEl) onlineCountEl.textContent = c.total;
+  setCount(playstashOnlineCountEl, c.ps);
+  setCount(worldforgeOnlineCountEl, c.wf);
+  setCount(onlineCountEl, c.total);
+  setCount(heroOnlineCountEl, c.wf);
+  setCount(cardOnlineCountEl, c.wf);
+
+  const who = c.who || new Map();
+  const key = [...who].map(([u, l]) => u + ':' + l).sort().join('|');
+  if (key !== presenceWhoKey) {
+    presenceWhoKey = key;
+    presenceWho = who;
+    renderDirectory(); // refresh the green "online" badges on player cards
+  }
 }
 
 async function armPresence() {
@@ -402,6 +484,7 @@ onAuthStateChanged(auth, async (user) => {
   syncPresenceIdentity(user);
   if (user && !user.isAnonymous) {
     loginBtn?.classList.add('hidden');
+    profileSigninBtn?.classList.add('hidden');
     userProfile?.classList.remove('hidden');
     editUsernameCard?.classList.remove('hidden');
 
@@ -451,6 +534,7 @@ onAuthStateChanged(auth, async (user) => {
     stopAuthDatabaseListeners();
 
     loginBtn?.classList.remove('hidden');
+    profileSigninBtn?.classList.remove('hidden');
     userProfile?.classList.add('hidden');
     editUsernameCard?.classList.add('hidden');
     if (userEmail) userEmail.textContent = '';
@@ -483,25 +567,85 @@ function updatePersonalProfileStats(uid) {
   renderDetailedResources(gameSave.r, profileResourcesList);
 }
 
+function buildPlayerList() {
+  return Object.entries(rawUsersData || {})
+    .filter(([uid, u]) => u && u.i)
+    .map(([uid, u]) => {
+      const save = rawGamesData[uid] || {};
+      return {
+        uid, ...u.i,
+        _b: save.b ? Object.keys(save.b).length : 0,
+        _n: save.n ? Object.keys(save.n).length : 0,
+        _online: presenceWho.get(uid) || null
+      };
+    });
+}
+
+function filterPlayers(list, query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return list;
+  return list.filter((p) => String(p.dn || 'Player').toLowerCase().includes(q));
+}
+
+function sortPlayers(list, mode) {
+  const byNewest = (a, b) => (b.jt || 0) - (a.jt || 0);
+  const cmp = {
+    online: (a, b) => (Number(!!b._online) - Number(!!a._online)) || byNewest(a, b),
+    newest: byNewest,
+    buildings: (a, b) => (b._b - a._b) || byNewest(a, b),
+    villagers: (a, b) => (b._n - a._n) || byNewest(a, b),
+    name: (a, b) => String(a.dn || '').localeCompare(String(b.dn || ''), undefined, { sensitivity: 'base' })
+  }[mode] || byNewest;
+  return [...list].sort(cmp);
+}
+
+function emptyMessage(text, withSignIn) {
+  const box = document.createElement('div');
+  box.className = 'col-span-full glass-box rounded-2xl p-8 text-center text-slate-400 text-xs font-medium flex flex-col items-center gap-4';
+  const p = document.createElement('span');
+  p.textContent = text;
+  box.appendChild(p);
+  if (withSignIn) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-main text-white font-black px-6 py-3 rounded-full text-xs uppercase tracking-wider active:scale-95';
+    btn.textContent = 'Sign in with Google';
+    btn.addEventListener('click', () => loginBtn?.click());
+    box.appendChild(btn);
+  }
+  return box;
+}
+
+let directoryAnimated = false;
+
 function renderDirectory() {
   if (!usersContainer) return;
-  if (!rawUsersData || Object.keys(rawUsersData).length === 0) {
-    if (userCountEl) userCountEl.textContent = '0';
-    usersContainer.innerHTML = '<div class="glass-box rounded-2xl p-6 text-center text-slate-400 text-xs">Sign in to view registered players.</div>';
+
+  const all = buildPlayerList();
+  if (userCountEl) userCountEl.textContent = all.length;
+
+  if (all.length === 0) {
+    if (playerResultCountEl) playerResultCountEl.textContent = '0';
+    usersContainer.replaceChildren(emptyMessage('Sign in to view registered players.', !auth.currentUser || auth.currentUser.isAnonymous));
     return;
   }
 
-  const entries = Object.entries(rawUsersData)
-    .filter(([uid, u]) => u && u.i)
-    .map(([uid, u]) => ({ uid, ...u.i }))
-    .sort((a, b) => (b.jt || 0) - (a.jt || 0));
+  const query = playerSearchEl ? playerSearchEl.value : '';
+  const list = sortPlayers(filterPlayers(all, query), playerSortEl ? playerSortEl.value : 'online');
+  if (playerResultCountEl) playerResultCountEl.textContent = list.length;
 
-  if (userCountEl) userCountEl.textContent = entries.length;
+  if (list.length === 0) {
+    usersContainer.replaceChildren(emptyMessage(`No players match "${query.trim()}".`, false));
+    return;
+  }
 
-  usersContainer.replaceChildren(...entries.map(u => {
+  const animate = !directoryAnimated;
+  directoryAnimated = true;
+
+  usersContainer.replaceChildren(...list.map((u) => {
     const gameSave = rawGamesData[u.uid] || {};
     const res = gameSave.r || {};
-    
+
     const wood = Number(res.wo || res.wood || 0);
     const water = Number(res.wa || res.water || 0);
     const wheat = Number(res.w || res.wheat || 0);
@@ -510,45 +654,65 @@ function renderDirectory() {
     const wfJoinedDate = gameSave.i && gameSave.i.jt ? formatDateDetailed(gameSave.i.jt) : 'Not played yet';
 
     const card = document.createElement('div');
-    card.className = 'card-box rounded-2xl p-4 flex items-center justify-between gap-3 hover:border-sky-500/50 cursor-pointer transition duration-300';
+    card.className = 'card-box rounded-2xl p-4 flex flex-col gap-3 cursor-pointer hover:-translate-y-0.5' + (animate ? ' fade-in' : '');
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `View ${u.dn || 'Player'}`);
     card.addEventListener('click', () => openUserModal(u, u.uid));
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openUserModal(u, u.uid); }
+    });
 
-    const left = document.createElement('div');
-    left.className = 'flex items-center gap-3.5 min-w-0';
+    const top = document.createElement('div');
+    top.className = 'flex items-center gap-3.5 min-w-0';
 
+    const avatarWrap = document.createElement('div');
+    avatarWrap.className = 'relative shrink-0';
     const img = document.createElement('img');
     img.src = safeAvatarUrl(u.pe);
-    img.className = 'w-11 h-11 rounded-full border border-sky-400/50 object-cover shrink-0 shadow-md';
-    img.alt = 'Profile';
+    img.className = 'w-12 h-12 rounded-full border object-cover shadow-md ' + (u._online ? 'border-emerald-400/70' : 'border-sky-400/40');
+    img.alt = '';
+    avatarWrap.appendChild(img);
+    const dot = document.createElement('span');
+    dot.className = 'absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#0b1220] ' + (u._online ? 'bg-emerald-400 dot-online' : 'bg-slate-600');
+    avatarWrap.appendChild(dot);
 
     const details = document.createElement('div');
     details.className = 'flex flex-col min-w-0';
 
     const name = document.createElement('span');
-    name.className = 'font-bold text-xs text-white truncate';
+    name.className = 'font-bold text-sm text-white truncate';
     name.textContent = u.dn || 'Player';
 
+    const status = document.createElement('span');
+    status.className = 'text-[10px] font-extrabold uppercase tracking-wider mt-0.5 ' + (u._online ? 'text-emerald-400' : 'text-slate-500');
+    status.textContent = u._online ? (u._online === 'worldforge' ? 'Online · WorldForge' : 'Online · Hub') : 'Offline';
+
     const psJoined = document.createElement('span');
-    psJoined.className = 'text-[10px] text-sky-400 font-medium truncate mt-0.5';
+    psJoined.className = 'text-[10px] text-sky-400/90 font-medium truncate mt-0.5';
     psJoined.textContent = `Joined PlayStash: ${formatDateDetailed(u.jt)}`;
 
     const wfJoined = document.createElement('span');
-    wfJoined.className = 'text-[10px] text-emerald-400 font-medium truncate';
+    wfJoined.className = 'text-[10px] text-emerald-400/90 font-medium truncate';
     wfJoined.textContent = `Joined WorldForge: ${wfJoinedDate}`;
 
-    details.append(name, psJoined, wfJoined);
-    left.append(img, details);
+    details.append(name, status, psJoined, wfJoined);
+    top.append(avatarWrap, details);
 
-    const right = document.createElement('div');
-    right.className = 'flex items-center gap-2 shrink-0 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800 text-[10px] font-bold text-slate-300 font-mono flex-wrap justify-end';
-    right.innerHTML = `
-      <span>🪵 ${wood}</span>
-      <span>💧 ${water}</span>
-      <span>🌾 ${wheat}</span>
-      <span>🪨 ${stone}</span>
-    `;
+    const chips = document.createElement('div');
+    chips.className = 'flex items-center gap-1.5 flex-wrap text-[10px] font-bold text-slate-300 font-mono';
+    const chipData = [`🧱 ${u._b}`, `👤 ${u._n}`, `🪵 ${wood}`, `💧 ${water}`, `🌾 ${wheat}`, `🪨 ${stone}`];
+    chipData.forEach((t) => {
+      const c = document.createElement('span');
+      c.className = 'bg-slate-900/90 px-2 py-1 rounded-lg border border-slate-800';
+      c.textContent = t;
+      chips.appendChild(c);
+    });
 
-    card.append(left, right);
+    card.append(top, chips);
     return card;
   }));
 }
+
+playerSearchEl?.addEventListener('input', () => renderDirectory());
+playerSortEl?.addEventListener('change', () => renderDirectory());
