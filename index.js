@@ -43,6 +43,45 @@ function sanitizeHTML(str) {
 }
 
 // ==========================================
+// 🎯 MONETIZATION & AD TRIGGER HANDLERS
+// ==========================================
+
+function triggerPreGameAd(targetUrl) {
+  // Check if Monetag / In-Page Push or Interstitial is ready
+  if (typeof window.show_11839981 === 'function') {
+    window.show_11839981().then(() => {
+      window.location.href = targetUrl;
+    }).catch(() => {
+      window.location.href = targetUrl;
+    });
+  } else {
+    window.location.href = targetUrl;
+  }
+}
+
+// Attach ad listeners to game launch elements
+document.addEventListener('DOMContentLoaded', () => {
+  const heroPlayBtn = document.getElementById('play-worldforge-hero-btn');
+  if (heroPlayBtn) {
+    heroPlayBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      triggerPreGameAd('game/worldforge/index.html');
+    });
+  }
+
+  const gameLaunchCards = document.querySelectorAll('.game-launch-card');
+  gameLaunchCards.forEach(card => {
+    card.addEventListener('click', (e) => {
+      const targetHref = card.getAttribute('href');
+      if (targetHref) {
+        e.preventDefault();
+        triggerPreGameAd(targetHref);
+      }
+    });
+  });
+});
+
+// ==========================================
 
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
@@ -354,7 +393,6 @@ logoutBtn?.addEventListener('click', async () => {
   await signOut(auth);
 });
 
-// Setup presence tracking per user ID (presence/$uid)
 function initPresence(uid) {
   const connectedRef = ref(db, ".info/connected");
   activePresenceRef = ref(db, `presence/${uid}`);
@@ -367,7 +405,6 @@ function initPresence(uid) {
   });
 }
 
-// Authenticated Listeners Setup
 function startAuthDatabaseListeners() {
   onValue(ref(db, 'u'), (snapshot) => {
     rawUsersData = snapshot.val() || {};
@@ -439,7 +476,6 @@ onAuthStateChanged(auth, async (user) => {
     memberSince.textContent = `Joined ${formattedPsDate}`;
     if (profileCardJoinedPs) profileCardJoinedPs.textContent = `Joined PlayStash: ${formattedPsDate}`;
 
-    // Write user info to matching path u/$uid/i
     try {
       await update(ref(db, `u/${user.uid}/i`), {
         e: user.email || '',
@@ -449,7 +485,6 @@ onAuthStateChanged(auth, async (user) => {
       });
     } catch (err) {}
 
-    // Initialize user presence & start reading protected paths
     initPresence(user.uid);
     startAuthDatabaseListeners();
 
