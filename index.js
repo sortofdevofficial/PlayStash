@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile
+  getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, update, onValue, off, onDisconnect, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
@@ -95,7 +95,6 @@ const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
 
 let rawUsersData = {};
 let rawGamesData = {};
-let activePresenceRef = null;
 
 const resourceMap = {
   wo: { name: 'Wood', icon: '🪵' }, wood: { name: 'Wood', icon: '🪵' },
@@ -262,30 +261,118 @@ loginBtn?.addEventListener('click', async () => {
 });
 
 logoutBtn?.addEventListener('click', async () => {
-  if (activePresenceRef) {
-    await set(activePresenceRef, null);
-    activePresenceRef = null;
-  }
   await signOut(auth);
 });
 
-// Presence Sync
-function initPresence(uid) {
-  const connectedRef = ref(db, ".info/connected");
-  activePresenceRef = ref(db, `presence/${uid}`);
+// ---------------------------------------------------------------------------
+// PRESENCE  (same schema as WorldForge: presence/{tabSessionId} = {online, loc, uid, ts})
+//  - one node per browser tab, so guests, multi-tab and account switching all work
+//  - counts are shown to EVERYONE (guests too) and never reset on sign-out
+//  - deduped by uid, staleness measured on the server clock
+// ---------------------------------------------------------------------------
+const PRESENCE_LOC = 'playstash';
+const PRESENCE_HEARTBEAT_MS = 25000;
+const PRESENCE_STALE_MS = 150000;
 
-  onValue(connectedRef, (snap) => {
-    if (snap.val() === true && auth.currentUser) {
-      onDisconnect(activePresenceRef).remove();
-      set(activePresenceRef, { online: true, loc: 'homepage', ts: serverTimestamp() });
-    }
+let presenceStarted = false;
+let presenceArmed = false;
+let presenceOffset = 0;
+let presenceSessionId = null;
+let presenceNodeRef = null;
+let anonAttempted = false;
+
+function getPresenceSessionId() {
+  try {
+    const existing = sessionStorage.getItem('ps_presence_sid');
+    if (existing) return existing;
+    const fresh = 's_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    sessionStorage.setItem('ps_presence_sid', fresh);
+    return fresh;
+  } catch (e) {
+    return 's_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+}
+
+function presencePayload() {
+  return { online: true, loc: PRESENCE_LOC, uid: auth.currentUser ? auth.currentUser.uid : null, ts: serverTimestamp() };
+}
+
+function computePresenceCounts(val, offset, selfId) {
+  const now = Date.now() + offset;
+  const ps = new Set(), wf = new Set(), all = new Set();
+  for (const key in val) {
+    const p = val[key];
+    if (!p || p.online === false) continue;
+    if (typeof p.ts === 'number' && now - p.ts > PRESENCE_STALE_MS) continue;
+    const id = p.uid || key;
+    all.add(id);
+    if (p.loc === 'worldforge') wf.add(id); else ps.add(id);
+  }
+  if (ps.size === 0 && wf.size === 0) { ps.add(selfId); all.add(selfId); }
+  return { ps: ps.size, wf: wf.size, total: all.size };
+}
+
+function renderPresenceCounts(c) {
+  if (playstashOnlineCountEl) playstashOnlineCountEl.textContent = c.ps;
+  if (worldforgeOnlineCountEl) worldforgeOnlineCountEl.textContent = c.wf;
+  if (onlineCountEl) onlineCountEl.textContent = c.total;
+}
+
+async function armPresence() {
+  if (!presenceNodeRef) return;
+  try {
+    await onDisconnect(presenceNodeRef).remove();
+    await set(presenceNodeRef, presencePayload());
+    presenceArmed = true;
+  } catch (err) {
+    presenceArmed = false;
+    console.warn('presence write:', err.message);
+  }
+}
+
+function startPresence() {
+  if (presenceStarted) return;
+  presenceStarted = true;
+
+  presenceSessionId = getPresenceSessionId();
+  presenceNodeRef = ref(db, `presence/${presenceSessionId}`);
+  renderPresenceCounts({ ps: 1, wf: 0, total: 1 });
+
+  onValue(ref(db, '.info/serverTimeOffset'), (snap) => { presenceOffset = Number(snap.val()) || 0; });
+
+  // Firebase forgets onDisconnect handlers when the socket drops, so re-arm on every reconnect.
+  onValue(ref(db, '.info/connected'), (snap) => {
+    if (snap.val() === true) armPresence();
+    else presenceArmed = false;
   });
 
   setInterval(() => {
-    if (activePresenceRef && auth.currentUser) {
-      set(activePresenceRef, { online: true, loc: 'homepage', ts: serverTimestamp() });
-    }
-  }, 30000);
+    if (!presenceArmed) { armPresence(); return; }
+    update(presenceNodeRef, presencePayload()).catch(() => { presenceArmed = false; });
+  }, PRESENCE_HEARTBEAT_MS);
+
+  window.addEventListener('pageshow', (e) => { if (e.persisted) armPresence(); });
+  window.addEventListener('pagehide', () => { try { set(presenceNodeRef, null); } catch (e) {} });
+
+  // Counts for everyone, guests included. Never torn down on sign-out.
+  onValue(ref(db, 'presence'), (snap) => {
+    renderPresenceCounts(computePresenceCounts(snap.val() || {}, presenceOffset, presenceSessionId));
+  }, (err) => {
+    console.warn('presence read blocked - check database rules for presence/:', err.message);
+    renderPresenceCounts({ ps: 1, wf: 0, total: 1 });
+  });
+}
+
+// Called on every auth change: stamp the uid on this tab's node, and give guests an
+// anonymous session so they can be counted (same as WorldForge does).
+function syncPresenceIdentity(user) {
+  startPresence();
+  if (user) {
+    armPresence();
+  } else if (!anonAttempted) {
+    anonAttempted = true;
+    signInAnonymously(auth).catch((err) => console.warn('anonymous sign-in:', err.message));
+  }
 }
 
 function startAuthDatabaseListeners() {
@@ -299,43 +386,20 @@ function startAuthDatabaseListeners() {
     renderDirectory();
     if (auth.currentUser) updatePersonalProfileStats(auth.currentUser.uid);
   }, (err) => console.warn("G listener:", err.message));
-
-  onValue(ref(db, 'presence'), (snap) => {
-    const presenceData = snap.val() || {};
-    let playstashCount = 0;
-    let worldforgeCount = 0;
-    const now = Date.now();
-
-    Object.values(presenceData).forEach(p => {
-      if (p && p.online !== false) {
-        if (p.ts && (now - p.ts > 180000)) return; // Exclude stale
-        if (p.loc === 'worldforge') worldforgeCount++;
-        else playstashCount++;
-      }
-    });
-
-    const totalOnline = playstashCount + worldforgeCount;
-    if (playstashOnlineCountEl) playstashOnlineCountEl.textContent = playstashCount;
-    if (worldforgeOnlineCountEl) worldforgeOnlineCountEl.textContent = worldforgeCount;
-    if (onlineCountEl) onlineCountEl.textContent = totalOnline;
-  }, (err) => console.warn("presence listener:", err.message));
 }
 
 function stopAuthDatabaseListeners() {
   off(ref(db, 'u'));
   off(ref(db, 'G/1'));
-  off(ref(db, 'presence'));
   
   rawUsersData = {};
   rawGamesData = {};
   renderDirectory();
 
-  if (playstashOnlineCountEl) playstashOnlineCountEl.textContent = '0';
-  if (worldforgeOnlineCountEl) worldforgeOnlineCountEl.textContent = '0';
-  if (onlineCountEl) onlineCountEl.textContent = '0';
 }
 
 onAuthStateChanged(auth, async (user) => {
+  syncPresenceIdentity(user);
   if (user && !user.isAnonymous) {
     loginBtn?.classList.add('hidden');
     userProfile?.classList.remove('hidden');
@@ -370,7 +434,6 @@ onAuthStateChanged(auth, async (user) => {
       });
     } catch (err) {}
 
-    initPresence(user.uid);
     startAuthDatabaseListeners();
 
     let wfJoinedTime = null;

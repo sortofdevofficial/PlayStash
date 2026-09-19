@@ -10,8 +10,9 @@
   <link rel="apple-touch-icon" href="favicon.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Monetag In-Page Tag -->
+  <!-- Monetag tag DISABLED (it opens popups). To turn ads back on, remove the comment markers:
   <script>(function(s){s.dataset.zone='11839981',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+  -->
   
   <style>
     * {
@@ -71,14 +72,9 @@
       background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
       box-shadow: 0 6px 24px rgba(2, 132, 199, 0.6);
     }
-    
-    .ad-slot-container {
-      background: rgba(15, 23, 42, 0.4);
-      border: 1px stroke rgba(255, 255, 255, 0.05);
-    }
   </style>
 </head>
-<body oncontextmenu="return false" class="bg-[#030712] text-slate-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden pb-16">
+<body oncontextmenu="return false" class="bg-[#030712] text-slate-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden pb-6">
   
   <div class="fixed inset-0 hero-glow pointer-events-none z-0"></div>
 
@@ -130,17 +126,6 @@
 
   <main class="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-10 space-y-8 relative z-10">
     
-    <!-- TOP AD CONTAINER (In-Page Banner Slot) -->
-    <section id="ad-slot-top" class="ad-slot-container rounded-2xl p-2 border border-slate-800/80 min-h-[90px] flex items-center justify-center text-center overflow-hidden">
-      <div id="monetag-top-banner-zone" class="w-full flex flex-col items-center justify-center">
-        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Sponsored Advertisement</span>
-        <!-- Monetag Banner Placement Zone -->
-        <div class="w-full max-w-[728px] h-[90px] bg-slate-900/40 rounded-xl flex items-center justify-center border border-slate-800/60 text-slate-600 text-xs font-semibold">
-          Featured Games & Network Ads
-        </div>
-      </div>
-    </section>
-
     <!-- Status Banner with Game Online Breakdown -->
     <section class="glass-box rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 border border-slate-800">
       <div class="flex items-center gap-3.5">
@@ -256,22 +241,6 @@
             </div>
           </a>
 
-          <!-- Native Ad Grid Placement Card -->
-          <div class="card-box rounded-3xl overflow-hidden border border-amber-500/30 flex flex-col justify-between p-5 relative bg-gradient-to-br from-slate-900/90 via-slate-950 to-amber-950/20">
-            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
-              <span class="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/30">SPONSORED PROMO</span>
-              <span class="text-[10px] font-bold text-slate-500">Ad</span>
-            </div>
-            
-            <div class="my-4 text-center space-y-2" id="grid-native-ad-container">
-              <span class="text-xs font-bold text-slate-300 block">Discover Trending Games</span>
-              <p class="text-[11px] text-slate-400">Play instantly on PlayStash with zero downloads required.</p>
-            </div>
-
-            <div class="pt-3 border-t border-slate-800/80 text-center">
-              <span class="text-xs font-black uppercase tracking-wider text-amber-400 hover:text-amber-300 transition cursor-pointer">Explore Now ➔</span>
-            </div>
-          </div>
 
         </div>
       </section>
@@ -369,13 +338,6 @@
     </div>
 
   </main>
-
-  <!-- Sticky Bottom Ad Anchor Unit -->
-  <div class="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 border-t border-slate-800 backdrop-blur-md px-4 py-2 flex items-center justify-center">
-    <div id="monetag-sticky-bottom-ad" class="text-center text-[10px] text-slate-500 uppercase tracking-widest">
-      <span>PlayStash Network • Native Sponsored Ads Active</span>
-    </div>
-  </div>
 
   <!-- Player Info Popup Modal -->
   <div id="profile-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
