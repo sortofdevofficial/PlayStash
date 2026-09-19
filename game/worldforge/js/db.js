@@ -30,6 +30,7 @@ const firebaseConfig = {
 let ref = null;
 let get = null;
 let update = null;
+let set = null;
 let onDisconnect = null;
 let onAuthStateChanged = null;
 let signInAnonymously = null;
@@ -56,6 +57,7 @@ try {
   signOut = authMod.signOut;
   ref = dbMod.ref;
   get = dbMod.get;
+  set = dbMod.set;
   update = dbMod.update;
   onDisconnect = dbMod.onDisconnect;
 } catch (err) {
@@ -321,66 +323,43 @@ export async function initPresence(onCountsUpdated) {
   if (!db || !ref) return;
 
   try {
-    const { onValue, push, set, onDisconnect, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+    const { onValue, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
 
     const connectedRef = ref(db, ".info/connected");
-    const wfPresenceRef = ref(db, "presence/worldforge");
-    const psPresenceRef = ref(db, "presence/playstash");
-
-    let myWfPresenceNode = null;
-    let myPsPresenceNode = null;
+    const uid = playerId || ("anon_" + Math.random().toString(36).substring(2, 9));
+    const userPresenceRef = ref(db, `presence/${uid}`);
 
     onValue(connectedRef, (snap) => {
       if (snap.val() === true) {
-        // Register active WorldForge session
-        myWfPresenceNode = push(wfPresenceRef);
-        onDisconnect(myWfPresenceNode).remove();
-        set(myWfPresenceNode, { online: true, ts: serverTimestamp(), uid: playerId || "anon" });
-
-        // Register active PlayStash session
-        myPsPresenceNode = push(psPresenceRef);
-        onDisconnect(myPsPresenceNode).remove();
-        set(myPsPresenceNode, { online: true, ts: serverTimestamp(), uid: playerId || "anon", game: "worldforge" });
+        onDisconnect(userPresenceRef).remove();
+        set(userPresenceRef, { online: true, loc: "worldforge", ts: serverTimestamp() });
       }
     });
 
-    // Refresh presence heartbeats every 30s
     setInterval(() => {
-      if (myWfPresenceNode) set(myWfPresenceNode, { online: true, ts: serverTimestamp(), uid: playerId || "anon" });
-      if (myPsPresenceNode) set(myPsPresenceNode, { online: true, ts: serverTimestamp(), uid: playerId || "anon", game: "worldforge" });
+      if (userPresenceRef) {
+        set(userPresenceRef, { online: true, loc: "worldforge", ts: serverTimestamp() });
+      }
     }, 30000);
 
-    const parseCount = (snap) => {
-      if (!snap.exists()) return 0;
+    onValue(ref(db, "presence"), (snap) => {
+      if (!snap.exists()) return;
       const val = snap.val();
-      if (typeof val !== "object" || val === null) return 0;
-
       const now = Date.now();
-      let count = 0;
+
+      let wfOnline = 0;
+      let psOnline = 0;
 
       for (const k in val) {
         const item = val[k];
-        if (item === true || (item && item.online !== false)) {
-          if (typeof item === "object" && item.ts && (now - item.ts > 180000)) {
-            continue; // Ignore stale entries older than 3 minutes
-          }
-          count++;
+        if (item && item.online !== false) {
+          if (item.ts && (now - item.ts > 180000)) continue; // Skip stale
+          if (item.loc === "worldforge") wfOnline++;
+          else psOnline++;
         }
       }
-      return count;
-    };
 
-    let wfOnline = 1;
-    let psOnline = 1;
-
-    onValue(wfPresenceRef, (snap) => {
-      wfOnline = Math.max(parseCount(snap), 1);
-      if (onCountsUpdated) onCountsUpdated(wfOnline, psOnline);
-    });
-
-    onValue(psPresenceRef, (snap) => {
-      psOnline = Math.max(parseCount(snap), 1);
-      if (onCountsUpdated) onCountsUpdated(wfOnline, psOnline);
+      if (onCountsUpdated) onCountsUpdated(Math.max(wfOnline, 1), Math.max(psOnline, 0));
     });
 
   } catch (err) {

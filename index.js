@@ -19,12 +19,8 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 const provider = new GoogleAuthProvider();
 
-// ==========================================
-// 🛡️ SECURITY MODULE (Anti-Inspect & Anti-XSS)
-// ==========================================
-
+// Anti-Inspect & Security
 document.addEventListener('contextmenu', event => event.preventDefault());
-
 document.addEventListener('keydown', (e) => {
   if (
     e.key === 'F12' || 
@@ -38,51 +34,11 @@ document.addEventListener('keydown', (e) => {
 
 function sanitizeHTML(str) {
   const temp = document.createElement('div');
-  temp.textContent = str;
+  temp.textContent = str || '';
   return temp.innerHTML;
 }
 
-// ==========================================
-// 🎯 MONETIZATION & AD TRIGGER HANDLERS
-// ==========================================
-
-function triggerPreGameAd(targetUrl) {
-  // Check if Monetag / In-Page Push or Interstitial is ready
-  if (typeof window.show_11839981 === 'function') {
-    window.show_11839981().then(() => {
-      window.location.href = targetUrl;
-    }).catch(() => {
-      window.location.href = targetUrl;
-    });
-  } else {
-    window.location.href = targetUrl;
-  }
-}
-
-// Attach ad listeners to game launch elements
-document.addEventListener('DOMContentLoaded', () => {
-  const heroPlayBtn = document.getElementById('play-worldforge-hero-btn');
-  if (heroPlayBtn) {
-    heroPlayBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      triggerPreGameAd('game/worldforge/index.html');
-    });
-  }
-
-  const gameLaunchCards = document.querySelectorAll('.game-launch-card');
-  gameLaunchCards.forEach(card => {
-    card.addEventListener('click', (e) => {
-      const targetHref = card.getAttribute('href');
-      if (targetHref) {
-        e.preventDefault();
-        triggerPreGameAd(targetHref);
-      }
-    });
-  });
-});
-
-// ==========================================
-
+// DOM Elements
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
 const userProfile = document.getElementById('user-profile');
@@ -142,107 +98,28 @@ let rawGamesData = {};
 let activePresenceRef = null;
 
 const resourceMap = {
-  wo: { name: 'Wood', icon: '🪵' },
-  wood: { name: 'Wood', icon: '🪵' },
-  wa: { name: 'Water', icon: '💧' },
-  water: { name: 'Water', icon: '💧' },
-  w: { name: 'Wheat', icon: '🌾' },
-  wheat: { name: 'Wheat', icon: '🌾' },
-  s: { name: 'Stone', icon: '🪨' },
-  stone: { name: 'Stone', icon: '🪨' },
-  f: { name: 'Food', icon: '🍲' },
-  food: { name: 'Food', icon: '🍲' },
-  g: { name: 'Gold', icon: '🪙' },
-  gold: { name: 'Gold', icon: '🪙' },
-  i: { name: 'Iron', icon: '⚙️' },
-  iron: { name: 'Iron', icon: '⚙️' },
-  m: { name: 'Meat', icon: '🥩' },
-  meat: { name: 'Meat', icon: '🥩' },
-  fi: { name: 'Fish', icon: '🐟' },
-  fish: { name: 'Fish', icon: '🐟' }
+  wo: { name: 'Wood', icon: '🪵' }, wood: { name: 'Wood', icon: '🪵' },
+  wa: { name: 'Water', icon: '💧' }, water: { name: 'Water', icon: '💧' },
+  w: { name: 'Wheat', icon: '🌾' }, wheat: { name: 'Wheat', icon: '🌾' },
+  s: { name: 'Stone', icon: '🪨' }, stone: { name: 'Stone', icon: '🪨' },
+  f: { name: 'Food', icon: '🍲' }, food: { name: 'Food', icon: '🍲' },
+  g: { name: 'Gold', icon: '🪙' }, gold: { name: 'Gold', icon: '🪙' },
+  i: { name: 'Iron', icon: '⚙️' }, iron: { name: 'Iron', icon: '⚙️' },
+  m: { name: 'Meat', icon: '🥩' }, meat: { name: 'Meat', icon: '🥩' },
+  fi: { name: 'Fish', icon: '🐟' }, fish: { name: 'Fish', icon: '🐟' }
 };
-
-const tooltipStyles = document.createElement('style');
-tooltipStyles.textContent = `
-  @keyframes popSmiley {
-    0% { transform: translateY(8px) scale(0.3) rotate(-15deg); opacity: 0; }
-    60% { transform: translateY(-4px) scale(1.25) rotate(10deg); opacity: 1; }
-    100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
-  }
-  @keyframes slideWhyTooltip {
-    0% { transform: translateY(8px) scale(0.92); opacity: 0; }
-    100% { transform: translateY(0) scale(1); opacity: 1; }
-  }
-  .smiley-pop-anim {
-    animation: popSmiley 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-  }
-  .why-tooltip-anim {
-    animation: slideWhyTooltip 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-`;
-document.head.appendChild(tooltipStyles);
-
-function setupButtonHoverEffects() {
-  if (loginBtn) {
-    if (getComputedStyle(loginBtn).position === 'static') {
-      loginBtn.style.position = 'relative';
-    }
-    
-    let smileyEl = null;
-
-    loginBtn.addEventListener('mouseenter', () => {
-      if (smileyEl) smileyEl.remove();
-      smileyEl = document.createElement('div');
-      smileyEl.className = 'absolute -top-11 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-500/20 backdrop-blur-md text-amber-300 rounded-full border border-amber-400/50 shadow-lg text-xs font-bold flex items-center justify-center pointer-events-none z-50 smiley-pop-anim whitespace-nowrap';
-      smileyEl.innerHTML = 'HALO 😇';
-      loginBtn.appendChild(smileyEl);
-    });
-
-    loginBtn.addEventListener('mouseleave', () => {
-      if (smileyEl) {
-        smileyEl.remove();
-        smileyEl = null;
-      }
-    });
-  }
-
-  if (logoutBtn) {
-    if (getComputedStyle(logoutBtn).position === 'static') {
-      logoutBtn.style.position = 'relative';
-    }
-
-    let whyTooltipEl = null;
-
-    logoutBtn.addEventListener('mouseenter', () => {
-      if (whyTooltipEl) whyTooltipEl.remove();
-      whyTooltipEl = document.createElement('div');
-      whyTooltipEl.className = 'absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-900/95 backdrop-blur-md text-slate-200 text-[11px] font-bold rounded-xl border border-red-500/40 shadow-2xl whitespace-nowrap pointer-events-none z-50 why-tooltip-anim flex items-center gap-1.5';
-      whyTooltipEl.innerHTML = '<span class="text-red-400 font-extrabold">Why? 😭</span>';
-      logoutBtn.appendChild(whyTooltipEl);
-    });
-
-    logoutBtn.addEventListener('mouseleave', () => {
-      if (whyTooltipEl) {
-        whyTooltipEl.remove();
-        whyTooltipEl = null;
-      }
-    });
-  }
-}
-
-setupButtonHoverEffects();
 
 function switchTab(selected) {
   const activeClass = "px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-sky-500/20 border border-sky-400/40 transition cursor-pointer";
   const inactiveClass = "px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer";
 
-  tabGamesBtn.className = selected === 'games' ? activeClass : inactiveClass;
-  tabPlayersBtn.className = selected === 'players' ? activeClass : inactiveClass;
-  tabProfileBtn.className = selected === 'profile' ? activeClass : inactiveClass;
+  if (tabGamesBtn) tabGamesBtn.className = selected === 'games' ? activeClass : inactiveClass;
+  if (tabPlayersBtn) tabPlayersBtn.className = selected === 'players' ? activeClass : inactiveClass;
+  if (tabProfileBtn) tabProfileBtn.className = selected === 'profile' ? activeClass : inactiveClass;
 
-  gamesSection.classList.toggle('hidden', selected !== 'games');
-  playersSection.classList.toggle('hidden', selected !== 'players');
-  profileSection.classList.toggle('hidden', selected !== 'profile');
+  gamesSection?.classList.toggle('hidden', selected !== 'games');
+  playersSection?.classList.toggle('hidden', selected !== 'players');
+  profileSection?.classList.toggle('hidden', selected !== 'profile');
 }
 
 tabGamesBtn?.addEventListener('click', () => switchTab('games'));
@@ -326,7 +203,7 @@ async function openUserModal(user, uid) {
 
   if (gameSave.i && gameSave.i.jt) {
     worldforgeJoined = formatDateDetailed(gameSave.i.jt);
-  } else if (auth.currentUser) {
+  } else {
     try {
       const snap = await get(ref(db, `G/1/${uid}/i/jt`));
       if (snap.exists()) worldforgeJoined = formatDateDetailed(snap.val());
@@ -341,7 +218,6 @@ async function openUserModal(user, uid) {
   if (modalResources) modalResources.textContent = rSum;
 
   renderDetailedResources(gameSave.r, modalResourcesList);
-
   profileModal.classList.remove('hidden');
 }
 
@@ -352,7 +228,7 @@ saveUsernameBtn?.addEventListener('click', async () => {
 
   if (!currentUser) return;
   if (!newName) {
-    showUsernameStatus('Name cannot be empty or invalid', false);
+    showUsernameStatus('Name cannot be empty', false);
     return;
   }
 
@@ -360,7 +236,7 @@ saveUsernameBtn?.addEventListener('click', async () => {
     await updateProfile(currentUser, { displayName: newName });
     await update(ref(db, `u/${currentUser.uid}/i`), { dn: newName });
 
-    userEmail.textContent = newName;
+    if (userEmail) userEmail.textContent = newName;
     if (profileCardName) profileCardName.textContent = newName;
     usernameInput.value = '';
 
@@ -393,6 +269,7 @@ logoutBtn?.addEventListener('click', async () => {
   await signOut(auth);
 });
 
+// Presence Sync
 function initPresence(uid) {
   const connectedRef = ref(db, ".info/connected");
   activePresenceRef = ref(db, `presence/${uid}`);
@@ -403,6 +280,12 @@ function initPresence(uid) {
       set(activePresenceRef, { online: true, loc: 'homepage', ts: serverTimestamp() });
     }
   });
+
+  setInterval(() => {
+    if (activePresenceRef && auth.currentUser) {
+      set(activePresenceRef, { online: true, loc: 'homepage', ts: serverTimestamp() });
+    }
+  }, 30000);
 }
 
 function startAuthDatabaseListeners() {
@@ -421,9 +304,11 @@ function startAuthDatabaseListeners() {
     const presenceData = snap.val() || {};
     let playstashCount = 0;
     let worldforgeCount = 0;
+    const now = Date.now();
 
     Object.values(presenceData).forEach(p => {
-      if (p && p.online) {
+      if (p && p.online !== false) {
+        if (p.ts && (now - p.ts > 180000)) return; // Exclude stale
         if (p.loc === 'worldforge') worldforgeCount++;
         else playstashCount++;
       }
@@ -459,8 +344,8 @@ onAuthStateChanged(auth, async (user) => {
     const displayName = user.displayName || user.email || 'Player';
     const avatarUrl = safeAvatarUrl(user.photoURL);
 
-    userEmail.textContent = displayName;
-    userAvatar.src = avatarUrl;
+    if (userEmail) userEmail.textContent = displayName;
+    if (userAvatar) userAvatar.src = avatarUrl;
 
     if (profileCardAvatar) profileCardAvatar.src = avatarUrl;
     if (profileCardName) profileCardName.textContent = displayName;
@@ -473,7 +358,7 @@ onAuthStateChanged(auth, async (user) => {
 
     const creationTime = user.metadata?.creationTime ? new Date(user.metadata.creationTime).getTime() : Date.now();
     const formattedPsDate = formatDateDetailed(creationTime);
-    memberSince.textContent = `Joined ${formattedPsDate}`;
+    if (memberSince) memberSince.textContent = `Joined ${formattedPsDate}`;
     if (profileCardJoinedPs) profileCardJoinedPs.textContent = `Joined PlayStash: ${formattedPsDate}`;
 
     try {
@@ -505,9 +390,9 @@ onAuthStateChanged(auth, async (user) => {
     loginBtn?.classList.remove('hidden');
     userProfile?.classList.add('hidden');
     editUsernameCard?.classList.add('hidden');
-    userEmail.textContent = '';
-    userAvatar.src = '';
-    memberSince.textContent = '';
+    if (userEmail) userEmail.textContent = '';
+    if (userAvatar) userAvatar.src = '';
+    if (memberSince) memberSince.textContent = '';
 
     if (profileCardAvatar) profileCardAvatar.src = 'favicon.png';
     if (profileCardName) profileCardName.textContent = 'Guest Player';
@@ -536,6 +421,7 @@ function updatePersonalProfileStats(uid) {
 }
 
 function renderDirectory() {
+  if (!usersContainer) return;
   if (!rawUsersData || Object.keys(rawUsersData).length === 0) {
     if (userCountEl) userCountEl.textContent = '0';
     usersContainer.innerHTML = '<div class="glass-box rounded-2xl p-6 text-center text-slate-400 text-xs">Sign in to view registered players.</div>';

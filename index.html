@@ -9,7 +9,8 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Monetag In-Page Push / Multi-Format Tag -->
+  
+  <!-- Monetag In-Page Tag -->
   <script>(function(s){s.dataset.zone='11839981',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
   
   <style>
@@ -129,10 +130,14 @@
 
   <main class="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-10 space-y-8 relative z-10">
     
-    <!-- HIGH eCPM TOP AD CONTAINER (Leaderboard Zone) -->
+    <!-- TOP AD CONTAINER (In-Page Banner Slot) -->
     <section id="ad-slot-top" class="ad-slot-container rounded-2xl p-2 border border-slate-800/80 min-h-[90px] flex items-center justify-center text-center overflow-hidden">
-      <div id="monetag-top-banner-zone">
-        <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Sponsored Advertisement</span>
+      <div id="monetag-top-banner-zone" class="w-full flex flex-col items-center justify-center">
+        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Sponsored Advertisement</span>
+        <!-- Monetag Banner Placement Zone -->
+        <div class="w-full max-w-[728px] h-[90px] bg-slate-900/40 rounded-xl flex items-center justify-center border border-slate-800/60 text-slate-600 text-xs font-semibold">
+          Featured Games & Network Ads
+        </div>
       </div>
     </section>
 
@@ -153,7 +158,7 @@
       
       <div class="flex items-center gap-4 sm:gap-6 flex-wrap">
         <div class="flex flex-col items-end">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">PlayStash</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">PlayStash Hub</span>
           <span id="playstash-online-count" class="text-lg font-black text-sky-400 font-mono">0</span>
         </div>
         <div class="h-6 w-[1px] bg-slate-800"></div>
@@ -251,7 +256,7 @@
             </div>
           </a>
 
-          <!-- Native Ad Card Placement (High CTR Grid Ad) -->
+          <!-- Native Ad Grid Placement Card -->
           <div class="card-box rounded-3xl overflow-hidden border border-amber-500/30 flex flex-col justify-between p-5 relative bg-gradient-to-br from-slate-900/90 via-slate-950 to-amber-950/20">
             <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
               <span class="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/30">SPONSORED PROMO</span>
@@ -368,7 +373,7 @@
   <!-- Sticky Bottom Ad Anchor Unit -->
   <div class="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 border-t border-slate-800 backdrop-blur-md px-4 py-2 flex items-center justify-center">
     <div id="monetag-sticky-bottom-ad" class="text-center text-[10px] text-slate-500 uppercase tracking-widest">
-      <span>PlayStash Network • Non-Intrusive Ads Enabled</span>
+      <span>PlayStash Network • Native Sponsored Ads Active</span>
     </div>
   </div>
 
