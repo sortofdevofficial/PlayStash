@@ -318,53 +318,131 @@ export function initAutosave(worldSources, statusCallback) {
   window.addEventListener("beforeunload", flushNow);
 }
 
-// REALTIME PRESENCE INITIALIZER
-export async function initPresence(onCountsUpdated) {
-  if (!db || !ref) return;
+// ---------------------------------------------------------------------------
+// REALTIME PRESENCE  (shared by WorldForge and PlayStash)
+//
+// Fixes over the old version:
+//  - one presence node PER TAB SESSION (presence/{sessionId}) so guests, multi-tab
+//    and account switching all work and nothing is ever double-keyed by uid
+//  - onDisconnect().remove() is registered BEFORE the first write, and re-armed on
+//    every reconnect (Firebase drops it when the socket drops)
+//  - stale checks use the SERVER clock offset (.info/serverTimeOffset) instead of the
+//    visitor's local clock, so a wrong system clock can't hide or ghost players
+//  - heartbeat uses update() and pauses while the tab is hidden, resumes on focus
+//  - `loc` is a parameter: WorldForge passes "worldforge", PlayStash passes "playstash"
+//  - counts subscribe to the whole presence tree ONCE and dedupe by uid (same account
+//    open in 2 tabs = 1 player), while guests each count once
+// ---------------------------------------------------------------------------
+const PRESENCE_HEARTBEAT_MS = 25000;
+const PRESENCE_STALE_MS = 75000;
+
+let presenceStarted = false;
+let presenceSessionId = null;
+let presenceLoc = "worldforge";
+let presenceHeartbeat = null;
+let presenceMods = null;
+
+function makeSessionId() {
+  try {
+    const existing = sessionStorage.getItem("ps_presence_sid");
+    if (existing) return existing;
+    const fresh = "s_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    sessionStorage.setItem("ps_presence_sid", fresh);
+    return fresh;
+  } catch (_) {
+    return "s_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+}
+
+export async function initPresence(onCountsUpdated, loc = "worldforge") {
+  if (!db || !ref || presenceStarted) return;
+  presenceStarted = true;
+  presenceLoc = loc;
 
   try {
-    const { onValue, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+    presenceMods = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+    const { onValue, serverTimestamp } = presenceMods;
 
-    const connectedRef = ref(db, ".info/connected");
-    const uid = playerId || ("anon_" + Math.random().toString(36).substring(2, 9));
-    const userPresenceRef = ref(db, `presence/${uid}`);
+    presenceSessionId = makeSessionId();
+    const myRef = ref(db, `presence/${presenceSessionId}`);
 
-    onValue(connectedRef, (snap) => {
-      if (snap.val() === true) {
-        onDisconnect(userPresenceRef).remove();
-        set(userPresenceRef, { online: true, loc: "worldforge", ts: serverTimestamp() });
+    let serverOffset = 0;
+    onValue(ref(db, ".info/serverTimeOffset"), (snap) => {
+      serverOffset = Number(snap.val()) || 0;
+    });
+
+    const payload = () => ({
+      online: true,
+      loc: presenceLoc,
+      uid: playerId || null,
+      ts: serverTimestamp()
+    });
+
+    // (Re)arm on every connect - Firebase forgets onDisconnect handlers when the socket drops.
+    onValue(ref(db, ".info/connected"), async (snap) => {
+      if (snap.val() !== true) return;
+      try {
+        await onDisconnect(myRef).remove();
+        await set(myRef, payload());
+      } catch (err) {
+        console.warn("[presence] Arming failed:", err);
       }
     });
 
-    setInterval(() => {
-      if (userPresenceRef) {
-        set(userPresenceRef, { online: true, loc: "worldforge", ts: serverTimestamp() });
-      }
-    }, 30000);
+    const beat = () => {
+      if (document.hidden) return;
+      update(myRef, { online: true, loc: presenceLoc, uid: playerId || null, ts: serverTimestamp() })
+        .catch(() => {});
+    };
+    presenceHeartbeat = setInterval(beat, PRESENCE_HEARTBEAT_MS);
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) beat();
+    });
+    window.addEventListener("pagehide", () => {
+      try { set(myRef, null); } catch (_) {}
+    });
+
+    // Once auth resolves the uid, stamp it on the node so accounts dedupe correctly.
+    if (auth && onAuthStateChanged) {
+      onAuthStateChanged(auth, (user) => {
+        if (user) update(myRef, { uid: user.uid, loc: presenceLoc }).catch(() => {});
+      });
+    }
 
     onValue(ref(db, "presence"), (snap) => {
-      if (!snap.exists()) return;
-      const val = snap.val();
-      const now = Date.now();
+      const val = snap.exists() ? snap.val() : {};
+      const now = Date.now() + serverOffset;
 
-      let wfOnline = 0;
-      let psOnline = 0;
+      const wf = new Set();
+      const ps = new Set();
 
-      for (const k in val) {
-        const item = val[k];
-        if (item && item.online !== false) {
-          if (item.ts && (now - item.ts > 180000)) continue; // Skip stale
-          if (item.loc === "worldforge") wfOnline++;
-          else psOnline++;
-        }
+      for (const key in val) {
+        const item = val[key];
+        if (!item || item.online === false) continue;
+        if (typeof item.ts === "number" && now - item.ts > PRESENCE_STALE_MS) continue;
+
+        const identity = item.uid || key;
+        if (item.loc === "worldforge") wf.add(identity);
+        else if (item.loc === "playstash") ps.add(identity);
       }
 
-      if (onCountsUpdated) onCountsUpdated(Math.max(wfOnline, 1), Math.max(psOnline, 0));
-    });
+      // You are always online in the place you are standing.
+      if (presenceLoc === "worldforge" && wf.size === 0) wf.add(presenceSessionId);
+      if (presenceLoc === "playstash" && ps.size === 0) ps.add(presenceSessionId);
 
+      if (onCountsUpdated) onCountsUpdated(wf.size, ps.size);
+    });
   } catch (err) {
+    presenceStarted = false;
     console.warn("[presence] Failed to start presence monitoring:", err);
   }
+}
+
+export function setPresenceLocation(loc) {
+  presenceLoc = loc;
+  if (!db || !ref || !presenceSessionId || !update) return;
+  update(ref(db, `presence/${presenceSessionId}`), { loc }).catch(() => {});
 }
 
 export { RESOURCE_KEY_BY_SHORT, BUILD_CODE, TYPE_BY_CODE };

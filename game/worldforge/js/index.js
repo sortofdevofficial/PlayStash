@@ -26,6 +26,7 @@ import { isTouchDevice, initMobileControls, applyMobileHeightHold } from "./mobi
 import { waitForPlay, showMainMenu } from "./mainMenu.js";
 import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
 import { initVisitWorld } from "./visitWorld.js";
+import { initAds } from "./ads.js";
 
 const spectateUid = new URLSearchParams(window.location.search).get("view");
 
@@ -233,6 +234,7 @@ initOtherWorldsPanel();
 initAuthHandlers();
 initPlayStashHandler();
 initMenuHandler();
+initAds();
 if (isTouchDevice) initMobileControls();
 
 function startWorldTicks() {
@@ -298,14 +300,13 @@ async function boot() {
   let uid = null;
   let data = null;
 
+  // Presence starts immediately and independently of auth; the uid gets stamped on later.
+  // Spectators are counted too - they are online in WorldForge.
+  initPresence((wfCount, psCount) => updateCountsUI(wfCount, psCount), "worldforge");
+
   try {
     uid = await withTimeout(authReady(), 6000, null);
     updateAuthUI();
-
-    // Start presence tracking AFTER auth settles
-    initPresence((wfCount, psCount) => {
-      updateCountsUI(wfCount, psCount);
-    });
 
     if (spectateUid) {
       data = await withTimeout(loadWorldByUid(spectateUid), 6000, null);

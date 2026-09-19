@@ -184,6 +184,45 @@
       background: rgba(56, 189, 248, 0.12);
       border: 1px solid rgba(56, 189, 248, 0.3);
     }
+
+    /* ---------- AD SLOTS (ads render ONLY inside these boxes) ---------- */
+    .ad-slot {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px dashed rgba(148, 163, 184, 0.25);
+      isolation: isolate;
+      contain: layout paint;
+    }
+    .ad-slot::before {
+      content: "Advertisement";
+      position: absolute;
+      top: 3px; left: 8px;
+      font-size: 8px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: rgba(148, 163, 184, 0.55);
+      pointer-events: none;
+    }
+    .ad-slot.ad-empty { display: none; }
+    .ad-slot iframe, .ad-slot ins { max-width: 100% !important; }
+
+    #adMenuBanner {
+      width: 100%;
+      max-width: 320px;
+      min-height: 60px;
+      margin: 12px auto 0;
+    }
+    #adHudSidebar {
+      width: 160px;
+      min-height: 100px;
+      margin-top: 8px;
+    }
+    body.spectating .ad-slot, body.touch-device #adHudSidebar { display: none; }
   </style>
 </head>
 <body>
@@ -232,6 +271,9 @@
       <div class="menu-btn-row">
         <button id="menuPlayStashBtn" class="menu-sec-btn" type="button">🎮 Back to PlayStash</button>
       </div>
+
+      <!-- AD SLOT: menu banner -->
+      <div id="adMenuBanner" class="ad-slot" data-ad-slot="menu-banner"></div>
     </div>
   </div>
 
@@ -366,6 +408,9 @@
           Loading…
         </div>
       </div>
+
+      <!-- AD SLOT: HUD sidebar (hidden on touch devices / while spectating) -->
+      <div id="adHudSidebar" class="ad-slot" data-ad-slot="hud-sidebar"></div>
     </div>
 
     <div id="sideMenu" class="panel">
