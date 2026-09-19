@@ -334,7 +334,7 @@ export function initAutosave(worldSources, statusCallback) {
 //    open in 2 tabs = 1 player), while guests each count once
 // ---------------------------------------------------------------------------
 const PRESENCE_HEARTBEAT_MS = 25000;
-const PRESENCE_STALE_MS = 75000;
+const PRESENCE_STALE_MS = 150000;
 
 let presenceStarted = false;
 let presenceSessionId = null;
@@ -390,7 +390,6 @@ export async function initPresence(onCountsUpdated, loc = "worldforge") {
     });
 
     const beat = () => {
-      if (document.hidden) return;
       update(myRef, { online: true, loc: presenceLoc, uid: playerId || null, ts: serverTimestamp() })
         .catch(() => {});
     };
@@ -432,6 +431,9 @@ export async function initPresence(onCountsUpdated, loc = "worldforge") {
       if (presenceLoc === "playstash" && ps.size === 0) ps.add(presenceSessionId);
 
       if (onCountsUpdated) onCountsUpdated(wf.size, ps.size);
+    }, (err) => {
+      console.warn("[presence] Cannot read presence/ - check Realtime Database rules:", err);
+      if (onCountsUpdated) onCountsUpdated(presenceLoc === "worldforge" ? 1 : 0, presenceLoc === "playstash" ? 1 : 0);
     });
   } catch (err) {
     presenceStarted = false;
