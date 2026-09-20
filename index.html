@@ -16,22 +16,53 @@
 
   <!-- Monetag tag -->
   <script>
+  // ---------------------------------------------------------------------------
+  // MONETAG ADS - gentle loader
+  //  * waits a few seconds so the page and the player's first taps are never hijacked
+  //  * second tag loads much later, so a visitor is not hit by two ads at once
+  //  * cooldown: reloads / quick return visits inside COOLDOWN_MIN minutes load no ads
+  //  * holds off while a Google sign-in is in progress (popunder scripts grab the first click)
+  //  * skips background tabs
+  // Add a zone = add one line. Tune COOLDOWN_MIN / delay to taste (bigger = calmer, smaller = more revenue).
+  // ---------------------------------------------------------------------------
   (function () {
-    // ONE LINE PER MONETAG ZONE. Create a zone in the Monetag dashboard, then paste its zone ID here.
-    // If Monetag gives a different script URL for a zone, add  src: 'https://...'  to that line.
     var ZONES = [
-      { zone: '11839981' }                 // In-Page Push (live)
-      // , { zone: 'PASTE_ID' }            // OnClick / Popunder
-      // , { zone: 'PASTE_ID' }            // Interstitial
-      // , { zone: 'PASTE_ID' }            // Push Notifications
+      { zone: '11847127', delay: 4000 },                                              // Monetag Multitag
+      { zone: '283552', src: 'https://quge5.com/88/tag.min.js', delay: 30000 }        // second tag, on purpose much later
     ];
     var DEFAULT_SRC = 'https://nap5k.com/tag.min.js';
-    var parent = [document.documentElement, document.body].filter(Boolean).pop();
-    ZONES.forEach(function (z) {
+    var COOLDOWN_MIN = 15;
+    var KEY = 'ps_ads_last';
+
+    var now = function () { return Date.now(); };
+    try {
+      var last = Number(localStorage.getItem(KEY) || 0);
+      if (last && now() - last < COOLDOWN_MIN * 60000) return;
+    } catch (e) {}
+
+    var pausedUntil = 0;
+    document.addEventListener('click', function (e) {
+      var hit = e.target && e.target.closest ? e.target.closest('#login-btn, #profile-signin-btn') : null;
+      if (hit) pausedUntil = now() + 60000;
+    }, true);
+
+    function inject(z, tries) {
+      if ((document.hidden || now() < pausedUntil) && tries < 60) {
+        setTimeout(function () { inject(z, tries + 1); }, 5000);
+        return;
+      }
+      try { localStorage.setItem(KEY, String(now())); } catch (e) {}
+      var parent = [document.documentElement, document.body].filter(Boolean).pop();
       var s = document.createElement('script');
       s.dataset.zone = z.zone;
       s.src = z.src || DEFAULT_SRC;
+      s.async = true;
+      s.setAttribute('data-cfasync', 'false');
       parent.appendChild(s);
+    }
+
+    ZONES.forEach(function (z) {
+      setTimeout(function () { inject(z, 0); }, z.delay || 0);
     });
   })();
   </script>
