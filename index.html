@@ -15,7 +15,26 @@
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Monetag tag -->
-  <script>(function(s){s.dataset.zone='11839981',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+  <script>
+  (function () {
+    // ONE LINE PER MONETAG ZONE. Create a zone in the Monetag dashboard, then paste its zone ID here.
+    // If Monetag gives a different script URL for a zone, add  src: 'https://...'  to that line.
+    var ZONES = [
+      { zone: '11839981' }                 // In-Page Push (live)
+      // , { zone: 'PASTE_ID' }            // OnClick / Popunder
+      // , { zone: 'PASTE_ID' }            // Interstitial
+      // , { zone: 'PASTE_ID' }            // Push Notifications
+    ];
+    var DEFAULT_SRC = 'https://nap5k.com/tag.min.js';
+    var parent = [document.documentElement, document.body].filter(Boolean).pop();
+    ZONES.forEach(function (z) {
+      var s = document.createElement('script');
+      s.dataset.zone = z.zone;
+      s.src = z.src || DEFAULT_SRC;
+      parent.appendChild(s);
+    });
+  })();
+  </script>
 
   <style>
     :root {
@@ -359,7 +378,7 @@
         <div class="flex items-center justify-between mb-5">
           <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-300 flex items-center gap-2">
             <span>All Games</span>
-            <span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">1 live · 2 soon</span>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">1 live</span>
           </h2>
         </div>
 
@@ -389,28 +408,6 @@
               </div>
             </div>
           </a>
-
-          <div class="card-box rounded-3xl overflow-hidden border-dashed opacity-80" aria-label="Coming soon">
-            <div class="h-48 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900/60 to-violet-950/30">
-              <span class="text-5xl grayscale opacity-70">🧩</span>
-              <span class="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-violet-500/15 text-violet-300 border border-violet-500/30">COMING SOON</span>
-            </div>
-            <div class="p-5 bg-slate-950/80 flex flex-col gap-1">
-              <span class="text-base font-black text-slate-300">Puzzle Stash</span>
-              <p class="text-xs text-slate-500 leading-relaxed">Quick brain-teasers with a global leaderboard. In the works.</p>
-            </div>
-          </div>
-
-          <div class="card-box rounded-3xl overflow-hidden border-dashed opacity-80" aria-label="Coming soon">
-            <div class="h-48 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900/60 to-amber-950/25">
-              <span class="text-5xl grayscale opacity-70">🏁</span>
-              <span class="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30">COMING SOON</span>
-            </div>
-            <div class="p-5 bg-slate-950/80 flex flex-col gap-1">
-              <span class="text-base font-black text-slate-300">Turbo Dash</span>
-              <p class="text-xs text-slate-500 leading-relaxed">Fast arcade racing you can jump into in seconds. In the works.</p>
-            </div>
-          </div>
 
         </div>
       </section>
