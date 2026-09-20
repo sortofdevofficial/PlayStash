@@ -353,6 +353,21 @@
     </div>
   </div>
 
+  <!-- Free Resources (rewarded ads). The topbar button stays hidden until an ad provider is set up.
+       Try the whole flow with fake ads: open the game as  index.html?adtest=1 -->
+  <div id="rewardsModal" class="game-modal hidden" role="dialog" aria-modal="true" aria-labelledby="rewardsTitle">
+    <div class="game-modal-card reward-card">
+      <h2>
+        <span id="rewardsTitle">🎁 Free Resources</span>
+        <button id="closeRewardsBtn" class="close-btn" title="Close">✕</button>
+      </h2>
+      <p class="reward-sub">Watch a short ad, pick a pack, and it lands in your storage. <span id="rewardsLeft" class="reward-left"></span></p>
+      <div id="rewardPacks" class="reward-packs"></div>
+      <div id="rewardsStatus" class="reward-status"></div>
+      <p class="reward-fine">You only get the reward if you watch the ad to the end.</p>
+    </div>
+  </div>
+
   <canvas id="renderCanvas"></canvas>
 
   <script>
@@ -505,6 +520,7 @@
       <button id="removeBtn" title="Remove">🗑️</button>
       <button id="dayBtn" title="Toggle Day / Night">🌙</button>
       <button id="viewWorldsBtn" class="iconBtn" title="See other players' worlds">🌍</button>
+      <button id="rewardsBtn" class="iconBtn" title="Watch a short ad for free resources" style="display: none;">🎁 Free</button>
       <button id="menuBtn" class="iconBtn" title="Back to Main Menu">🏠 Menu</button>
       
       <button id="clearBtn" class="danger">Clear</button>

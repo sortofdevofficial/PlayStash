@@ -14,7 +14,7 @@ import {
 import {
   getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs
 } from "./npcBrain.js";
-import { state, updateResourceUI, showNotif } from "./ui.js";
+import { state, updateResourceUI, showNotif, initRewards } from "./ui.js";
 import {
   authReady, loadSave, loadWorldByUid, initAutosave, markDirty,
   getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser, getJoinTimes, initPresence
@@ -235,6 +235,7 @@ initAuthHandlers();
 initPlayStashHandler();
 initMenuHandler();
 initWelcomeBack();
+initRewards({ getPlacedObjects: () => placedObjects, onChanged: onWorldChanged, markDirty, isSpectating: () => state.isSpectating });
 if (isTouchDevice) initMobileControls();
 
 function startWorldTicks() {
