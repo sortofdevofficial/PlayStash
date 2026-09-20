@@ -86,7 +86,7 @@ export function updateResourceUI(activeNPCsLength, maxCap, placedObjects) {
  * Show a notification in the notifContainer.
  * Gracefully handles missing container.
  */
-export function showNotif(msg, type = "success") {
+export function showNotif(msg, type = "success", duration = 1600) {
   const container = document.getElementById("notifContainer");
   if (!container) {
     console.warn("Notification container not found.");
@@ -109,7 +109,7 @@ export function showNotif(msg, type = "success") {
     notif.classList.add("show");
     if (type === "warn") notif.classList.add("warn-shake");
   });
-  setTimeout(() => notif.remove(), 1600);
+  setTimeout(() => notif.remove(), duration);
 }
 
 /**

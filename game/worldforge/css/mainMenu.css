@@ -184,3 +184,29 @@
   cursor: pointer;
 }
 .close-btn:hover { background: #e5e7eb; }
+
+/* ---- Welcome back (shown after returning from an ad) ---- */
+#menuWelcome {
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 9px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #166534;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  animation: menuWelcomeIn 0.4s ease both;
+}
+@keyframes menuWelcomeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+#menuPlayBtn.pulse { animation: menuPlayPulse 1.4s ease-in-out infinite; }
+@keyframes menuPlayPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45); }
+  50% { box-shadow: 0 0 0 10px rgba(22, 163, 74, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #menuWelcome, #menuPlayBtn.pulse { animation: none; }
+}

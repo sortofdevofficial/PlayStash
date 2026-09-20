@@ -23,118 +23,10 @@ import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, 
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
 import { initNpcPanel, tickNpcPanel, getTrackedNpcId, clearTrackedNpc } from "./npcPanel.js";
 import { isTouchDevice, initMobileControls, applyMobileHeightHold } from "./mobileControls.js";
-import { waitForPlay, showMainMenu } from "./mainMenu.js";
+import { waitForPlay, showMainMenu, initWelcomeBack } from "./mainMenu.js";
 import { setSaveStatus, initOtherWorldsPanel } from "./saveUI.js";
 import { initVisitWorld } from "./visitWorld.js";
 
-
-// ---------------------------------------------------------------------------
-// MONETAG ADS - rendered inside the .ad-slot boxes, popups blocked
-// ---------------------------------------------------------------------------
-const MONETAG = {
-  enabled: true,
-  delayMs: 1500,
-  tagSrc: "https://nap5k.com/tag.min.js",
-  // slot element id -> Monetag zone id ("" = leave that slot empty)
-  slots: {
-    adMenuBanner: "11839981",
-    adHudSidebar: ""
-  }
-};
-
-const ALLOWED_HOSTS = ["accounts.google.com", "playstash0.firebaseapp.com", "sortofdevofficial.github.io", location.hostname];
-const hostAllowed = (url) => {
-  try {
-    const h = new URL(url, location.href).hostname;
-    return ALLOWED_HOSTS.some((a) => h === a || h.endsWith("." + a));
-  } catch (e) { return false; }
-};
-
-let adGuardsArmed = false;   // popup / redirect blocking (stays on)
-let adDomWatch = false;      // pulls injected ad elements into the slot (first 2 min)
-const filledSlotIds = [];
-
-function slotify(el, slot) {
-  el.style.setProperty("position", "static", "important");
-  ["top", "left", "right", "bottom"].forEach((p) => el.style.setProperty(p, "auto", "important"));
-  el.style.setProperty("transform", "none", "important");
-  el.style.setProperty("width", "100%", "important");
-  el.style.setProperty("max-width", "100%", "important");
-  el.style.setProperty("margin", "0", "important");
-  el.style.setProperty("z-index", "auto", "important");
-  slot.appendChild(el);
-}
-
-function armAdGuards() {
-  // 1. popups / popunders
-  const nativeOpen = window.open.bind(window);
-  window.open = (url, ...rest) => {
-    if (hostAllowed(url) || (!url && !adGuardsArmed)) return nativeOpen(url, ...rest);
-    console.warn("[ads] Blocked popup:", url);
-    return null;
-  };
-
-  // 2. scripted <a>.click() redirects (popunder trick)
-  const nativeClick = HTMLAnchorElement.prototype.click;
-  HTMLAnchorElement.prototype.click = function () {
-    if (adGuardsArmed && !this.closest(".ad-slot") && /^https?:/i.test(this.href) && !hostAllowed(this.href)) {
-      console.warn("[ads] Blocked scripted link click:", this.href);
-      return;
-    }
-    return nativeClick.call(this);
-  };
-
-  // 3. fake (untrusted) click events on links
-  document.addEventListener("click", (e) => {
-    if (!adGuardsArmed || e.isTrusted) return;
-    const a = e.target instanceof Element ? e.target.closest("a") : null;
-    if (a && !a.closest(".ad-slot") && !hostAllowed(a.href)) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-    }
-  }, true);
-
-  // 4. anything the ad tag adds to <body> (overlays, floating banners) goes into the slot
-  const ours = new Set(["mainMenu", "hud", "guideModal", "renderCanvas", "spectateBanner"]);
-  new MutationObserver((muts) => {
-    if (!adDomWatch) return;
-    const slot = document.getElementById(filledSlotIds[0]);
-    muts.forEach((m) => m.addedNodes.forEach((el) => {
-      if (!(el instanceof HTMLElement)) return;
-      if (ours.has(el.id) || (el.id || "").startsWith("babylon")) return;
-      if (["SCRIPT", "STYLE", "LINK", "CANVAS"].includes(el.tagName)) return;
-      const r = el.getBoundingClientRect();
-      const fullscreen = r.width > innerWidth * 0.6 && r.height > innerHeight * 0.5;
-      if (fullscreen || !slot) { console.warn("[ads] Removed overlay:", el); el.remove(); }
-      else { console.warn("[ads] Moved ad into slot:", el); slotify(el, slot); }
-    }));
-  }).observe(document.body, { childList: true });
-}
-
-function initAds() {
-  if (!MONETAG.enabled) return;
-  armAdGuards();
-  setTimeout(() => {
-    adGuardsArmed = true;
-    adDomWatch = true;
-    Object.entries(MONETAG.slots).forEach(([id, zone]) => {
-      const slot = document.getElementById(id);
-      if (!slot || !zone) return;
-      filledSlotIds.push(id);
-      const sc = document.createElement("script");
-      sc.dataset.zone = zone;
-      sc.src = MONETAG.tagSrc;
-      slot.appendChild(sc);
-    });
-    setTimeout(() => {
-      document.querySelectorAll(".ad-slot").forEach((el) => {
-        const filled = [...el.children].some((c) => c.tagName !== "SCRIPT");
-        if (!filled) el.classList.add("ad-empty");
-      });
-    }, 6000);
-    setTimeout(() => { adDomWatch = false; }, 120000);
-  }, MONETAG.delayMs);
-}
 
 const spectateUid = new URLSearchParams(window.location.search).get("view");
 
@@ -342,7 +234,7 @@ initOtherWorldsPanel();
 initAuthHandlers();
 initPlayStashHandler();
 initMenuHandler();
-initAds();
+initWelcomeBack();
 if (isTouchDevice) initMobileControls();
 
 function startWorldTicks() {

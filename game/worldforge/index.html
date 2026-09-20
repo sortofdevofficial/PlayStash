@@ -184,46 +184,76 @@
       background: rgba(56, 189, 248, 0.12);
       border: 1px solid rgba(56, 189, 248, 0.3);
     }
-
-    /* ---------- AD SLOTS (ads render ONLY inside these boxes) ---------- */
-    .ad-slot {
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px dashed rgba(148, 163, 184, 0.25);
-      isolation: isolate;
-      contain: layout paint;
-    }
-    .ad-slot::before {
-      content: "Advertisement";
-      position: absolute;
-      top: 3px; left: 8px;
-      font-size: 8px;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      color: rgba(148, 163, 184, 0.55);
-      pointer-events: none;
-    }
-    .ad-slot.ad-empty { display: none; }
-    .ad-slot iframe, .ad-slot ins { max-width: 100% !important; }
-
-    #adMenuBanner {
-      width: 100%;
-      max-width: 320px;
-      min-height: 60px;
-      margin: 12px auto 0;
-    }
-    #adHudSidebar {
-      width: 160px;
-      min-height: 100px;
-      margin-top: 8px;
-    }
-    body.spectating .ad-slot, body.touch-device #adHudSidebar { display: none; }
   </style>
+
+  <script>
+  // ---------------------------------------------------------------------------
+  // MONETAG ADS - WorldForge homepage (menu only, gentle)
+  //  * ads load ONLY while the main menu is open - never in the middle of building
+  //  * the menu must stay open a few seconds first, so a quick Play click is never hijacked
+  //  * second tag waits 30s after the first, so nobody gets two ads at once
+  //  * cooldown (shared with the PlayStash homepage): no ads again for COOLDOWN_MIN minutes
+  //  * holds off while a Google sign-in is in progress, in background tabs, and for spectators
+  // Add a zone = add one line. Bigger COOLDOWN_MIN / MENU_DWELL = calmer, smaller = more revenue.
+  // ---------------------------------------------------------------------------
+  (function () {
+    var ZONES = [
+      { zone: '11847127', gap: 0 },                                                        // Monetag Multitag
+      { zone: '283552', src: 'https://quge5.com/88/tag.min.js', gap: 30000 }               // second tag
+    ];
+    var DEFAULT_SRC = 'https://nap5k.com/tag.min.js';
+    var FIRST_DELAY = 4000;
+    var MENU_DWELL = 3000;
+    var COOLDOWN_MIN = 15;
+    var MAX_WAIT = 20 * 60000;
+    var KEY = 'ps_ads_last';
+
+    var now = function () { return Date.now(); };
+    try {
+      var last = Number(localStorage.getItem(KEY) || 0);
+      if (last && now() - last < COOLDOWN_MIN * 60000) return;
+    } catch (e) {}
+
+    var start = now(), menuSince = 0, lastInject = 0, next = 0, pausedUntil = 0;
+
+    document.addEventListener('click', function (e) {
+      var hit = e.target && e.target.closest ? e.target.closest('#signInBtn, #signOutBtn') : null;
+      if (hit) pausedUntil = now() + 60000;
+    }, true);
+
+    function menuOpen() {
+      var m = document.getElementById('mainMenu');
+      return !!m && !m.classList.contains('hidden');
+    }
+
+    function inject(z) {
+      try { localStorage.setItem(KEY, String(now())); } catch (e) {}
+      var parent = [document.documentElement, document.body].filter(Boolean).pop();
+      var s = document.createElement('script');
+      s.dataset.zone = z.zone;
+      s.src = z.src || DEFAULT_SRC;
+      s.async = true;
+      s.setAttribute('data-cfasync', 'false');
+      parent.appendChild(s);
+    }
+
+    var timer = setInterval(function () {
+      if (next >= ZONES.length || now() - start > MAX_WAIT) { clearInterval(timer); return; }
+      var spectating = document.body && document.body.classList.contains('spectating');
+      if (document.hidden || spectating || now() < pausedUntil || now() - start < FIRST_DELAY || !menuOpen()) {
+        menuSince = 0;
+        return;
+      }
+      if (!menuSince) menuSince = now();
+      if (now() - menuSince < MENU_DWELL) return;
+      var z = ZONES[next];
+      if (lastInject && now() - lastInject < z.gap) return;
+      inject(z);
+      lastInject = now();
+      next++;
+    }, 1000);
+  })();
+  </script>
 </head>
 <body>
   <div id="mainMenu">
@@ -272,8 +302,6 @@
         <button id="menuPlayStashBtn" class="menu-sec-btn" type="button">🎮 Back to PlayStash</button>
       </div>
 
-      <!-- AD SLOT: menu banner -->
-      <div id="adMenuBanner" class="ad-slot" data-ad-slot="menu-banner"></div>
     </div>
   </div>
 
@@ -409,8 +437,6 @@
         </div>
       </div>
 
-      <!-- AD SLOT: HUD sidebar (hidden on touch devices / while spectating) -->
-      <div id="adHudSidebar" class="ad-slot" data-ad-slot="hud-sidebar"></div>
     </div>
 
     <div id="sideMenu" class="panel">
