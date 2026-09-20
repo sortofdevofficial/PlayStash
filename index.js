@@ -61,7 +61,7 @@ const playerSearchEl = document.getElementById('player-search');
 const playerSortEl = document.getElementById('player-sort');
 const playerResultCountEl = document.getElementById('player-result-count');
 
-function toast(msg, type = 'info') {
+function toast(msg, type = 'info', action = null) {
   const box = document.getElementById('toast-container');
   if (!box) return;
   const el = document.createElement('div');
@@ -69,15 +69,68 @@ function toast(msg, type = 'info') {
   const icon = document.createElement('span');
   icon.textContent = type === 'success' ? '✅' : type === 'error' ? '⚠️' : 'ℹ️';
   const text = document.createElement('span');
+  text.className = 'flex-1';
   text.textContent = msg;
   el.append(icon, text);
+  if (action && action.href) {
+    const link = document.createElement('a');
+    link.href = action.href;
+    link.textContent = action.label || 'Open';
+    link.className = 'shrink-0 px-3 py-1.5 rounded-full bg-sky-500 hover:bg-sky-400 text-white text-[11px] font-black uppercase tracking-wider transition';
+    el.appendChild(link);
+  }
   box.appendChild(el);
   while (box.children.length > 3) box.firstChild.remove();
   setTimeout(() => {
     el.classList.add('out');
     setTimeout(() => el.remove(), 300);
-  }, 3500);
+  }, action ? 9000 : 3500);
 }
+
+// ---- WELCOME BACK: friendly prompt when someone returns after an ad opened (new tab / same tab) ----
+(function initWelcomeBack() {
+  const CLICK_WINDOW_MS = 2000;          // page left within 2s of a click -> probably an ad opened
+  const MIN_AWAY_MS = 3000;              // ignore instant flicks
+  const MAX_AWAY_MS = 30 * 60 * 1000;    // ignore very long absences
+  const COOLDOWN_MS = 10 * 60 * 1000;    // never show more than once per 10 minutes
+  const K_TRIP = 'ps_adtrip';
+  const K_SHOWN = 'ps_welcome_shown';
+  let lastClick = 0;
+
+  const store = {
+    get(k) { try { return Number(sessionStorage.getItem(k) || 0); } catch (e) { return 0; } },
+    set(k, v) { try { sessionStorage.setItem(k, String(v)); } catch (e) {} },
+    del(k) { try { sessionStorage.removeItem(k); } catch (e) {} }
+  };
+
+  // Clicks on our own links/sign-in buttons are normal navigation, not an ad trip.
+  document.addEventListener('click', (e) => {
+    const el = e.target instanceof Element ? e.target : null;
+    const own = el && el.closest('a[href], #login-btn, #profile-signin-btn, #logout-btn');
+    lastClick = own ? 0 : Date.now();
+  }, true);
+
+  function markTrip() {
+    if (lastClick && Date.now() - lastClick <= CLICK_WINDOW_MS) store.set(K_TRIP, Date.now());
+  }
+
+  function maybeWelcome() {
+    const left = store.get(K_TRIP);
+    if (!left) return;
+    store.del(K_TRIP);
+    const away = Date.now() - left;
+    if (away < MIN_AWAY_MS || away > MAX_AWAY_MS) return;
+    if (Date.now() - store.get(K_SHOWN) < COOLDOWN_MS) return;
+    store.set(K_SHOWN, Date.now());
+    toast('Welcome back to PlayStash 👋', 'info', { label: 'Play WorldForge', href: 'game/worldforge/index.html' });
+  }
+
+  document.addEventListener('visibilitychange', () => { if (document.hidden) markTrip(); else maybeWelcome(); });
+  window.addEventListener('pagehide', markTrip);
+  window.addEventListener('pageshow', maybeWelcome);
+  maybeWelcome(); // fresh load after pressing Back from an ad page
+})();
+// ---- /WELCOME BACK ----
 
 const tabGamesBtn = document.getElementById('tab-games-btn');
 const tabPlayersBtn = document.getElementById('tab-players-btn');
