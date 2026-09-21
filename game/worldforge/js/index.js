@@ -173,20 +173,20 @@ function showSpectateBanner(uid) {
   document.body.classList.add("spectating");
 }
 
-scene.ambientColor = new BABYLON.Color3(0.58, 0.58, 0.62); // Warm ambient lift
+scene.ambientColor = new BABYLON.Color3(0.42, 0.42, 0.46); // Softer ambient — less washed-out at noon
 
 const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, scene, [camera]);
 pipeline.fxaaEnabled = true;
 pipeline.bloomEnabled = true;
-pipeline.bloomThreshold = 0.80;
-pipeline.bloomWeight = 0.24; // Soft warm cozy glow around campfires, lanterns & sun highlights
+pipeline.bloomThreshold = 0.82;
+pipeline.bloomWeight = 0.16; // Gentle bloom — cozy glow without blowing out highlights
 pipeline.imageProcessingEnabled = true;
-pipeline.imageProcessing.exposure = 1.08;
-pipeline.imageProcessing.contrast = 1.06;
+pipeline.imageProcessing.exposure = 0.92; // Darker exposure — cozier, less blinding midday
+pipeline.imageProcessing.contrast = 1.05;
 pipeline.imageProcessing.toneMappingEnabled = true;
 pipeline.imageProcessing.toneMappingType = BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
 pipeline.imageProcessing.vignetteEnabled = true;
-pipeline.imageProcessing.vignetteWeight = 0.35; // Gentle cinematic framing
+pipeline.imageProcessing.vignetteWeight = 0.40; // Slightly stronger vignette for cozy framing
 
 if (playableGround) {
   playableGround.position.set(0, 0, 0);
