@@ -53,173 +53,55 @@
   <link rel="stylesheet" href="./css/buildMenu.css" />
   <link rel="stylesheet" href="./css/responsive.css" />
   <style>
-    .menu-join-dates {
-      display: flex;
-      gap: 8px;
-      margin: 10px 0 12px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .auth-container {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-bottom: 14px;
-      z-index: 10;
-    }
-
+    .menu-join-dates { display: flex; gap: 6px; margin: 4px 0 8px; flex-wrap: wrap; justify-content: center; }
+    .auth-container { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0 12px; z-index: 10; }
     .auth-btn {
-      position: relative;
-      padding: 7px 16px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 11px;
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: #ffffff;
-      outline: none;
+      position: relative; display: flex; align-items: center; gap: 6px;
+      min-height: 34px; padding: 7px 16px; border-radius: 10px;
+      font-weight: 700; font-size: 11px; color: #ffffff;
+      border: 1px solid rgba(0, 0, 0, 0.08); cursor: pointer; outline: none;
+      backdrop-filter: none; -webkit-backdrop-filter: none;
+      transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
     }
-
-    .sign-in-btn {
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
-      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
-    }
-
-    .sign-in-btn:hover {
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      transform: translateY(-2px) scale(1.03);
-      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.6);
-    }
+    .sign-in-btn { background: #5b84a8; box-shadow: 0 2px 6px rgba(91, 132, 168, 0.28); }
+    .sign-in-btn:hover { background: #4d7699; transform: translateY(-1px); box-shadow: 0 5px 12px rgba(91, 132, 168, 0.32); }
+    .sign-out-btn { background: #c9694f; box-shadow: 0 2px 6px rgba(201, 105, 79, 0.28); }
+    .sign-out-btn:hover { background: #b85c43; transform: translateY(-1px); box-shadow: 0 5px 12px rgba(201, 105, 79, 0.32); }
 
     .smiley-emoji {
-      display: inline-block;
-      opacity: 0;
-      max-width: 0;
-      overflow: hidden;
-      white-space: nowrap;
+      display: inline-block; opacity: 0; max-width: 0; overflow: hidden; white-space: nowrap;
       transform: scale(0) rotate(-45deg);
       transition: opacity 0.3s ease, max-width 0.3s ease, transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-
-    .sign-in-btn:hover .smiley-emoji {
-      opacity: 1;
-      max-width: 80px;
-      transform: scale(1.1) rotate(0deg);
-      animation: smileyBounce 0.6s infinite alternate ease-in-out 0.2s;
-    }
-
+    .sign-in-btn:hover .smiley-emoji { opacity: 1; max-width: 80px; transform: scale(1.1) rotate(0deg); animation: smileyBounce 0.6s infinite alternate ease-in-out 0.2s; }
     @keyframes smileyBounce {
       0% { transform: scale(1.1) translateY(0) rotate(0deg); }
       100% { transform: scale(1.2) translateY(-2px) rotate(10deg); }
     }
 
-    .sign-out-btn {
-      background: linear-gradient(135deg, #dc2626, #b91c1c);
-      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
-    }
-
-    .sign-out-btn:hover {
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      transform: translateY(-2px) scale(1.03);
-      box-shadow: 0 6px 16px rgba(239, 68, 68, 0.6);
-    }
-
     .signout-tooltip {
-      position: absolute;
-      bottom: 125%;
-      top: auto;
-      left: 50%;
-      right: auto;
-      width: 210px;
-      padding: 10px 12px;
-      background: rgba(15, 23, 42, 0.95);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-      border-radius: 8px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-      color: #e2e8f0;
-      font-size: 11px;
-      line-height: 1.4;
-      pointer-events: none;
-      opacity: 0;
-      visibility: hidden;
+      position: absolute; bottom: 125%; top: auto; left: 50%; right: auto; width: min(210px, 70vw);
+      padding: 10px 12px; background: #fffdf8; border: 1px solid #e9d0c4; border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(98, 78, 44, 0.18); color: #5c4e3a; font-size: 11px; line-height: 1.4;
+      pointer-events: none; opacity: 0; visibility: hidden;
       transform: translateX(-50%) translateY(8px) scale(0.95);
-      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      z-index: 9999;
-      text-align: left;
+      transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
+      z-index: 9999; text-align: left;
     }
-
     .signout-tooltip::before {
-      content: "";
-      position: absolute;
-      bottom: -6px;
-      top: auto;
-      left: 50%;
-      right: auto;
-      width: 10px;
-      height: 10px;
-      background: rgba(15, 23, 42, 0.95);
-      border-right: 1px solid rgba(239, 68, 68, 0.4);
-      border-bottom: 1px solid rgba(239, 68, 68, 0.4);
+      content: ""; position: absolute; bottom: -6px; top: auto; left: 50%; right: auto; width: 10px; height: 10px;
+      background: #fffdf8; border-right: 1px solid #e9d0c4; border-bottom: 1px solid #e9d0c4;
       transform: translateX(-50%) rotate(45deg);
     }
-
-    .sign-out-btn:hover .signout-tooltip {
-      opacity: 1;
-      visibility: visible;
-      transform: translateX(-50%) translateY(0) scale(1);
-    }
-
-    .tooltip-title {
-      font-weight: 700;
-      color: #f87171;
-      margin-bottom: 3px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
+    .sign-out-btn:hover .signout-tooltip { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0) scale(1); }
+    .tooltip-title { font-weight: 700; color: #b5533c; margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
 
     .join-badge {
-      font-size: 10px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 20px;
-      white-space: nowrap;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
+      font-size: clamp(10px, 2.8vw, 11px); font-weight: 700; padding: 4px 10px; border-radius: 20px;
+      white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;
     }
-
-    #joinedPlayStashBadge {
-      color: #0284c7;
-      background: rgba(14, 165, 233, 0.12);
-      border: 1px solid rgba(56, 189, 248, 0.3);
-    }
-
-    #joinedWorldForgeBadge {
-      color: #15803d;
-      background: rgba(34, 197, 94, 0.12);
-      border: 1px solid rgba(74, 222, 128, 0.3);
-    }
-
-    #wfOnlineBadge {
-      color: #22c55e;
-      background: rgba(34, 197, 94, 0.12);
-      border: 1px solid rgba(74, 222, 128, 0.3);
-    }
-
-    #psOnlineBadge {
-      color: #38bdf8;
-      background: rgba(56, 189, 248, 0.12);
-      border: 1px solid rgba(56, 189, 248, 0.3);
-    }
+    #joinedPlayStashBadge, #psOnlineBadge { color: #3f6f95; background: #eaf2f8; border: 1px solid #cfe0ee; }
+    #joinedWorldForgeBadge, #wfOnlineBadge { color: #467a3f; background: #edf5e6; border: 1px solid #d3e5c8; }
   </style>
 
   <script>
@@ -298,68 +180,70 @@
       <div id="menuIcon" role="img" aria-label="A villager chopping down a tree">
 <svg viewBox="0 0 320 150" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
 <defs>
-<radialGradient id="wfSun" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fbbf24" stop-opacity=".42"/><stop offset="1" stop-color="#fbbf24" stop-opacity="0"/></radialGradient>
-<linearGradient id="wfGround" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f8f4b"/><stop offset="1" stop-color="#1f5229"/></linearGradient>
+<linearGradient id="wfSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6f1ea"/><stop offset="1" stop-color="#fbf7ea"/></linearGradient>
+<linearGradient id="wfGround" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9d09a"/><stop offset="1" stop-color="#8dbd7d"/></linearGradient>
 </defs>
-<circle class="wf-sun" cx="215" cy="52" r="82" fill="url(#wfSun)"/>
-<path d="M18 130 26 112 34 130Z M32 130 42 106 52 130Z" fill="#1c4d28" opacity=".55"/>
-<path d="M276 131 285 110 294 131Z M292 131 301 114 310 131Z" fill="#1c4d28" opacity=".5"/>
+<rect width="320" height="150" fill="url(#wfSky)"/>
+<circle cx="262" cy="30" r="19" fill="#fff3c9" opacity=".7"/>
+<circle cx="262" cy="30" r="12.5" fill="#ffe9a8"/>
+<g transform="translate(78 30)"><g class="wf-cloud"><ellipse cx="0" cy="0" rx="17" ry="6" fill="#fff"/><ellipse cx="-8" cy="-4" rx="9" ry="6" fill="#fff"/><ellipse cx="7" cy="-6" rx="10" ry="7" fill="#fff"/></g></g>
+<g transform="translate(200 18)"><g class="wf-cloud" style="animation-duration:34s;animation-delay:-11s"><ellipse cx="0" cy="0" rx="13" ry="5" fill="#fff" opacity=".9"/><ellipse cx="-6" cy="-3.5" rx="7" ry="5" fill="#fff" opacity=".9"/><ellipse cx="6" cy="-4.5" rx="8" ry="5.5" fill="#fff" opacity=".9"/></g></g>
+<path d="M0 124Q60 104 130 122T260 116 320 122V140H0Z" fill="#c3dfb5" opacity=".75"/>
 <path d="M0 133Q80 125 160 131T320 129V150H0Z" fill="url(#wfGround)"/>
-<g transform="translate(58 132)"><path class="wf-grass" style="animation-delay:-0.6s" d="M0 0L-3-8L0-3L2-9L3-3L6-7L5 0Z" fill="#57b666"/></g><g transform="translate(140 133)"><path class="wf-grass" style="animation-delay:-1.9s" d="M0 0L-3-8L0-3L2-9L3-3L6-7L5 0Z" fill="#57b666"/></g><g transform="translate(236 134)"><path class="wf-grass" style="animation-delay:-2.8s" d="M0 0L-3-8L0-3L2-9L3-3L6-7L5 0Z" fill="#57b666"/></g><g transform="translate(24 134)"><path class="wf-grass" style="animation-delay:-1.2s" d="M0 0L-3-8L0-3L2-9L3-3L6-7L5 0Z" fill="#57b666"/></g>
-<ellipse cx="108" cy="132" rx="14" ry="2.6" fill="#000" opacity=".22"/>
-<ellipse cx="170" cy="133" rx="20" ry="3" fill="#000" opacity=".22"/>
-<path d="M159 112H181L185 132H155Z" fill="#6b4224"/>
-<path d="M170 112H181L185 132H170Z" fill="#5a371d"/>
-<path d="M155 132 160 126 162 132Z M185 132 180 126 178 132Z" fill="#5a371d"/>
+<g transform="translate(58 132)"><path class="wf-grass" style="animation-delay:-0.6s" d="M0 0L-3-8L0-3L2-9L3-3L6-7L5 0Z" fill="#86bd74"/></g><g transform="translate(140 133)"><path class="wf-grass" style="animation-delay:-1.9s" d="M0 0L-3-8L0-3L2-9L3-3L6-7L5 0Z" fill="#86bd74"/></g><g transform="translate(236 134)"><path class="wf-grass" style="animation-delay:-2.8s" d="M0 0L-3-8L0-3L2-9L3-3L6-7L5 0Z" fill="#86bd74"/></g><g transform="translate(24 134)"><path class="wf-grass" style="animation-delay:-1.2s" d="M0 0L-3-8L0-3L2-9L3-3L6-7L5 0Z" fill="#86bd74"/></g>
+<ellipse cx="108" cy="132" rx="14" ry="2.6" fill="#3f5a34" opacity=".16"/>
+<ellipse cx="170" cy="133" rx="20" ry="3" fill="#3f5a34" opacity=".16"/>
+<path d="M159 112H181L185 132H155Z" fill="#8a5a34"/>
+<path d="M170 112H181L185 132H170Z" fill="#6f4527"/>
+<path d="M155 132 160 126 162 132Z M185 132 180 126 178 132Z" fill="#6f4527"/>
 <g class="wf-cut" opacity="0"><ellipse cx="170" cy="112" rx="11" ry="3.2" fill="#d8a86a"/>
 <ellipse cx="170" cy="112" rx="6.5" ry="1.9" fill="none" stroke="#b98a52" stroke-width=".8"/></g>
 <g transform="translate(170 112)"><g class="wf-tree">
-<path d="M-11 0H11L7-38H-7Z" fill="#6b4224"/>
-<path d="M0 0H11L7-38H1Z" fill="#5a371d"/>
-<path d="M-11 0-9-38H-7L-11 0Z" fill="#7d4f2b" opacity=".7"/>
+<path d="M-11 0H11L7-38H-7Z" fill="#8a5a34"/>
+<path d="M0 0H11L7-38H1Z" fill="#6f4527"/>
+<path d="M-11 0-9-38H-7L-11 0Z" fill="#9c6a42" opacity=".7"/>
 <path d="M-3-12 0-10M2-24 5-22M-4-30 -1-28" stroke="#4a2c16" stroke-width="1" stroke-linecap="round"/>
-<path d="M7-24 17-32 18-28 8-19Z" fill="#6b4224"/>
+<path d="M7-24 17-32 18-28 8-19Z" fill="#8a5a34"/>
 <g transform="translate(-10 -4)"><g class="wf-notch" transform="scale(0 1)"><path d="M0-6 8-1 0 5Z" fill="#3a2313"/><path d="M0-4 4.5-1 0 3Z" fill="#d8a86a"/></g></g>
 <g transform="translate(0 -38)"><g class="wf-foliage">
-<path d="M-20-22-12-42 10-44 22-24 13-6-10-4Z" fill="#2e943d"/>
-<path d="M-32-14-24-30-9-28-6-11-19-3-31-5Z" fill="#38a548"/>
-<path d="M7-16 13-31 30-29 34-13 25-4 9-6Z" fill="#278236"/>
-<path d="M-8-52 0-66 10-54 7-42-6-42Z" fill="#43b555"/>
+<path d="M-20-22-12-42 10-44 22-24 13-6-10-4Z" fill="#5c9f4d"/>
+<path d="M-32-14-24-30-9-28-6-11-19-3-31-5Z" fill="#72b45f"/>
+<path d="M7-16 13-31 30-29 34-13 25-4 9-6Z" fill="#4b8a41"/>
+<path d="M-8-52 0-66 10-54 7-42-6-42Z" fill="#86c771"/>
 <path d="M-12-42 10-44 0-24Z" fill="#fff" opacity=".1"/>
 <path d="M22-24 13-6 0-24Z" fill="#000" opacity=".13"/>
 <path d="M-32-14-24-30-16-14Z" fill="#fff" opacity=".1"/>
 <path d="M-8-52 0-66 3-46Z" fill="#fff" opacity=".13"/>
-<path d="M-19-3-6-11-4-4Z" fill="#23762f" opacity=".5"/>
+<path d="M-19-3-6-11-4-4Z" fill="#3f7a37" opacity=".5"/>
 </g></g>
 </g></g>
 <g class="wf-npc">
-<rect x="100" y="116" width="7" height="16" fill="#2e3342"/>
-<rect x="109" y="116" width="7" height="16" fill="#252a37"/>
-<g transform="translate(101 95)"><g class="wf-armL" transform="rotate(5)"><rect x="-2.6" y="0" width="5.2" height="21" fill="#2a6aa3"/><circle cx="0" cy="22.2" r="2.8" fill="#ebbd9e"/></g></g>
-<rect x="98.5" y="92" width="19" height="24" rx="1" fill="#3380bf"/>
-<rect x="98" y="112" width="20" height="3.5" fill="#4d2e1a"/>
-<rect x="100.5" y="77" width="15" height="15" rx="2" fill="#ebbd9e"/>
-<rect x="99.5" y="73.5" width="17" height="6" rx="1.5" fill="#332114"/>
-<rect x="99.5" y="77" width="4.5" height="11" fill="#332114"/>
-<rect x="100" y="79" width="16" height="3" fill="#332114"/>
+<rect x="100" y="116" width="7" height="16" fill="#4b5266"/>
+<rect x="109" y="116" width="7" height="16" fill="#3f4558"/>
+<g transform="translate(101 95)"><g class="wf-armL" transform="rotate(5)"><rect x="-2.6" y="0" width="5.2" height="21" fill="#3a72a3"/><circle cx="0" cy="22.2" r="2.8" fill="#f0c8a8"/></g></g>
+<rect x="98.5" y="92" width="19" height="24" rx="1" fill="#4a88be"/>
+<rect x="98" y="112" width="20" height="3.5" fill="#6b4a2e"/>
+<rect x="100.5" y="77" width="15" height="15" rx="2" fill="#f0c8a8"/>
+<rect x="99.5" y="73.5" width="17" height="6" rx="1.5" fill="#4a3222"/>
+<rect x="99.5" y="77" width="4.5" height="11" fill="#4a3222"/>
+<rect x="100" y="79" width="16" height="3" fill="#4a3222"/>
 <rect x="106" y="83.5" width="2.4" height="2.4" fill="#1a1a1a"/>
 <rect x="111.4" y="83.5" width="2.4" height="2.4" fill="#1a1a1a"/>
 <circle cx="113.6" cy="88" r="1.5" fill="#ff8a80" opacity=".5"/>
 <g transform="translate(116 95)"><g class="wf-arm" transform="rotate(10)">
-<rect x="-2.6" y="0" width="5.2" height="21" fill="#3f8fd0"/>
-<circle cx="0" cy="22.2" r="3" fill="#ebbd9e"/>
-<rect x="-1.4" y="14" width="2.8" height="31" rx="1" fill="#6b4224"/>
-<path d="M-1.4 38-8 38-11 49-1.4 46Z" fill="#9aa3ad"/>
+<rect x="-2.6" y="0" width="5.2" height="21" fill="#5a97cb"/>
+<circle cx="0" cy="22.2" r="3" fill="#f0c8a8"/>
+<rect x="-1.4" y="14" width="2.8" height="31" rx="1" fill="#8a5a34"/>
+<path d="M-1.4 38-8 38-11 49-1.4 46Z" fill="#aab2bb"/>
 <path d="M-8 38-11 49" stroke="#e5e7eb" stroke-width="1" stroke-linecap="round"/>
 <rect x="-1.4" y="38.5" width="3.8" height="7.5" fill="#6b7280"/>
 </g></g>
 </g>
 <g transform="translate(160 108)"><rect class="wf-chip0a" x="-1.6" y="-1" width="3.2" height="2" rx=".5" fill="#d9a86c" opacity="0"/><rect class="wf-chip0b" x="-1.6" y="-1" width="3.2" height="2" rx=".5" fill="#d9a86c" opacity="0"/><rect class="wf-chip1a" x="-1.6" y="-1" width="3.2" height="2" rx=".5" fill="#d9a86c" opacity="0"/><rect class="wf-chip1b" x="-1.6" y="-1" width="3.2" height="2" rx=".5" fill="#d9a86c" opacity="0"/><rect class="wf-chip2a" x="-1.6" y="-1" width="3.2" height="2" rx=".5" fill="#d9a86c" opacity="0"/><rect class="wf-chip2b" x="-1.6" y="-1" width="3.2" height="2" rx=".5" fill="#d9a86c" opacity="0"/><rect class="wf-chip3a" x="-1.6" y="-1" width="3.2" height="2" rx=".5" fill="#d9a86c" opacity="0"/><rect class="wf-chip3b" x="-1.6" y="-1" width="3.2" height="2" rx=".5" fill="#d9a86c" opacity="0"/><rect class="wf-chip4a" x="-1.6" y="-1" width="3.2" height="2" rx=".5" fill="#d9a86c" opacity="0"/><rect class="wf-chip4b" x="-1.6" y="-1" width="3.2" height="2" rx=".5" fill="#d9a86c" opacity="0"/></g>
-<g transform="translate(170 56)"><path class="wf-fl0" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#43b555" opacity="0"/></g><g transform="translate(158 64)"><path class="wf-fl1" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#2e943d" opacity="0"/></g><g transform="translate(184 62)"><path class="wf-fl2" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#43b555" opacity="0"/></g><g transform="translate(176 46)"><path class="wf-fl3" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#38a548" opacity="0"/></g><g transform="translate(166 72)"><path class="wf-fl4" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#2e943d" opacity="0"/></g><g transform="translate(160 70)"><path class="wf-al0" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#43b555" opacity="0"/></g><g transform="translate(184 74)"><path class="wf-al1" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#2e943d" opacity="0"/></g><g transform="translate(172 58)"><path class="wf-al2" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#38a548" opacity="0"/></g>
-<ellipse class="wf-dustA" cx="252" cy="130" rx="11" ry="5" fill="#eadfc7" opacity="0"/>
-<ellipse class="wf-dustB" cx="176" cy="131" rx="9" ry="4" fill="#eadfc7" opacity="0"/>
-<path d="M0 141Q80 133 160 139T320 136V150H0Z" fill="#2a6836"/>
-<circle class="wf-fly" cx="38" cy="92" r="1.6" fill="#fde68a" opacity=".5" style="animation-delay:-0.4s;animation-duration:3.6s"/><circle class="wf-fly" cx="74" cy="58" r="1.6" fill="#fde68a" opacity=".5" style="animation-delay:-1.7s;animation-duration:4.2s"/><circle class="wf-fly" cx="246" cy="38" r="1.6" fill="#fde68a" opacity=".5" style="animation-delay:-2.3s;animation-duration:3.4s"/><circle class="wf-fly" cx="292" cy="84" r="1.6" fill="#fde68a" opacity=".5" style="animation-delay:-0.9s;animation-duration:4.6s"/><circle class="wf-fly" cx="214" cy="22" r="1.6" fill="#fde68a" opacity=".5" style="animation-delay:-3.1s;animation-duration:3.9s"/>
+<g transform="translate(170 56)"><path class="wf-fl0" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#86c771" opacity="0"/></g><g transform="translate(158 64)"><path class="wf-fl1" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#5c9f4d" opacity="0"/></g><g transform="translate(184 62)"><path class="wf-fl2" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#86c771" opacity="0"/></g><g transform="translate(176 46)"><path class="wf-fl3" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#72b45f" opacity="0"/></g><g transform="translate(166 72)"><path class="wf-fl4" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#5c9f4d" opacity="0"/></g><g transform="translate(160 70)"><path class="wf-al0" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#86c771" opacity="0"/></g><g transform="translate(184 74)"><path class="wf-al1" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#5c9f4d" opacity="0"/></g><g transform="translate(172 58)"><path class="wf-al2" d="M0 0Q3-3.4 7 0Q3 3.4 0 0Z" fill="#72b45f" opacity="0"/></g>
+<ellipse class="wf-dustA" cx="252" cy="130" rx="11" ry="5" fill="#d9cdb2" opacity="0"/>
+<ellipse class="wf-dustB" cx="176" cy="131" rx="9" ry="4" fill="#d9cdb2" opacity="0"/>
+<path d="M0 141Q80 133 160 139T320 136V150H0Z" fill="#7db06d"/>
 </svg>
       </div>
       <div id="menuTitle">World<span>Forge</span></div>
@@ -413,10 +297,10 @@
         <span>📖 How to Play WorldForge</span>
         <button id="closeGuideBtn" class="close-btn" title="Close">✕</button>
       </h2>
-      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 12px; line-height: 1.5; color: #cbd5e1;">
-        <div>
-          <b style="color: #60a5fa;">🕹️ Camera & Controls:</b>
-          <div style="margin-top: 4px; padding-left: 8px;">
+      <div class="guide-body">
+        <div class="guide-sec">
+          <b class="guide-h cam">🕹️ Camera & Controls:</b>
+          <div class="guide-list">
             • <b>WASD</b>: Pan camera across the world.<br/>
             • <b>Right Mouse Button + Drag</b>: Rotate and tilt camera angle.<br/>
             • <b>Mouse Wheel / Q & E</b>: Adjust zoom and camera height.<br/>
@@ -424,17 +308,17 @@
             • <b>Right-Click / Esc</b>: Cancel active building placement.
           </div>
         </div>
-        <div>
-          <b style="color: #4ade80;">🪓 Gathering Resources:</b>
-          <div style="margin-top: 4px; padding-left: 8px;">
+        <div class="guide-sec">
+          <b class="guide-h gather">🪓 Gathering Resources:</b>
+          <div class="guide-list">
             • Left-click <b>Trees</b> to harvest Wood (🪵).<br/>
             • Left-click <b>Boulders</b> to quarry Stone (🪨).<br/>
             • NPCs will also wander and automatically harvest nearby nodes!
           </div>
         </div>
-        <div>
-          <b style="color: #fbbf24;">🛖 Building Your World:</b>
-          <div style="margin-top: 4px; padding-left: 8px;">
+        <div class="guide-sec">
+          <b class="guide-h build">🛖 Building Your World:</b>
+          <div class="guide-list">
             • <b>Campfire</b>: The heart of your settlement. Attracts NPCs to join.<br/>
             • <b>Hut</b>: Expands world population capacity (+2 NPCs each).<br/>
             • <b>Farm</b>: Produces Food (🌽) so your NPCs don't starve.<br/>
@@ -443,9 +327,9 @@
             • <b>Watchtower</b>: NPCs climb up to scout, boosting nearby work speed!
           </div>
         </div>
-        <div>
-          <b style="color: #f472b6;">👤 NPCs & Management:</b>
-          <div style="margin-top: 4px; padding-left: 8px;">
+        <div class="guide-sec">
+          <b class="guide-h npc">👤 NPCs & Management:</b>
+          <div class="guide-list">
             • Press the 👥 button to open the NPC panel and see everyone's mood.<br/>
             • Each NPC shows their hunger, happiness, and current thought about the world.<br/>
             • Press the 🎥 camera icon on any NPC to follow them as they work and explore!

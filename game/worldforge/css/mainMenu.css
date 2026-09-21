@@ -1,5 +1,5 @@
 /* ============================================================
-   MAIN MENU  (WorldForge homepage)
+   MAIN MENU - soft, cozy light theme
    ============================================================ */
 #mainMenu {
   position: fixed;
@@ -8,35 +8,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   overflow: hidden;
   background:
-    radial-gradient(ellipse 900px 600px at 50% 0%, rgba(34, 197, 94, 0.16), transparent 60%),
-    linear-gradient(180deg, #08110d 0%, #060b10 55%, #04070b 100%);
-  transition: opacity 0.5s ease, visibility 0.5s ease;
+    radial-gradient(ellipse 900px 520px at 50% 0%, #ffffff 0%, rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #f8f4e9 0%, #efe9d8 100%);
+  transition: opacity 0.45s ease, visibility 0.45s ease;
 }
 #mainMenu.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-
-/* slow drifting glow behind the card */
-#mainMenu::before, #mainMenu::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
-#mainMenu::before {
-  width: 560px; height: 560px; top: -180px; left: -120px;
-  background: radial-gradient(circle, rgba(34, 197, 94, 0.35), transparent 70%);
-  animation: menuDriftA 20s ease-in-out infinite alternate;
-}
-#mainMenu::after {
-  width: 520px; height: 520px; bottom: -200px; right: -120px;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.28), transparent 70%);
-  animation: menuDriftB 24s ease-in-out infinite alternate;
-}
-@keyframes menuDriftA { to { transform: translate(90px, 70px) scale(1.15); } }
-@keyframes menuDriftB { to { transform: translate(-80px, -60px) scale(1.2); } }
-
 #menuEmbers { display: none; }
 
 #menuCard {
@@ -46,26 +25,25 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 34px 34px 28px;
-  max-width: 420px;
-  width: 92vw;
-  max-height: 96vh;
+  width: min(440px, 100%);
+  max-height: 100%;
   overflow-y: auto;
-  background: rgba(13, 20, 30, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 60px rgba(34, 197, 94, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.09);
-  animation: menuCardIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-  scrollbar-width: none;
+  padding: clamp(18px, 4.5vw, 32px);
+  background: #fffdf8;
+  border: 1px solid #e8e0cb;
+  border-radius: 22px;
+  box-shadow: 0 14px 40px rgba(98, 78, 44, 0.14), 0 2px 6px rgba(98, 78, 44, 0.06);
+  animation: menuCardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  scrollbar-width: thin;
+  scrollbar-color: #d9cfb6 transparent;
 }
-#menuCard::-webkit-scrollbar { display: none; }
 @keyframes menuCardIn {
-  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: none; }
 }
 
 /* ---- Cozy scene: villager chops down the tree (pure CSS/SVG, transform+opacity only) ---- */
-#menuIcon{width:100%;max-width:310px;margin:-8px auto 6px;line-height:0;pointer-events:none;animation:none;filter:none}
+#menuIcon{width:100%;max-width:min(320px,46vh);margin:0 auto 12px;line-height:0;pointer-events:none;border-radius:16px;overflow:hidden;box-shadow:inset 0 0 0 1px #e8e0cb}
 #menuIcon svg{width:100%;height:auto;display:block;overflow:hidden}
 .wf-npc{animation:wf-npc 10s linear infinite}
 .wf-arm{animation:wf-arm 10s linear infinite}
@@ -75,8 +53,7 @@
 .wf-cut{animation:wf-cut 10s linear infinite}
 .wf-foliage{animation:wf-sway 5s ease-in-out infinite alternate}
 .wf-grass{animation:wf-grass 3.8s ease-in-out infinite alternate}
-.wf-sun{transform-box:fill-box;transform-origin:50% 50%;animation:wf-sun 6s ease-in-out infinite alternate}
-.wf-fly{animation:wf-twinkle 3.6s ease-in-out infinite}
+.wf-cloud{animation:wf-cloud 26s ease-in-out infinite alternate}
 .wf-dustA{transform-box:fill-box;transform-origin:50% 100%;animation:wf-dustA 10s linear infinite}
 .wf-dustB{transform-box:fill-box;transform-origin:50% 100%;animation:wf-dustB 10s linear infinite}
 .wf-chip0a{animation:wf-chip0a 10s linear infinite}
@@ -105,8 +82,7 @@
 @keyframes wf-cut{0%{opacity:0}55%{opacity:0}56%{opacity:1}82%{opacity:1}83%{opacity:0}100%{opacity:0}}
 @keyframes wf-sway{0%{transform:rotate(-1.3deg);animation-timing-function:ease-in-out}100%{transform:rotate(1.3deg)}}
 @keyframes wf-grass{0%{transform:rotate(-5deg);animation-timing-function:ease-in-out}100%{transform:rotate(5deg)}}
-@keyframes wf-sun{0%{transform:scale(1);opacity:.8;animation-timing-function:ease-in-out}100%{transform:scale(1.08);opacity:1}}
-@keyframes wf-twinkle{0%{opacity:.15;transform:translate(0px,0px);animation-timing-function:ease-in-out}50%{opacity:1;transform:translate(6px,-8px);animation-timing-function:ease-in-out}100%{opacity:.15;transform:translate(-4px,4px)}}
+@keyframes wf-cloud{0%{transform:translate(-14px,0px);animation-timing-function:ease-in-out}100%{transform:translate(16px,0px)}}
 @keyframes wf-chip0a{0%{opacity:0;transform:translate(0px,0px) rotate(0deg)}14.25%{opacity:0;transform:translate(0px,0px) rotate(0deg);animation-timing-function:cubic-bezier(.2,.7,.3,1)}14.3%{opacity:1;transform:translate(0px,0px) rotate(0deg);animation-timing-function:cubic-bezier(.2,.7,.3,1)}15.6%{opacity:1;transform:translate(-9.6px,-13px) rotate(120deg);animation-timing-function:cubic-bezier(.6,0,1,.55)}17.5%{opacity:0;transform:translate(-16px,8px) rotate(300deg)}100%{opacity:0;transform:translate(-16px,8px) rotate(300deg)}}
 @keyframes wf-chip0b{0%{opacity:0;transform:translate(0px,0px) rotate(0deg)}14.25%{opacity:0;transform:translate(0px,0px) rotate(0deg);animation-timing-function:cubic-bezier(.2,.7,.3,1)}14.3%{opacity:1;transform:translate(0px,0px) rotate(0deg);animation-timing-function:cubic-bezier(.2,.7,.3,1)}15.6%{opacity:1;transform:translate(-4.2px,-13px) rotate(120deg);animation-timing-function:cubic-bezier(.6,0,1,.55)}17.5%{opacity:0;transform:translate(-7px,8px) rotate(300deg)}100%{opacity:0;transform:translate(-7px,8px) rotate(300deg)}}
 @keyframes wf-chip1a{0%{opacity:0;transform:translate(0px,0px) rotate(0deg)}22.25%{opacity:0;transform:translate(0px,0px) rotate(0deg);animation-timing-function:cubic-bezier(.2,.7,.3,1)}22.3%{opacity:1;transform:translate(0px,0px) rotate(0deg);animation-timing-function:cubic-bezier(.2,.7,.3,1)}23.6%{opacity:1;transform:translate(-9.96px,-13px) rotate(120deg);animation-timing-function:cubic-bezier(.6,0,1,.55)}25.5%{opacity:0;transform:translate(-16.6px,8px) rotate(300deg)}100%{opacity:0;transform:translate(-16.6px,8px) rotate(300deg)}}
@@ -131,77 +107,66 @@
 @media (prefers-reduced-motion:reduce){#menuIcon svg *{animation:none!important}}
 
 #menuTitle {
-  font-size: 34px;
-  font-weight: 900;
-  letter-spacing: 0.5px;
-  color: #f8fafc;
-  margin: 2px 0 10px;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+  font-size: clamp(26px, 7vw, 34px);
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #3d3125;
+  margin: 0 0 10px;
 }
-#menuTitle span {
-  background: linear-gradient(90deg, #4ade80, #38bdf8);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
+#menuTitle span { color: #5b9a5f; }
 
 #menuStatus {
   font-size: 12px;
   font-weight: 700;
-  color: #cbd5e1;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 7px 16px;
+  color: #6b5d48;
+  background: #f5f0e2;
+  border: 1px solid #e6dfcc;
+  padding: 6px 14px;
   border-radius: 20px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   min-height: 14px;
 }
 
 #menuPlayBtn {
-  position: relative;
-  overflow: hidden;
   width: 100%;
+  min-height: 48px;
   margin-top: 6px;
-  padding: 15px 20px;
+  padding: 13px 20px;
   font-size: 15px;
   font-weight: 800;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.2px;
   color: #ffffff;
-  background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #5a9a5e;
+  border: 1px solid #4d8a51;
   border-radius: 14px;
   cursor: pointer;
-  box-shadow: 0 10px 28px rgba(22, 163, 74, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  transition: transform 0.15s ease, filter 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 6px 16px rgba(74, 133, 80, 0.22);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
-#menuPlayBtn::after {
-  content: "";
-  position: absolute;
-  top: 0; left: -120%;
-  width: 60%; height: 100%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
-  transform: skewX(-20deg);
-  transition: left 0.7s ease;
-}
-#menuPlayBtn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 14px 34px rgba(22, 163, 74, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
-#menuPlayBtn:hover:not(:disabled)::after { left: 140%; }
+#menuPlayBtn:hover:not(:disabled) { background: #4f8c53; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(74, 133, 80, 0.28); }
 #menuPlayBtn:active:not(:disabled) { transform: scale(0.98); }
 #menuPlayBtn:disabled { opacity: 0.55; cursor: wait; }
 
 .menu-btn-row { display: flex; gap: 8px; width: 100%; margin-top: 10px; }
 .menu-sec-btn {
   flex: 1;
-  padding: 10px 12px;
+  min-height: 40px;
+  padding: 9px 12px;
   font-size: 12px;
   font-weight: 700;
-  color: #e2e8f0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #5c4e3a;
+  background: #f7f3e8;
+  border: 1px solid #e2dac4;
   border-radius: 12px;
   cursor: pointer;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
 }
-.menu-sec-btn:hover { background: rgba(255, 255, 255, 0.13); border-color: rgba(255, 255, 255, 0.28); transform: translateY(-1px); }
+.menu-sec-btn:hover { background: #efe8d6; border-color: #d5caae; transform: translateY(-1px); }
 
 /* ---- Welcome back (shown after returning from an ad) ---- */
 #menuWelcome {
@@ -210,26 +175,94 @@
   padding: 10px 14px;
   font-size: 12px;
   font-weight: 700;
-  color: #bbf7d0;
-  background: rgba(34, 197, 94, 0.14);
-  border: 1px solid rgba(74, 222, 128, 0.35);
+  color: #3f6b3f;
+  background: #eef6e8;
+  border: 1px solid #cfe3c4;
   border-radius: 12px;
   animation: menuWelcomeIn 0.4s ease both;
 }
 @keyframes menuWelcomeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-#menuPlayBtn.pulse { animation: menuPlayPulse 1.4s ease-in-out infinite; }
+#menuPlayBtn.pulse { animation: menuPlayPulse 1.6s ease-in-out infinite; }
 @keyframes menuPlayPulse {
-  0%, 100% { box-shadow: 0 10px 28px rgba(22, 163, 74, 0.4), 0 0 0 0 rgba(74, 222, 128, 0.5); }
-  50% { box-shadow: 0 10px 28px rgba(22, 163, 74, 0.4), 0 0 0 12px rgba(74, 222, 128, 0); }
+  0%, 100% { box-shadow: 0 6px 16px rgba(74, 133, 80, 0.22), 0 0 0 0 rgba(90, 154, 94, 0.35); }
+  50% { box-shadow: 0 6px 16px rgba(74, 133, 80, 0.22), 0 0 0 9px rgba(90, 154, 94, 0); }
 }
 
+/* ============================================================
+   GUIDE - same cozy theme
+   ============================================================ */
+#guideModal.game-modal {
+  padding: 16px;
+  background: rgba(84, 68, 44, 0.34);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+#guideModal .game-modal-card {
+  width: min(520px, 100%);
+  max-height: min(86vh, 86dvh);
+  padding: clamp(16px, 4vw, 24px);
+  background: #fffdf8;
+  border: 1px solid #e8e0cb;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(60, 44, 20, 0.28);
+  color: #5c4e3a;
+  scrollbar-width: thin;
+  scrollbar-color: #d9cfb6 transparent;
+}
+#guideModal .game-modal-card h2 {
+  margin: 0 0 14px;
+  font-size: clamp(15px, 4vw, 18px);
+  font-weight: 800;
+  color: #3d3125;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+#guideModal .close-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 14px;
+  color: #6b5d48;
+  background: #f5f0e2;
+  border: 1px solid #e2dac4;
+  border-radius: 50%;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+#guideModal .close-btn:hover { background: #ebe3cf; color: #3d3125; transform: none; }
+
+.guide-body { display: flex; flex-direction: column; gap: 10px; font-size: clamp(12px, 3.3vw, 13px); line-height: 1.55; color: #5c4e3a; }
+.guide-sec { padding: 11px 13px; background: #faf6ea; border: 1px solid #eee6d2; border-radius: 14px; }
+.guide-h { display: block; margin-bottom: 4px; font-size: 12.5px; font-weight: 800; }
+.guide-h.cam { color: #3f7096; }
+.guide-h.gather { color: #467a3f; }
+.guide-h.build { color: #a2701f; }
+.guide-h.npc { color: #a5506e; }
+.guide-list { padding-left: 2px; }
+.guide-list b { color: #3d3125; }
+
+/* ============================================================
+   SCALING for small / short screens
+   ============================================================ */
 @media (max-width: 420px) {
-  #menuCard { padding: 26px 20px 22px; border-radius: 20px; }
-  #menuTitle { font-size: 30px; }
+  #menuStatus { font-size: 11px; }
+  .menu-sec-btn { font-size: 11px; padding: 8px 8px; }
+}
+@media (max-height: 560px) {
+  #menuIcon { max-width: min(320px, 36vh); margin-bottom: 8px; }
+  #menuCard { padding: 14px 18px; }
+  #menuTitle { font-size: 24px; margin-bottom: 6px; }
+  #menuStatus { margin-bottom: 8px; }
+  #menuPlayBtn { min-height: 42px; padding: 10px; }
+  .menu-sec-btn { min-height: 34px; padding: 6px 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #mainMenu::before, #mainMenu::after, #menuCard, #menuIcon, #menuWelcome, #menuPlayBtn.pulse { animation: none; }
+  #menuCard, #menuWelcome, #menuPlayBtn.pulse { animation: none; }
 }
 
 /* Zero menu cost during gameplay */
-#mainMenu.hidden::before, #mainMenu.hidden::after, #mainMenu.hidden #menuCard { animation-play-state: paused; }
+#mainMenu.hidden #menuCard { animation-play-state: paused; }
