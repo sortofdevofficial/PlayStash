@@ -156,87 +156,162 @@ grid.alpha = 0.28; // Subtle and gentle grid
 grid.isPickable = false;
 grid.freezeWorldMatrix();
 
+// Per-object variation has to be seeded from the object id ("tree_23_28"),
+// not Math.random(). Neither scale nor canopy twist is part of the save format,
+// so a random value would silently reshuffle the whole forest every time the
+// player came back to a world they had already built.
+function seededRng(id) {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  if (h === 0) h = 0x9e3779b9; // xorshift is a fixed point at zero
+  return () => {
+    h ^= h << 13;
+    h ^= h >>> 17;
+    h ^= h << 5;
+    return (h >>> 0) / 4294967296;
+  };
+}
+
+// Pushes each vertex in and out along its own radius so an icosphere stops
+// looking like a ball bearing and starts looking hand-cut. Must run before
+// flatShade(), which bakes normals from the displaced positions.
+function roughen(mesh, rand, amount) {
+  const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+  if (!positions) return mesh;
+  for (let i = 0; i < positions.length; i += 3) {
+    const n = 1 - amount + rand() * amount * 2;
+    positions[i] *= n;
+    positions[i + 1] *= n;
+    positions[i + 2] *= n;
+  }
+  mesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+  return mesh;
+}
+
 export function createLowPolyStone(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
+  const rand = seededRng(id);
 
-  // Warm, rounded cozy riverstone / granite
-  const stoneMat = new BABYLON.StandardMaterial(id + "_stoneMat", scene);
-  stoneMat.diffuseColor = new BABYLON.Color3(0.55, 0.54, 0.52);
-  stoneMat.specularColor = new BABYLON.Color3(0.04, 0.04, 0.04);
-  stoneMat.flatShaded = true;
+  const bulk = 0.88 + rand() * 0.26;
+  root.scaling.set(bulk * (0.95 + rand() * 0.1), bulk * (0.9 + rand() * 0.2), bulk);
 
-  const stoneDarkMat = new BABYLON.StandardMaterial(id + "_stoneDarkMat", scene);
-  stoneDarkMat.diffuseColor = new BABYLON.Color3(0.42, 0.41, 0.39);
-  stoneDarkMat.specularColor = new BABYLON.Color3(0, 0, 0);
-  stoneDarkMat.flatShaded = true;
-
-  const mossMat = new BABYLON.StandardMaterial(id + "_mossMat", scene);
-  mossMat.diffuseColor = new BABYLON.Color3(0.42, 0.65, 0.28);
-  mossMat.specularColor = new BABYLON.Color3(0, 0, 0);
-  mossMat.flatShaded = true;
+  // The yaw lives on an inner node: instantiateObject overwrites
+  // root.rotation.y with the saved build rotation.
+  const body = new BABYLON.TransformNode(id + "_body", scene);
+  body.parent = root;
+  body.rotation.y = rand() * Math.PI * 2;
 
   // Main boulder — organic low poly polyhedron
   const mainRock = BABYLON.MeshBuilder.CreatePolyhedron(id + "_main", { type: 1, size: 0.72 }, scene);
   mainRock.position.set(0, 0.38, 0);
   mainRock.scaling.set(1.25, 0.85, 1.15);
   mainRock.rotation.set(0.18, 0.55, 0.12);
-  mainRock.material = stoneMat;
-  mainRock.parent = root;
+  mainRock.material = envMaterials.stone;
+  mainRock.parent = body;
 
-  // Moss patch on top
+  // Moss settling on the sunny side of the cap
   const mossCap = BABYLON.MeshBuilder.CreatePolyhedron(id + "_moss", { type: 1, size: 0.38 }, scene);
   mossCap.position.set(0.08, 0.65, 0.05);
   mossCap.scaling.set(1.1, 0.35, 1.0);
   mossCap.rotation.set(0.2, 0.3, -0.1);
-  mossCap.material = mossMat;
-  mossCap.parent = root;
+  mossCap.material = envMaterials.moss;
+  mossCap.parent = body;
 
   // Secondary side pebble
   const subRock = BABYLON.MeshBuilder.CreatePolyhedron(id + "_sub", { type: 1, size: 0.44 }, scene);
   subRock.position.set(0.48, 0.22, -0.28);
   subRock.scaling.set(0.95, 0.8, 1.05);
   subRock.rotation.set(0.35, -0.25, 0.28);
-  subRock.material = stoneDarkMat;
-  subRock.parent = root;
+  subRock.material = envMaterials.stoneDark;
+  subRock.parent = body;
 
   // Third tiny accent stone
   const tinyRock = BABYLON.MeshBuilder.CreatePolyhedron(id + "_tiny", { type: 1, size: 0.25 }, scene);
   tinyRock.position.set(-0.46, 0.12, 0.32);
   tinyRock.rotation.set(0.1, 0.8, 0.4);
-  tinyRock.material = stoneMat;
-  tinyRock.parent = root;
+  tinyRock.material = envMaterials.stone;
+  tinyRock.parent = body;
 
-  return root;
+  // A little mushroom and a daisy growing off the moss, so a boulder reads as
+  // something the village walked past for years rather than a fresh spawn.
+  const shroomStem = BABYLON.MeshBuilder.CreateCylinder(id + "_shroomStem", { height: 0.12, diameter: 0.04, tessellation: 5 }, scene);
+  shroomStem.position.set(-0.16, 0.72, 0.18);
+  shroomStem.material = envMaterials.flowerWhite;
+  shroomStem.parent = body;
+
+  const shroomCap = BABYLON.MeshBuilder.CreateSphere(id + "_shroomCap", { diameter: 0.15, segments: 4 }, scene);
+  shroomCap.scaling.set(1.15, 0.6, 1.15);
+  shroomCap.position.set(-0.16, 0.79, 0.18);
+  shroomCap.material = envMaterials.fruit;
+  shroomCap.parent = body;
+
+  const daisy = BABYLON.MeshBuilder.CreateSphere(id + "_daisy", { diameter: 0.1, segments: 3 }, scene);
+  daisy.position.set(0.24, 0.72, -0.1);
+  daisy.material = envMaterials.flowerYellow;
+  daisy.parent = body;
+
+  return flatShade(root);
 }
 
 export function createLowPolyTree(name, scene, materials) {
   const root = new BABYLON.TransformNode(name, scene);
+  const rand = seededRng(name);
+
+  const stature = 0.86 + rand() * 0.32;
+  root.scaling.set(stature * (0.94 + rand() * 0.12), stature, stature * (0.94 + rand() * 0.12));
+
+  const canopy = new BABYLON.TransformNode(name + "_canopy", scene);
+  canopy.parent = root;
+  canopy.rotation.y = rand() * Math.PI * 2;
+
+  const lean = (rand() - 0.5) * 0.1;
 
   // Warm tapered stylized log trunk
-  const baseTrunk = BABYLON.MeshBuilder.CreateCylinder("t_base", {
+  const baseTrunk = BABYLON.MeshBuilder.CreateCylinder(name + "_t_base", {
     height: 1.7,
     diameterTop: 0.42,
-    diameterBottom: 0.74,
+    diameterBottom: 0.78,
     tessellation: 6
   }, scene);
   baseTrunk.position.y = 0.85;
+  baseTrunk.rotation.z = lean;
   baseTrunk.material = materials.trunk;
-  baseTrunk.parent = root;
+  baseTrunk.parent = canopy;
 
   // Gentle curved trunk offset
-  const midTrunk = BABYLON.MeshBuilder.CreateCylinder("t_mid", {
+  const midTrunk = BABYLON.MeshBuilder.CreateCylinder(name + "_t_mid", {
     height: 1.3,
     diameterTop: 0.30,
     diameterBottom: 0.42,
     tessellation: 6
   }, scene);
   midTrunk.position.set(0.06, 2.15, 0.04);
-  midTrunk.rotation.z = -0.07;
+  midTrunk.rotation.z = lean - 0.07;
   midTrunk.material = materials.trunk;
-  midTrunk.parent = root;
+  midTrunk.parent = canopy;
+
+  // Root flares gripping the ground, so the trunk does not look plugged into
+  // the meadow like a pole.
+  for (let i = 0; i < 2; i++) {
+    const angle = rand() * Math.PI * 2 + i * Math.PI;
+    const flare = BABYLON.MeshBuilder.CreateCylinder(name + "_root" + i, {
+      height: 0.8,
+      diameterTop: 0.09,
+      diameterBottom: 0.36,
+      tessellation: 4
+    }, scene);
+    flare.position.set(Math.cos(angle) * 0.26, 0.3, Math.sin(angle) * 0.26);
+    flare.rotation.z = Math.cos(angle) * 0.42;
+    flare.rotation.x = -Math.sin(angle) * 0.42;
+    flare.material = materials.trunk;
+    flare.parent = canopy;
+  }
 
   // Cute side branch
-  const branch1 = BABYLON.MeshBuilder.CreateCylinder("b1", {
+  const branch1 = BABYLON.MeshBuilder.CreateCylinder(name + "_b1", {
     height: 1.1,
     diameterTop: 0.16,
     diameterBottom: 0.28,
@@ -245,28 +320,60 @@ export function createLowPolyTree(name, scene, materials) {
   branch1.position.set(0.32, 2.35, 0.12);
   branch1.rotation.set(0.08, 0.1, -Math.PI / 4.2);
   branch1.material = materials.trunk;
-  branch1.parent = root;
+  branch1.parent = canopy;
 
   // Rich fluffy low-poly foliage clouds with highlights
   const foliageSpecs = [
     { name: "f_main", r: 1.45, pos: [0, 3.75, 0], mat: materials.foliage },
     { name: "f_left", r: 1.15, pos: [-0.68, 3.15, -0.32], mat: materials.foliage },
     { name: "f_right", r: 1.20, pos: [0.72, 2.95, 0.24], mat: materials.foliage },
+    { name: "f_back", r: 1.02, pos: [-0.24, 3.42, 0.74], mat: materials.foliage },
     { name: "f_top", r: 0.98, pos: [0.08, 4.65, -0.06], mat: materials.foliageLight || materials.foliage },
     { name: "f_highlight", r: 0.75, pos: [-0.35, 4.05, 0.45], mat: materials.foliageLight || materials.foliage }
   ];
 
   foliageSpecs.forEach((spec) => {
-    const cluster = BABYLON.MeshBuilder.CreateIcoSphere(spec.name, {
-      radius: spec.r,
-      subdivisions: 1
-    }, scene);
+    const cluster = roughen(
+      BABYLON.MeshBuilder.CreateIcoSphere(name + "_" + spec.name, {
+        radius: spec.r,
+        subdivisions: 1
+      }, scene),
+      rand,
+      0.16
+    );
     cluster.position.set(...spec.pos);
+    // Squashed slightly so the crown reads as a wide cloud, not a snowman.
+    cluster.scaling.set(1.08, 0.86 + rand() * 0.14, 1.04);
+    cluster.rotation.y = rand() * Math.PI;
     cluster.material = spec.mat;
-    cluster.parent = root;
+    cluster.parent = canopy;
   });
 
-  return root;
+  // Roughly a third of the forest flowers and a fifth fruits, which is what
+  // stops a grove from reading as the same tree stamped out.
+  const roll = rand();
+  const accentMat = roll < 0.34 ? materials.blossom
+    : roll < 0.54 ? materials.fruit
+    : null;
+
+  if (accentMat) {
+    const accentSpecs = [
+      [-0.55, 3.55, 0.55],
+      [0.62, 3.35, -0.3],
+      [0.05, 4.42, 0.5]
+    ];
+    accentSpecs.forEach(([ax, ay, az], i) => {
+      const accent = BABYLON.MeshBuilder.CreateIcoSphere(name + "_accent" + i, {
+        radius: accentMat === materials.fruit ? 0.13 : 0.26,
+        subdivisions: 1
+      }, scene);
+      accent.position.set(ax, ay, az);
+      accent.material = accentMat;
+      accent.parent = canopy;
+    });
+  }
+
+  return flatShade(root);
 }
 
 // ============================================================
