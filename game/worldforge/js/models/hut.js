@@ -9,13 +9,15 @@ function createFlatHutMat(id, suffix, scene, color) {
 export function createLowPolyHut(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
-  // Raw, crude materials — a survival shelter, not a cottage
-  const logMat = createFlatHutMat(id, "_logMat", scene, new BABYLON.Color3(0.36, 0.25, 0.15));
-  const logMatDark = createFlatHutMat(id, "_logMatD", scene, new BABYLON.Color3(0.27, 0.18, 0.1));
-  const thatchMat = createFlatHutMat(id, "_thatchMat", scene, new BABYLON.Color3(0.58, 0.46, 0.22)); // dry straw/thatch
-  const thatchMatDark = createFlatHutMat(id, "_thatchMatD", scene, new BABYLON.Color3(0.48, 0.37, 0.17));
-  const mudMat = createFlatHutMat(id, "_mudMat", scene, new BABYLON.Color3(0.34, 0.28, 0.2)); // packed earth/mud chinking
-  const ropeMat = createFlatHutMat(id, "_ropeMat", scene, new BABYLON.Color3(0.55, 0.44, 0.24));
+  // Cozy storybook cottage materials — warm timbers, golden honey thatch
+  const logMat = createFlatHutMat(id, "_logMat", scene, new BABYLON.Color3(0.48, 0.32, 0.18)); // warm timber
+  const logMatDark = createFlatHutMat(id, "_logMatD", scene, new BABYLON.Color3(0.36, 0.22, 0.12));
+  const thatchMat = createFlatHutMat(id, "_thatchMat", scene, new BABYLON.Color3(0.78, 0.62, 0.28)); // golden honey thatch
+  const thatchMatDark = createFlatHutMat(id, "_thatchMatD", scene, new BABYLON.Color3(0.65, 0.48, 0.20));
+  const mudMat = createFlatHutMat(id, "_mudMat", scene, new BABYLON.Color3(0.42, 0.35, 0.26)); // warm plaster/stone
+  const ropeMat = createFlatHutMat(id, "_ropeMat", scene, new BABYLON.Color3(0.68, 0.54, 0.30));
+  const glowMat = createFlatHutMat(id, "_glowMat", scene, new BABYLON.Color3(1.0, 0.85, 0.35));
+  glowMat.emissiveColor = new BABYLON.Color3(0.95, 0.75, 0.25);
 
   // Low earthen mound base (not a clean stone foundation — just packed dirt)
   const base = BABYLON.MeshBuilder.CreateCylinder(id + "_base", { diameterTop: 1.9, diameterBottom: 2.05, height: 0.14, tessellation: 8 }, scene);
@@ -103,6 +105,24 @@ export function createLowPolyHut(id, scene) {
   const rope2 = rope1.clone(id + "_rope2");
   rope2.position.set(0.75, wallHeight * 0.35 + 0.12, -0.75);
   rope2.parent = root;
+
+  // Cozy details: small warm porch lantern by the doorway
+  const lanternPost = BABYLON.MeshBuilder.CreateCylinder(id + "_lPost", { height: 0.35, diameter: 0.04, tessellation: 4 }, scene);
+  lanternPost.position.set(0.32, 0.55, 0.82);
+  lanternPost.rotation.z = -0.15;
+  lanternPost.material = logMatDark;
+  lanternPost.parent = root;
+
+  const lantern = BABYLON.MeshBuilder.CreateBox(id + "_lantern", { width: 0.1, height: 0.14, depth: 0.1 }, scene);
+  lantern.position.set(0.35, 0.46, 0.85);
+  lantern.material = glowMat;
+  lantern.parent = root;
+
+  // Tiny welcoming cobblestone step at the door
+  const step = BABYLON.MeshBuilder.CreateCylinder(id + "_step", { diameter: 0.38, height: 0.06, tessellation: 6 }, scene);
+  step.position.set(0.04, 0.04, 0.88);
+  step.material = mudMat;
+  step.parent = root;
 
   return root;
 }

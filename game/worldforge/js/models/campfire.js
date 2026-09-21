@@ -3,22 +3,22 @@ export function createCampfire(id, scene, isGhost = false) {
   const scale = 0.85; // Smaller, more grounded campfire
 
   const rockMat = new BABYLON.StandardMaterial(id + "_rockMat", scene);
-  rockMat.diffuseColor = new BABYLON.Color3(0.38, 0.37, 0.36);
+  rockMat.diffuseColor = new BABYLON.Color3(0.54, 0.52, 0.48); // warm river stones
   rockMat.specularColor = new BABYLON.Color3(0, 0, 0);
   rockMat.flatShaded = true;
 
   const rockMatDark = new BABYLON.StandardMaterial(id + "_rockMatD", scene);
-  rockMatDark.diffuseColor = new BABYLON.Color3(0.26, 0.25, 0.24);
+  rockMatDark.diffuseColor = new BABYLON.Color3(0.40, 0.38, 0.35);
   rockMatDark.specularColor = new BABYLON.Color3(0, 0, 0);
   rockMatDark.flatShaded = true;
 
   const logMat = new BABYLON.StandardMaterial(id + "_logMat", scene);
-  logMat.diffuseColor = new BABYLON.Color3(0.32, 0.19, 0.1);
+  logMat.diffuseColor = new BABYLON.Color3(0.48, 0.30, 0.16); // warm cedar firewood
   logMat.specularColor = new BABYLON.Color3(0, 0, 0);
   logMat.flatShaded = true;
 
   const charMat = new BABYLON.StandardMaterial(id + "_charMat", scene);
-  charMat.diffuseColor = new BABYLON.Color3(0.12, 0.11, 0.1);
+  charMat.diffuseColor = new BABYLON.Color3(0.18, 0.15, 0.14);
   charMat.specularColor = new BABYLON.Color3(0, 0, 0);
   charMat.flatShaded = true;
 

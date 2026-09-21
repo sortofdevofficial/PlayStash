@@ -18,16 +18,24 @@ function createFlatMat(name, color) {
 }
 
 export const envMaterials = {
-  playableGround: createFlatMat("pGroundMat", new BABYLON.Color3(0.22, 0.48, 0.26)),
-  endlessGround: createFlatMat("eGroundMat", new BABYLON.Color3(0.14, 0.35, 0.18)),
-  trunk: createFlatMat("trunkMat", new BABYLON.Color3(0.42, 0.26, 0.14)),
-  foliage: createFlatMat("foliageMat", new BABYLON.Color3(0.18, 0.58, 0.24))
+  // Cozy, vibrant meadow green with warm undertone
+  playableGround: createFlatMat("pGroundMat", new BABYLON.Color3(0.38, 0.65, 0.28)),
+  // Softer rolling distant hills
+  endlessGround: createFlatMat("eGroundMat", new BABYLON.Color3(0.28, 0.52, 0.24)),
+  // Warm stylized cedar trunk
+  trunk: createFlatMat("trunkMat", new BABYLON.Color3(0.48, 0.30, 0.16)),
+  // Vibrant, rich leafy foliage
+  foliage: createFlatMat("foliageMat", new BABYLON.Color3(0.26, 0.68, 0.28)),
+  foliageLight: createFlatMat("foliageLightMat", new BABYLON.Color3(0.40, 0.78, 0.32)),
+  flowerPink: createFlatMat("flowerPinkMat", new BABYLON.Color3(0.95, 0.45, 0.55)),
+  flowerYellow: createFlatMat("flowerYellowMat", new BABYLON.Color3(0.98, 0.85, 0.25)),
+  flowerWhite: createFlatMat("flowerWhiteMat", new BABYLON.Color3(0.96, 0.96, 0.92))
 };
 
 scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
 
 export const hemiLight = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0, 1, 0), scene);
-export const sunLight = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.5, -1, -0.4), scene);
+export const sunLight = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.45, -1, -0.4), scene);
 sunLight.position = new BABYLON.Vector3(40, 70, 20);
 
 export const shadowGen = new BABYLON.ShadowGenerator(1024, sunLight);
@@ -35,27 +43,29 @@ shadowGen.usePoissonSampling = true;
 
 export function setEnvironmentLighting(isNight) {
   if (!isNight) {
-    scene.clearColor = new BABYLON.Color4(0.42, 0.68, 0.88, 1);
-    scene.fogColor = new BABYLON.Color3(0.42, 0.68, 0.88);
+    // Warm sunny day, cozy fairytale atmosphere
+    scene.clearColor = new BABYLON.Color4(0.55, 0.78, 0.95, 1);
+    scene.fogColor = new BABYLON.Color3(0.62, 0.82, 0.95);
+    scene.fogDensity = 0.0012;
+
+    hemiLight.intensity = 1.05;
+    hemiLight.skyColor = new BABYLON.Color3(1.0, 0.96, 0.90);
+    hemiLight.groundColor = new BABYLON.Color3(0.45, 0.58, 0.35);
+
+    sunLight.intensity = 1.15;
+    sunLight.diffuse = new BABYLON.Color3(1.0, 0.94, 0.82); // Golden sun rays
+  } else {
+    // Cozy enchanted twilight night
+    scene.clearColor = new BABYLON.Color4(0.09, 0.12, 0.25, 1);
+    scene.fogColor = new BABYLON.Color3(0.10, 0.14, 0.28);
     scene.fogDensity = 0.0018;
 
-    hemiLight.intensity = 0.95;
-    hemiLight.skyColor = new BABYLON.Color3(0.85, 0.92, 1.0);
-    hemiLight.groundColor = new BABYLON.Color3(0.32, 0.48, 0.32);
+    hemiLight.intensity = 0.72;
+    hemiLight.skyColor = new BABYLON.Color3(0.35, 0.45, 0.75);
+    hemiLight.groundColor = new BABYLON.Color3(0.12, 0.18, 0.22);
 
-    sunLight.intensity = 0.95;
-    sunLight.diffuse = new BABYLON.Color3(0.98, 0.95, 0.88);
-  } else {
-    scene.clearColor = new BABYLON.Color4(0.06, 0.1, 0.22, 1);
-    scene.fogColor = new BABYLON.Color3(0.06, 0.1, 0.22);
-    scene.fogDensity = 0.0025;
-
-    hemiLight.intensity = 0.65;
-    hemiLight.skyColor = new BABYLON.Color3(0.25, 0.4, 0.75);
-    hemiLight.groundColor = new BABYLON.Color3(0.08, 0.15, 0.1);
-
-    sunLight.intensity = 0.65;
-    sunLight.diffuse = new BABYLON.Color3(0.45, 0.6, 0.95);
+    sunLight.intensity = 0.75;
+    sunLight.diffuse = new BABYLON.Color3(0.55, 0.65, 0.95); // Magical moonlight
   }
 }
 setEnvironmentLighting(false);
@@ -121,29 +131,60 @@ for (let i = 0; i <= BUILD_SIZE; i++) {
   gridLines.push([new BABYLON.Vector3(-HALF_BUILD, 0.02, offset), new BABYLON.Vector3(HALF_BUILD, 0.02, offset)]);
 }
 export const grid = BABYLON.MeshBuilder.CreateLineSystem("grid", { lines: gridLines }, scene);
-grid.color = new BABYLON.Color3(0.08, 0.2, 0.1);
-grid.alpha = 0.55;
+grid.color = new BABYLON.Color3(0.28, 0.50, 0.22);
+grid.alpha = 0.28; // Subtle and gentle grid
 grid.isPickable = false;
 grid.freezeWorldMatrix();
 
 export function createLowPolyStone(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
-  const stoneMat = new BABYLON.StandardMaterial(id + "_stoneMat", scene);
-  stoneMat.diffuseColor = new BABYLON.Color3(0.5, 0.52, 0.55);
-  stoneMat.specularColor = new BABYLON.Color3(0, 0, 0);
 
-  const mainRock = BABYLON.MeshBuilder.CreatePolyhedron(id + "_main", { type: 1, size: 0.75 }, scene);
-  mainRock.position.y = 0.4;
-  mainRock.scaling.set(1.2, 0.8, 1.1);
-  mainRock.rotation.set(0.2, 0.5, 0.1);
+  // Warm, rounded cozy riverstone / granite
+  const stoneMat = new BABYLON.StandardMaterial(id + "_stoneMat", scene);
+  stoneMat.diffuseColor = new BABYLON.Color3(0.55, 0.54, 0.52);
+  stoneMat.specularColor = new BABYLON.Color3(0.04, 0.04, 0.04);
+  stoneMat.flatShaded = true;
+
+  const stoneDarkMat = new BABYLON.StandardMaterial(id + "_stoneDarkMat", scene);
+  stoneDarkMat.diffuseColor = new BABYLON.Color3(0.42, 0.41, 0.39);
+  stoneDarkMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  stoneDarkMat.flatShaded = true;
+
+  const mossMat = new BABYLON.StandardMaterial(id + "_mossMat", scene);
+  mossMat.diffuseColor = new BABYLON.Color3(0.42, 0.65, 0.28);
+  mossMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  mossMat.flatShaded = true;
+
+  // Main boulder — organic low poly polyhedron
+  const mainRock = BABYLON.MeshBuilder.CreatePolyhedron(id + "_main", { type: 1, size: 0.72 }, scene);
+  mainRock.position.set(0, 0.38, 0);
+  mainRock.scaling.set(1.25, 0.85, 1.15);
+  mainRock.rotation.set(0.18, 0.55, 0.12);
   mainRock.material = stoneMat;
   mainRock.parent = root;
 
-  const subRock = BABYLON.MeshBuilder.CreatePolyhedron(id + "_sub", { type: 1, size: 0.45 }, scene);
-  subRock.position.set(0.45, 0.22, -0.25);
-  subRock.rotation.set(0.4, -0.2, 0.3);
-  subRock.material = stoneMat;
+  // Moss patch on top
+  const mossCap = BABYLON.MeshBuilder.CreatePolyhedron(id + "_moss", { type: 1, size: 0.38 }, scene);
+  mossCap.position.set(0.08, 0.65, 0.05);
+  mossCap.scaling.set(1.1, 0.35, 1.0);
+  mossCap.rotation.set(0.2, 0.3, -0.1);
+  mossCap.material = mossMat;
+  mossCap.parent = root;
+
+  // Secondary side pebble
+  const subRock = BABYLON.MeshBuilder.CreatePolyhedron(id + "_sub", { type: 1, size: 0.44 }, scene);
+  subRock.position.set(0.48, 0.22, -0.28);
+  subRock.scaling.set(0.95, 0.8, 1.05);
+  subRock.rotation.set(0.35, -0.25, 0.28);
+  subRock.material = stoneDarkMat;
   subRock.parent = root;
+
+  // Third tiny accent stone
+  const tinyRock = BABYLON.MeshBuilder.CreatePolyhedron(id + "_tiny", { type: 1, size: 0.25 }, scene);
+  tinyRock.position.set(-0.46, 0.12, 0.32);
+  tinyRock.rotation.set(0.1, 0.8, 0.4);
+  tinyRock.material = stoneMat;
+  tinyRock.parent = root;
 
   return root;
 }
@@ -151,43 +192,48 @@ export function createLowPolyStone(id, scene) {
 export function createLowPolyTree(name, scene, materials) {
   const root = new BABYLON.TransformNode(name, scene);
 
+  // Warm tapered stylized log trunk
   const baseTrunk = BABYLON.MeshBuilder.CreateCylinder("t_base", {
-    height: 1.6,
-    diameterTop: 0.45,
-    diameterBottom: 0.7,
+    height: 1.7,
+    diameterTop: 0.42,
+    diameterBottom: 0.74,
     tessellation: 6
   }, scene);
-  baseTrunk.position.y = 0.8;
+  baseTrunk.position.y = 0.85;
   baseTrunk.material = materials.trunk;
   baseTrunk.parent = root;
 
+  // Gentle curved trunk offset
   const midTrunk = BABYLON.MeshBuilder.CreateCylinder("t_mid", {
-    height: 1.4,
-    diameterTop: 0.32,
-    diameterBottom: 0.45,
+    height: 1.3,
+    diameterTop: 0.30,
+    diameterBottom: 0.42,
     tessellation: 6
   }, scene);
-  midTrunk.position.set(0.08, 2.1, 0.05);
-  midTrunk.rotation.z = -0.08;
+  midTrunk.position.set(0.06, 2.15, 0.04);
+  midTrunk.rotation.z = -0.07;
   midTrunk.material = materials.trunk;
   midTrunk.parent = root;
 
+  // Cute side branch
   const branch1 = BABYLON.MeshBuilder.CreateCylinder("b1", {
-    height: 1.2,
-    diameterTop: 0.18,
-    diameterBottom: 0.3,
+    height: 1.1,
+    diameterTop: 0.16,
+    diameterBottom: 0.28,
     tessellation: 5
   }, scene);
-  branch1.position.set(0.35, 2.3, 0.15);
-  branch1.rotation.set(0.1, 0, -Math.PI / 4.5);
+  branch1.position.set(0.32, 2.35, 0.12);
+  branch1.rotation.set(0.08, 0.1, -Math.PI / 4.2);
   branch1.material = materials.trunk;
   branch1.parent = root;
 
+  // Rich fluffy low-poly foliage clouds with highlights
   const foliageSpecs = [
-    { name: "f_main", r: 1.4, pos: [0, 3.8, 0] },
-    { name: "f_left", r: 1.1, pos: [-0.65, 3.1, -0.35] },
-    { name: "f_right", r: 1.15, pos: [0.7, 2.9, 0.25] },
-    { name: "f_top", r: 0.85, pos: [0.1, 4.6, -0.1] }
+    { name: "f_main", r: 1.45, pos: [0, 3.75, 0], mat: materials.foliage },
+    { name: "f_left", r: 1.15, pos: [-0.68, 3.15, -0.32], mat: materials.foliage },
+    { name: "f_right", r: 1.20, pos: [0.72, 2.95, 0.24], mat: materials.foliage },
+    { name: "f_top", r: 0.98, pos: [0.08, 4.65, -0.06], mat: materials.foliageLight || materials.foliage },
+    { name: "f_highlight", r: 0.75, pos: [-0.35, 4.05, 0.45], mat: materials.foliageLight || materials.foliage }
   ];
 
   foliageSpecs.forEach((spec) => {
@@ -196,7 +242,7 @@ export function createLowPolyTree(name, scene, materials) {
       subdivisions: 1
     }, scene);
     cluster.position.set(...spec.pos);
-    cluster.material = materials.foliage;
+    cluster.material = spec.mat;
     cluster.parent = root;
   });
 

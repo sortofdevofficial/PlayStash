@@ -2,27 +2,27 @@ export function createStorage(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
   const woodMat = new BABYLON.StandardMaterial(id + "_wMat", scene);
-  woodMat.diffuseColor = new BABYLON.Color3(0.42, 0.27, 0.14);
+  woodMat.diffuseColor = new BABYLON.Color3(0.50, 0.34, 0.20); // warm cedar posts
   woodMat.specularColor = new BABYLON.Color3(0, 0, 0);
   woodMat.flatShaded = true;
 
   const woodMatDark = new BABYLON.StandardMaterial(id + "_wMatD", scene);
-  woodMatDark.diffuseColor = new BABYLON.Color3(0.3, 0.19, 0.1);
+  woodMatDark.diffuseColor = new BABYLON.Color3(0.38, 0.24, 0.14);
   woodMatDark.specularColor = new BABYLON.Color3(0, 0, 0);
   woodMatDark.flatShaded = true;
 
   const roofMat = new BABYLON.StandardMaterial(id + "_rMat", scene);
-  roofMat.diffuseColor = new BABYLON.Color3(0.56, 0.44, 0.21);
+  roofMat.diffuseColor = new BABYLON.Color3(0.75, 0.60, 0.28); // golden thatch roof
   roofMat.specularColor = new BABYLON.Color3(0, 0, 0);
   roofMat.flatShaded = true;
 
   const crateMat = new BABYLON.StandardMaterial(id + "_cMat", scene);
-  crateMat.diffuseColor = new BABYLON.Color3(0.5, 0.35, 0.18);
+  crateMat.diffuseColor = new BABYLON.Color3(0.62, 0.44, 0.24); // warm oak crates
   crateMat.specularColor = new BABYLON.Color3(0, 0, 0);
   crateMat.flatShaded = true;
 
   const sackMat = new BABYLON.StandardMaterial(id + "_sackMat", scene);
-  sackMat.diffuseColor = new BABYLON.Color3(0.68, 0.6, 0.42);
+  sackMat.diffuseColor = new BABYLON.Color3(0.78, 0.70, 0.52); // warm linen burlap
   sackMat.specularColor = new BABYLON.Color3(0, 0, 0);
   sackMat.flatShaded = true;
 

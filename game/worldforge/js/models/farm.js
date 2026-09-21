@@ -2,29 +2,34 @@ export function createFarm(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
   const soilMat = new BABYLON.StandardMaterial(id + "_soilMat", scene);
-  soilMat.diffuseColor = new BABYLON.Color3(0.3, 0.19, 0.11);
+  soilMat.diffuseColor = new BABYLON.Color3(0.38, 0.25, 0.15); // rich warm earth
   soilMat.specularColor = new BABYLON.Color3(0, 0, 0);
   soilMat.flatShaded = true;
 
   const soilMatDark = new BABYLON.StandardMaterial(id + "_soilMatD", scene);
-  soilMatDark.diffuseColor = new BABYLON.Color3(0.22, 0.14, 0.08);
+  soilMatDark.diffuseColor = new BABYLON.Color3(0.28, 0.18, 0.10);
   soilMatDark.specularColor = new BABYLON.Color3(0, 0, 0);
   soilMatDark.flatShaded = true;
 
   const borderMat = new BABYLON.StandardMaterial(id + "_borderMat", scene);
-  borderMat.diffuseColor = new BABYLON.Color3(0.32, 0.22, 0.13);
+  borderMat.diffuseColor = new BABYLON.Color3(0.46, 0.32, 0.18); // rustic cedar fence
   borderMat.specularColor = new BABYLON.Color3(0, 0, 0);
   borderMat.flatShaded = true;
 
   const stalkMat = new BABYLON.StandardMaterial(id + "_stalkMat", scene);
-  stalkMat.diffuseColor = new BABYLON.Color3(0.42, 0.55, 0.16);
+  stalkMat.diffuseColor = new BABYLON.Color3(0.52, 0.65, 0.22); // healthy green shoots
   stalkMat.specularColor = new BABYLON.Color3(0, 0, 0);
   stalkMat.flatShaded = true;
 
   const wheatMat = new BABYLON.StandardMaterial(id + "_wheatMat", scene);
-  wheatMat.diffuseColor = new BABYLON.Color3(0.85, 0.68, 0.22);
+  wheatMat.diffuseColor = new BABYLON.Color3(0.96, 0.78, 0.26); // warm golden ripe wheat
   wheatMat.specularColor = new BABYLON.Color3(0, 0, 0);
   wheatMat.flatShaded = true;
+
+  const pumpkinMat = new BABYLON.StandardMaterial(id + "_pumpkinMat", scene);
+  pumpkinMat.diffuseColor = new BABYLON.Color3(0.95, 0.52, 0.12); // cozy orange pumpkin
+  pumpkinMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+  pumpkinMat.flatShaded = true;
 
   // Base soil plot, sized for a 2x2 footprint
   const soil = BABYLON.MeshBuilder.CreateBox(id + "_soil", { width: 1.9, height: 0.1, depth: 1.9 }, scene);
@@ -82,6 +87,19 @@ export function createFarm(id, scene) {
       stalks.push({ pivot, phase: Math.random() * Math.PI * 2, speed: 0.8 + Math.random() * 0.5 });
     }
   }
+
+  // Cute low-poly corner pumpkin patch details
+  const pumpkin = BABYLON.MeshBuilder.CreateSphere(id + "_pumpkin", { diameter: 0.28, segments: 5 }, scene);
+  pumpkin.scaling.set(1.15, 0.85, 1.1);
+  pumpkin.position.set(0.72, 0.16, 0.72);
+  pumpkin.material = pumpkinMat;
+  pumpkin.parent = root;
+
+  const stem = BABYLON.MeshBuilder.CreateCylinder(id + "_pStem", { height: 0.08, diameter: 0.03, tessellation: 4 }, scene);
+  stem.position.set(0.72, 0.28, 0.72);
+  stem.rotation.z = 0.2;
+  stem.material = stalkMat;
+  stem.parent = root;
 
   root.metadata = { stalks };
   return root;

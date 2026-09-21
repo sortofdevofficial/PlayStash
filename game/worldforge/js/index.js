@@ -173,20 +173,20 @@ function showSpectateBanner(uid) {
   document.body.classList.add("spectating");
 }
 
-scene.ambientColor = new BABYLON.Color3(0.5, 0.55, 0.6);
+scene.ambientColor = new BABYLON.Color3(0.58, 0.58, 0.62); // Warm ambient lift
 
 const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, scene, [camera]);
 pipeline.fxaaEnabled = true;
 pipeline.bloomEnabled = true;
-pipeline.bloomThreshold = 0.85;
-pipeline.bloomWeight = 0.18;
+pipeline.bloomThreshold = 0.80;
+pipeline.bloomWeight = 0.24; // Soft warm cozy glow around campfires, lanterns & sun highlights
 pipeline.imageProcessingEnabled = true;
-pipeline.imageProcessing.exposure = 1.0;
-pipeline.imageProcessing.contrast = 1.0;
+pipeline.imageProcessing.exposure = 1.08;
+pipeline.imageProcessing.contrast = 1.06;
 pipeline.imageProcessing.toneMappingEnabled = true;
 pipeline.imageProcessing.toneMappingType = BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
 pipeline.imageProcessing.vignetteEnabled = true;
-pipeline.imageProcessing.vignetteWeight = 0.4;
+pipeline.imageProcessing.vignetteWeight = 0.35; // Gentle cinematic framing
 
 if (playableGround) {
   playableGround.position.set(0, 0, 0);

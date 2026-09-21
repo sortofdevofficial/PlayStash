@@ -65,8 +65,11 @@ function initPreview(canvas, modelKey) {
     "cam", -Math.PI / 4, Math.PI / 3, 4,
     BABYLON.Vector3.Zero(), scene
   );
-  // Don't attach control – we drive rotation ourselves
-  new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 2, 0), scene);
+  // Warm, gentle lighting for cozy card previews
+  const hemi = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 2.5, 0.5), scene);
+  hemi.intensity = 1.15;
+  hemi.diffuse = new BABYLON.Color3(1.0, 0.95, 0.88);
+  hemi.groundColor = new BABYLON.Color3(0.45, 0.40, 0.35);
 
   const root = creator(`prev_${modelKey}`, scene);
   // Compute bounding box and auto-fit camera

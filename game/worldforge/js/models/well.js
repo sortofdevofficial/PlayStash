@@ -2,33 +2,33 @@ export function createWell(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
   const stoneMat = new BABYLON.StandardMaterial(id + "_sMat", scene);
-  stoneMat.diffuseColor = new BABYLON.Color3(0.47, 0.47, 0.5);
-  stoneMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  stoneMat.diffuseColor = new BABYLON.Color3(0.56, 0.55, 0.52); // warm grey cobblestone
+  stoneMat.specularColor = new BABYLON.Color3(0.04, 0.04, 0.04);
   stoneMat.flatShaded = true;
 
   const stoneMatDark = new BABYLON.StandardMaterial(id + "_sMatD", scene);
-  stoneMatDark.diffuseColor = new BABYLON.Color3(0.34, 0.34, 0.37);
+  stoneMatDark.diffuseColor = new BABYLON.Color3(0.42, 0.41, 0.38);
   stoneMatDark.specularColor = new BABYLON.Color3(0, 0, 0);
   stoneMatDark.flatShaded = true;
 
   const woodMat = new BABYLON.StandardMaterial(id + "_wMat", scene);
-  woodMat.diffuseColor = new BABYLON.Color3(0.4, 0.24, 0.11);
+  woodMat.diffuseColor = new BABYLON.Color3(0.48, 0.32, 0.18); // warm timber
   woodMat.specularColor = new BABYLON.Color3(0, 0, 0);
   woodMat.flatShaded = true;
 
   const roofMat = new BABYLON.StandardMaterial(id + "_rMat", scene);
-  roofMat.diffuseColor = new BABYLON.Color3(0.56, 0.44, 0.21);
+  roofMat.diffuseColor = new BABYLON.Color3(0.72, 0.35, 0.22); // cozy terracotta tile roof
   roofMat.specularColor = new BABYLON.Color3(0, 0, 0);
   roofMat.flatShaded = true;
 
   const waterMat = new BABYLON.StandardMaterial(id + "_waterMat", scene);
-  waterMat.diffuseColor = new BABYLON.Color3(0.2, 0.45, 0.7);
-  waterMat.emissiveColor = new BABYLON.Color3(0.05, 0.15, 0.25);
-  waterMat.alpha = 0.85;
-  waterMat.specularColor = new BABYLON.Color3(0.3, 0.4, 0.5);
+  waterMat.diffuseColor = new BABYLON.Color3(0.32, 0.68, 0.88); // clear sparkling aqua
+  waterMat.emissiveColor = new BABYLON.Color3(0.12, 0.28, 0.38);
+  waterMat.alpha = 0.90;
+  waterMat.specularColor = new BABYLON.Color3(0.4, 0.5, 0.6);
 
   const ropeMat = new BABYLON.StandardMaterial(id + "_ropeMat", scene);
-  ropeMat.diffuseColor = new BABYLON.Color3(0.6, 0.5, 0.3);
+  ropeMat.diffuseColor = new BABYLON.Color3(0.70, 0.58, 0.36);
   ropeMat.specularColor = new BABYLON.Color3(0, 0, 0);
   ropeMat.flatShaded = true;
 
