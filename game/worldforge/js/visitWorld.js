@@ -3,7 +3,7 @@
 // page navigation, no new tab. Never touches placedObjects/occupiedGrid or
 // calls markDirty(), so the live save can't be corrupted no matter what.
 // Leaving disposes every temporary node and hands the camera + world back.
-import { scene, camera, createLowPolyTree, createLowPolyStone, envMaterials } from "./environment.js";
+import { scene, camera, createLowPolyTree, createLowPolyStone, envMaterials, setScatterVisible } from "./environment.js";
 import { createLowPolyHut } from "./models/hut.js";
 import { createCampfire } from "./models/campfire.js";
 import { createFarm } from "./models/farm.js";

@@ -156,6 +156,149 @@ grid.alpha = 0.28; // Subtle and gentle grid
 grid.isPickable = false;
 grid.freezeWorldMatrix();
 
+// ------------------------------------------------------------
+// MEADOW SCATTER
+// ------------------------------------------------------------
+// Grass tufts, wildflowers and pebbles. Each variant is one thin-instanced
+// mesh, so a few hundred tufts cost a single draw call and add nothing to
+// scene.meshes the way regular instances would.
+//
+// isPickable has to stay false: inputHandlers runs an unfiltered scene.pick()
+// to find a clicked villager, and a pickable blade of grass in front of an
+// NPC's feet would swallow the click.
+const SCATTER_EDGE = HALF_BUILD - 1.5;
+
+// Buildings hide the scatter under their own footprint - a blade of grass
+// poking up through a farm's soil box reads as a rendering glitch, not as a
+// meadow. Tiles are refcounted rather than boolean because visiting renders a
+// second world onto the same ground, and the player's own hidden scatter has
+// to still be hidden when they come back.
+const scatterGroups = [];
+const scatterHidden = new Map();
+
+function scatterPoint(scaleRange) {
+  const x = (Math.random() * 2 - 1) * SCATTER_EDGE;
+  const z = (Math.random() * 2 - 1) * SCATTER_EDGE;
+  const [lo, hi] = scaleRange;
+  const scale = lo + Math.random() * (hi - lo);
+  return {
+    tile: Math.floor(x) + "," + Math.floor(z),
+    matrix: BABYLON.Matrix.Compose(
+      new BABYLON.Vector3(scale, scale, scale),
+      BABYLON.Quaternion.RotationYawPitchRoll(Math.random() * Math.PI * 2, 0, 0),
+      new BABYLON.Vector3(x, 0, z)
+    )
+  };
+}
+
+function scatterPoints(count, scaleRange) {
+  const out = [];
+  for (let i = 0; i < count; i++) out.push(scatterPoint(scaleRange));
+  return out;
+}
+
+function registerScatter(mesh, entries) {
+  mesh.isPickable = false;
+  const buffer = new Float32Array(entries.length * 16);
+  entries.forEach((e, i) => e.matrix.copyToArray(buffer, i * 16));
+  // staticBuffer has to be false or the re-upload in refreshScatter is dropped.
+  mesh.thinInstanceSetBuffer("matrix", buffer, 16, false);
+  mesh.freezeWorldMatrix();
+  scatterGroups.push({ mesh, entries, buffer });
+}
+
+function refreshScatter(group) {
+  let n = 0;
+  for (const e of group.entries) {
+    if (scatterHidden.get(e.tile)) continue;
+    e.matrix.copyToArray(group.buffer, n * 16);
+    n++;
+  }
+  group.mesh.thinInstanceCount = n;
+  group.mesh.thinInstanceBufferUpdated("matrix");
+}
+
+export function setScatterVisible(rootX, rootZ, size, visible) {
+  const touched = new Set();
+  for (let x = rootX; x < rootX + size; x++) {
+    for (let z = rootZ; z < rootZ + size; z++) {
+      const tile = x + "," + z;
+      const next = (scatterHidden.get(tile) || 0) + (visible ? -1 : 1);
+      if (next > 0) scatterHidden.set(tile, next);
+      else scatterHidden.delete(tile);
+      touched.add(tile);
+    }
+  }
+  for (const group of scatterGroups) {
+    if (group.entries.some((e) => touched.has(e.tile))) refreshScatter(group);
+  }
+}
+
+// Three blades merged into one geometry, so a whole tuft is a single instance.
+function buildGrassTuft(name, material) {
+  const blades = [];
+  for (let i = 0; i < 3; i++) {
+    const h = 0.15 + Math.random() * 0.17;
+    const blade = BABYLON.MeshBuilder.CreateBox(name + "_b" + i, { width: 0.05, height: h, depth: 0.022 }, scene);
+    blade.position.set((Math.random() - 0.5) * 0.14, h / 2, (Math.random() - 0.5) * 0.14);
+    blade.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * Math.PI, (Math.random() - 0.5) * 0.5);
+    blades.push(blade);
+  }
+  const tuft = BABYLON.Mesh.MergeMeshes(blades, true, true);
+  tuft.name = name;
+  tuft.material = material;
+  tuft.convertToFlatShadedMesh();
+  return tuft;
+}
+
+// Stem and head are separate meshes because they need different materials, so
+// they are stamped from one shared list of positions and a head always lands
+// on top of its own stem.
+function buildStalk(name, material, height) {
+  const stalk = BABYLON.MeshBuilder.CreateCylinder(name, { height, diameterTop: 0.014, diameterBottom: 0.026, tessellation: 4 }, scene);
+  stalk.position.y = height / 2;
+  stalk.bakeCurrentTransformIntoVertices();
+  stalk.material = material;
+  stalk.convertToFlatShadedMesh();
+  return stalk;
+}
+
+function buildFlowerHead(name, material, y) {
+  const head = BABYLON.MeshBuilder.CreateSphere(name, { diameter: 0.12, segments: 3 }, scene);
+  head.position.y = y;
+  head.bakeCurrentTransformIntoVertices();
+  head.material = material;
+  head.convertToFlatShadedMesh();
+  return head;
+}
+
+function buildPebble(name) {
+  const pebble = BABYLON.MeshBuilder.CreatePolyhedron(name, { type: 1, size: 0.09 }, scene);
+  pebble.position.y = 0.04;
+  pebble.bakeCurrentTransformIntoVertices();
+  pebble.material = envMaterials.stoneDark;
+  pebble.convertToFlatShadedMesh();
+  return pebble;
+}
+
+function buildMeadowScatter() {
+  const grassScale = [0.8, 1.5];
+  registerScatter(buildGrassTuft("grassLight", envMaterials.grass), scatterPoints(260, grassScale));
+  registerScatter(buildGrassTuft("grassDark", envMaterials.grassDark), scatterPoints(200, grassScale));
+
+  const flowers = scatterPoints(114, [0.85, 1.35]);
+  registerScatter(buildStalk("flowerStem", envMaterials.stem, 0.24), flowers);
+
+  const petalMats = [envMaterials.flowerPink, envMaterials.flowerYellow, envMaterials.flowerWhite];
+  const heads = [[], [], []];
+  flowers.forEach((f, i) => heads[i % 3].push(f));
+  petalMats.forEach((mat, i) => registerScatter(buildFlowerHead("flowerHead" + i, mat, 0.26), heads[i]));
+
+  registerScatter(buildPebble("pebbles"), scatterPoints(46, [0.7, 1.6]));
+}
+
+buildMeadowScatter();
+
 // Per-object variation has to be seeded from the object id ("tree_23_28"),
 // not Math.random(). Neither scale nor canopy twist is part of the save format,
 // so a random value would silently reshuffle the whole forest every time the
