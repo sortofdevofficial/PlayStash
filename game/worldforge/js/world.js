@@ -53,7 +53,7 @@ export function instantiateObject(type, rootX, rootZ, size, rotation = 0, extra 
   node.rotation.y = rotation;
   node.position.set(pos.x, 0, pos.z);
 
-  // Otherwise grass pokes up through the building's own floor. Runs for saved
+  // Otherwise stones end up sitting on the building's own floor. Runs for saved
   // worlds too, since restoreWorld goes through here.
   claimScatter(objId, rootX, rootZ, size);
 
@@ -133,7 +133,7 @@ export function removeObjectById(objId, onHoveredCleared, options = {}) {
 
   data.tiles.forEach((t) => occupiedGrid.delete(tileKey(t.x, t.z)));
 
-  // Give the meadow back - otherwise every cleared tile stays a bald patch.
+  // Give the scatter back - otherwise every cleared tile stays a bald patch.
   releaseScatter(objId);
 
   if (data.root) {

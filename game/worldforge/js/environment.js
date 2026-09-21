@@ -29,20 +29,7 @@ export const envMaterials = {
   foliage: createFlatMat("foliageMat", new BABYLON.Color3(0.26, 0.68, 0.28)),
   foliageLight: createFlatMat("foliageLightMat", new BABYLON.Color3(0.40, 0.78, 0.32)),
 
-  // Meadow scatter - both grass shades sit ABOVE the ground tone: a vertical
-  // blade catches less sunlight than the upward-facing ground, so a colour at
-  // or below the ground's renders as a dark speck of dirt, not grass.
-  grass: createFlatMat("grassMat", new BABYLON.Color3(0.50, 0.78, 0.32)),
-  grassDark: createFlatMat("grassDarkMat", new BABYLON.Color3(0.36, 0.62, 0.24)),
-  stem: createFlatMat("stemMat", new BABYLON.Color3(0.46, 0.66, 0.28)),
-
-  flowerPink: createFlatMat("flowerPinkMat", new BABYLON.Color3(0.95, 0.45, 0.55)),
-  flowerYellow: createFlatMat("flowerYellowMat", new BABYLON.Color3(0.98, 0.85, 0.25)),
-  flowerWhite: createFlatMat("flowerWhiteMat", new BABYLON.Color3(0.96, 0.96, 0.92)),
-
-  // Blossom is paler than the wildflower pink so a flowering tree reads from a
-  // distance as softly lit rather than as one big saturated blob.
-  blossom: createFlatMat("blossomMat", new BABYLON.Color3(0.98, 0.74, 0.81)),
+  // Apples on the fruiting trees.
   fruit: createFlatMat("fruitMat", new BABYLON.Color3(0.88, 0.30, 0.24)),
 
   // Shared boulder set - warm granite, its shaded side, and the moss that
@@ -157,22 +144,20 @@ grid.isPickable = false;
 grid.freezeWorldMatrix();
 
 // ------------------------------------------------------------
-// MEADOW SCATTER
+// GROUND SCATTER
 // ------------------------------------------------------------
-// Grass tufts, wildflowers and pebbles. Each variant is one thin-instanced
-// mesh, so a few hundred tufts cost a single draw call and add nothing to
-// scene.meshes the way regular instances would.
+// Pebbles. One thin-instanced mesh, so a few hundred stones cost a single draw
+// call and add nothing to scene.meshes the way regular instances would.
 //
 // isPickable has to stay false: inputHandlers runs an unfiltered scene.pick()
-// to find a clicked villager, and a pickable blade of grass in front of an
-// NPC's feet would swallow the click.
+// to find a clicked villager, and a pickable pebble in front of an NPC's feet
+// would swallow the click.
 const SCATTER_EDGE = HALF_BUILD - 1.5;
 
-// Buildings claim the ground they stand on so no tuft grows through a floor.
-// Claimed as exact rectangles rather than tiles: a farm's soil plot runs right
-// to the edge of its footprint, so tile-granular hiding left tufts leaning on
-// the border, which reads as grass on the floor. The margin clears that lip
-// without the whole-tile ring that would carve bald circles around every tree.
+// Buildings claim the ground they stand on so nothing sits on a floor. Claimed
+// as exact rectangles rather than tiles, because a tile-granular hide leaves
+// stones leaning on a building's border. The margin clears that lip without the
+// whole-tile ring that would carve bald circles around every tree.
 const SCATTER_MARGIN = 0.45;
 const scatterGroups = [];
 const scatterBlocks = new Map(); // key -> { x0, x1, z0, z1 }
@@ -201,21 +186,9 @@ function scatterEntry(x, z, scaleRange) {
   };
 }
 
-function scatterPoints(count, scaleRange) {
-  const out = [];
-  for (let i = 0; i < count; i++) {
-    out.push(scatterEntry(
-      (Math.random() * 2 - 1) * SCATTER_EDGE,
-      (Math.random() * 2 - 1) * SCATTER_EDGE,
-      scaleRange
-    ));
-  }
-  return out;
-}
-
-// Flowers and pebbles grow in drifts, not on a grid: points falling off around
-// a handful of centres read as a meadow from the game camera, while the same
-// count spread uniformly reads as confetti.
+// Stones gather in scree patches rather than spreading evenly: points falling
+// off around a handful of centres read as ground detail, while the same count
+// spread uniformly reads as confetti.
 function driftPoints(count, scaleRange, spread) {
   const drifts = Math.max(8, Math.round(count / 16));
   const centres = [];
@@ -272,44 +245,6 @@ export function releaseScatter(key) {
   scatterGroups.forEach(refreshScatter);
 }
 
-// Three blades merged into one geometry, so a whole tuft is a single instance.
-function buildGrassTuft(name, material) {
-  const blades = [];
-  for (let i = 0; i < 3; i++) {
-    const h = 0.15 + Math.random() * 0.17;
-    const blade = BABYLON.MeshBuilder.CreateBox(name + "_b" + i, { width: 0.05, height: h, depth: 0.022 }, scene);
-    blade.position.set((Math.random() - 0.5) * 0.14, h / 2, (Math.random() - 0.5) * 0.14);
-    blade.rotation.set((Math.random() - 0.5) * 0.9, Math.random() * Math.PI, (Math.random() - 0.5) * 0.9);
-    blades.push(blade);
-  }
-  const tuft = BABYLON.Mesh.MergeMeshes(blades, true, true);
-  tuft.name = name;
-  tuft.material = material;
-  tuft.convertToFlatShadedMesh();
-  return tuft;
-}
-
-// Stem and head are separate meshes because they need different materials, so
-// they are stamped from one shared list of positions and a head always lands
-// on top of its own stem.
-function buildStalk(name, material, height) {
-  const stalk = BABYLON.MeshBuilder.CreateCylinder(name, { height, diameterTop: 0.014, diameterBottom: 0.026, tessellation: 4 }, scene);
-  stalk.position.y = height / 2;
-  stalk.bakeCurrentTransformIntoVertices();
-  stalk.material = material;
-  stalk.convertToFlatShadedMesh();
-  return stalk;
-}
-
-function buildFlowerHead(name, material, y) {
-  const head = BABYLON.MeshBuilder.CreateSphere(name, { diameter: 0.18, segments: 3 }, scene);
-  head.position.y = y;
-  head.bakeCurrentTransformIntoVertices();
-  head.material = material;
-  head.convertToFlatShadedMesh();
-  return head;
-}
-
 function buildPebble(name) {
   const pebble = BABYLON.MeshBuilder.CreatePolyhedron(name, { type: 1, size: 0.09 }, scene);
   pebble.position.y = 0.04;
@@ -319,23 +254,9 @@ function buildPebble(name) {
   return pebble;
 }
 
-function buildMeadowScatter() {
-  const grassScale = [0.9, 1.8];
-  registerScatter(buildGrassTuft("grassLight", envMaterials.grass), scatterPoints(1100, grassScale));
-  registerScatter(buildGrassTuft("grassDark", envMaterials.grassDark), scatterPoints(800, grassScale));
-
-  const flowers = driftPoints(420, [0.9, 1.5], 4.5);
-  registerScatter(buildStalk("flowerStem", envMaterials.stem, 0.32), flowers);
-
-  const petalMats = [envMaterials.flowerPink, envMaterials.flowerYellow, envMaterials.flowerWhite];
-  const heads = [[], [], []];
-  flowers.forEach((f, i) => heads[i % 3].push(f));
-  petalMats.forEach((mat, i) => registerScatter(buildFlowerHead("flowerHead" + i, mat, 0.34), heads[i]));
-
-  registerScatter(buildPebble("pebbles"), driftPoints(110, [0.7, 1.6], 3));
-}
-
-buildMeadowScatter();
+// Pebbles in scree patches rather than uniform noise, so they read as ground
+// detail instead of confetti.
+registerScatter(buildPebble("pebbles"), driftPoints(110, [0.7, 1.6], 3));
 
 // Per-object variation has to be seeded from the object id ("tree_23_28"),
 // not Math.random(). Neither scale nor canopy twist is part of the save format,
@@ -512,27 +433,22 @@ export function createLowPolyTree(name, scene, materials) {
     cluster.parent = canopy;
   });
 
-  // Roughly a third of the forest flowers and a fifth fruits, which is what
-  // stops a grove from reading as the same tree stamped out.
-  const roll = rand();
-  const accentMat = roll < 0.34 ? materials.blossom
-    : roll < 0.54 ? materials.fruit
-    : null;
-
-  if (accentMat) {
-    const accentSpecs = [
+  // A fifth of the trees bear apples, which is what stops a grove from reading
+  // as the same tree stamped out.
+  if (rand() < 0.2) {
+    const fruitSpecs = [
       [-0.55, 3.55, 0.55],
       [0.62, 3.35, -0.3],
       [0.05, 4.42, 0.5]
     ];
-    accentSpecs.forEach(([ax, ay, az], i) => {
-      const accent = BABYLON.MeshBuilder.CreateIcoSphere(name + "_accent" + i, {
-        radius: accentMat === materials.fruit ? 0.13 : 0.26,
+    fruitSpecs.forEach(([ax, ay, az], i) => {
+      const apple = BABYLON.MeshBuilder.CreateIcoSphere(name + "_fruit" + i, {
+        radius: 0.13,
         subdivisions: 1
       }, scene);
-      accent.position.set(ax, ay, az);
-      accent.material = accentMat;
-      accent.parent = canopy;
+      apple.position.set(ax, ay, az);
+      apple.material = materials.fruit;
+      apple.parent = canopy;
     });
   }
 

@@ -35,7 +35,7 @@ const ONE_TILE_TYPES = new Set(["campfire", "well", "stone", "wall", "gate"]);
 function sizeForVisit(type) { return ONE_TILE_TYPES.has(type) ? 1 : 2; }
 
 let visitRoot = null; // a single TransformNode parenting every temporary mesh, so leaving is one .dispose()
-let visitScatter = []; // scatter claim keys this visit took from the grass, replayed by endVisit
+let visitScatter = []; // scatter claim keys this visit took, replayed by endVisit
 let previousCameraState = null;
 let previousMode = null;
 let previousSpectating = false;
@@ -47,7 +47,7 @@ let liveActiveNPCs = null;
 
 export function isVisiting() { return visitRoot !== null; }
 
-// Hands the meadow back. The player's own buildings keep their scatter hidden
+// Hands the scatter back. The player's own buildings keep theirs hidden
 // because claims are keyed per object, so releasing the visit's keys cannot
 // un-hide anything the live world is still standing on.
 function releaseVisitScatter() {
@@ -79,8 +79,8 @@ function buildVisitScene(worldData) {
       objRoot.rotation.y = quadrant * (Math.PI / 2);
       objRoot.parent = visitRoot;
 
-      // The host's buildings stand on the visitor's own meadow, so they have to
-      // claim their ground from the grass or blades poke through their floors.
+      // The host's buildings stand on the visitor's own ground, so they have to
+      // claim it or stones end up sitting on their floors.
       const scatterKey = `visit_${key}`;
       claimScatter(scatterKey, cx, cz, size);
       visitScatter.push(scatterKey);
