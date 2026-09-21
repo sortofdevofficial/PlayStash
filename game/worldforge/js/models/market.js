@@ -7,17 +7,14 @@ export function createMarket(id, scene) {
   const woodMat = new BABYLON.StandardMaterial(id + "_wMat", scene);
   woodMat.diffuseColor = new BABYLON.Color3(0.48, 0.32, 0.18); // warm timber
   woodMat.specularColor = new BABYLON.Color3(0, 0, 0);
-  woodMat.flatShaded = true;
 
   const clothMat = new BABYLON.StandardMaterial(id + "_cMat", scene);
   clothMat.diffuseColor = new BABYLON.Color3(0.88, 0.35, 0.28); // cozy cranberry red
   clothMat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
-  clothMat.flatShaded = true;
 
   const clothWhiteMat = new BABYLON.StandardMaterial(id + "_cwMat", scene);
   clothWhiteMat.diffuseColor = new BABYLON.Color3(0.96, 0.94, 0.88); // warm cream
   clothWhiteMat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
-  clothWhiteMat.flatShaded = true;
 
   const goldMat = new BABYLON.StandardMaterial(id + "_gMat", scene);
   goldMat.diffuseColor = new BABYLON.Color3(0.98, 0.82, 0.25); // golden coins

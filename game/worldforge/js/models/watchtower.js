@@ -7,32 +7,26 @@ export function createWatchtower(id, scene) {
   const woodMat = new BABYLON.StandardMaterial(id + "_wMat", scene);
   woodMat.diffuseColor = new BABYLON.Color3(0.52, 0.35, 0.20); // Warm cedar
   woodMat.specularColor = new BABYLON.Color3(0, 0, 0);
-  woodMat.flatShaded = true;
 
   const darkWoodMat = new BABYLON.StandardMaterial(id + "_dwMat", scene);
   darkWoodMat.diffuseColor = new BABYLON.Color3(0.38, 0.24, 0.14); // Warm mahogany/treated wood
   darkWoodMat.specularColor = new BABYLON.Color3(0, 0, 0);
-  darkWoodMat.flatShaded = true;
 
   const stoneMat = new BABYLON.StandardMaterial(id + "_sMat", scene);
   stoneMat.diffuseColor = new BABYLON.Color3(0.52, 0.51, 0.48); // Warm slate grey
   stoneMat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
-  stoneMat.flatShaded = true;
 
   const thatchMat = new BABYLON.StandardMaterial(id + "_thMat", scene);
   thatchMat.diffuseColor = new BABYLON.Color3(0.78, 0.64, 0.28); // Warm golden straw
   thatchMat.specularColor = new BABYLON.Color3(0, 0, 0);
-  thatchMat.flatShaded = true;
 
   const ropeMat = new BABYLON.StandardMaterial(id + "_rMat", scene);
   ropeMat.diffuseColor = new BABYLON.Color3(0.7, 0.6, 0.4); 
   ropeMat.specularColor = new BABYLON.Color3(0, 0, 0);
-  ropeMat.flatShaded = true;
 
   const metalMat = new BABYLON.StandardMaterial(id + "_mMat", scene);
   metalMat.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
   metalMat.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
-  metalMat.flatShaded = true;
 
   const lanternMat = new BABYLON.StandardMaterial(id + "_lMat", scene);
   lanternMat.emissiveColor = new BABYLON.Color3(1, 0.8, 0.3); // Glowing yellow

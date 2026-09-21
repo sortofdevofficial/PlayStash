@@ -4,7 +4,6 @@ function createFlatHutMat(id, suffix, scene, color) {
   const mat = new BABYLON.StandardMaterial(id + suffix, scene);
   mat.diffuseColor = color;
   mat.specularColor = new BABYLON.Color3(0, 0, 0);
-  mat.flatShaded = true;
   return mat;
 }
 

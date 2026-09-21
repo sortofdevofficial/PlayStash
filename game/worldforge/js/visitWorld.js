@@ -35,6 +35,7 @@ const ONE_TILE_TYPES = new Set(["campfire", "well", "stone", "wall", "gate"]);
 function sizeForVisit(type) { return ONE_TILE_TYPES.has(type) ? 1 : 2; }
 
 let visitRoot = null; // a single TransformNode parenting every temporary mesh, so leaving is one .dispose()
+let visitScatter = []; // { x, z, size } tiles this visit claimed from the grass, replayed by endVisit
 let previousCameraState = null;
 let previousMode = null;
 let previousSpectating = false;
@@ -46,8 +47,17 @@ let liveActiveNPCs = null;
 
 export function isVisiting() { return visitRoot !== null; }
 
+// Hands the meadow back. The player's own buildings keep their scatter hidden
+// because setScatterVisible refcounts per tile, so releasing the visit's claim
+// cannot un-hide anything the live world is still standing on.
+function releaseVisitScatter() {
+  visitScatter.forEach((t) => setScatterVisible(t.x, t.z, t.size, true));
+  visitScatter = [];
+}
+
 function buildVisitScene(worldData) {
   visitRoot = new BABYLON.TransformNode("visitRoot", scene);
+  visitScatter = [];
 
   let buildingCount = 0;
   if (worldData.b) {
@@ -60,13 +70,20 @@ function buildVisitScene(worldData) {
       const [cx, cz] = String(node?.c || "").split(",").map(Number);
       if (!Number.isFinite(cx) || !Number.isFinite(cz)) return;
 
-      const pos = gridToWorldCenter(cx, cz, sizeForVisit(type));
+      const size = sizeForVisit(type);
+      const pos = gridToWorldCenter(cx, cz, size);
       const quadrant = Number.isFinite(node.r) ? ((Math.round(node.r) % 4) + 4) % 4 : 0;
 
       const objRoot = builder(`visit_${key}`, scene);
       objRoot.position.set(pos.x, 0, pos.z);
       objRoot.rotation.y = quadrant * (Math.PI / 2);
       objRoot.parent = visitRoot;
+
+      // The host's buildings stand on the visitor's own meadow, so they have to
+      // claim their tiles from the grass or blades poke through their floors.
+      setScatterVisible(cx, cz, size, false);
+      visitScatter.push({ x: cx, z: cz, size });
+
       buildingCount++;
     });
   }
@@ -112,6 +129,7 @@ export async function startVisit(uid, hostName, placedObjects, activeNPCs) {
     // them with an invisible village and no way back short of a reload.
     console.warn("[visit] Failed to render world:", err);
     if (visitRoot) { visitRoot.dispose(false, true); visitRoot = null; }
+    releaseVisitScatter();
     setOwnWorldVisible(true, placedObjects, activeNPCs);
     state.isSpectating = previousSpectating;
     state.mode = previousMode || "none";
@@ -143,6 +161,7 @@ export function endVisit(placedObjects = livePlacedObjects, activeNPCs = liveAct
   if (!isVisiting()) return;
   visitRoot.dispose(false, true);
   visitRoot = null;
+  releaseVisitScatter();
   hideBanner();
   setOwnWorldVisible(true, placedObjects, activeNPCs);
 

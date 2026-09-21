@@ -8,7 +8,6 @@ export function createWell(id, scene) {
     const m = new BABYLON.StandardMaterial(id + suffix, scene);
     m.diffuseColor = new BABYLON.Color3(r, g, b);
     m.specularColor = new BABYLON.Color3(specR, specG, specB);
-    m.flatShaded = true;
     return m;
   }
 

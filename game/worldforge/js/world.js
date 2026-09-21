@@ -5,6 +5,7 @@ import { createWatchtower } from "./models/watchtower.js";
 import { createWell } from "./models/well.js";
 import { createStorage } from "./models/storage.js";
 import { createMarket } from "./models/market.js";
+import { createWallSegment, createGate } from "./models/wall.js";
 import { envMaterials, createLowPolyTree, createLowPolyStone, shadowGen, setScatterVisible } from "./environment.js";
 import {
   BOUND_MIN, BOUND_MAX, tileKey, gridToWorldCenter,
@@ -14,7 +15,7 @@ import { state, showNotif, getResourceCap, RESOURCE_NAMES, addResourceClamped } 
 import { playSound } from "./audio.js";
 import { RESOURCE_KEY_BY_SHORT, TYPE_BY_CODE, markDirty } from "./db.js";
 
-const ONE_TILE_TYPES = new Set(["campfire", "well", "stone"]);
+const ONE_TILE_TYPES = new Set(["campfire", "well", "stone", "wall", "gate"]);
 export function sizeFor(type) { return ONE_TILE_TYPES.has(type) ? 1 : 2; }
 export function getFootprintSize() { return sizeFor(state.buildType); }
 
@@ -39,6 +40,8 @@ export function buildNode(type, objId) {
   if (type === "tower") return createWatchtower(objId, scene);
   if (type === "well") return createWell(objId, scene);
   if (type === "storage") return createStorage(objId, scene);
+  if (type === "wall") return createWallSegment(objId, scene);
+  if (type === "gate") return createGate(objId, scene);
   return createMarket(objId, scene);
 }
 

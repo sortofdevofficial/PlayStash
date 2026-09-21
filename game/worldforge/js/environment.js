@@ -15,7 +15,6 @@ function createFlatMat(name, color) {
   const mat = new BABYLON.StandardMaterial(name, scene);
   mat.diffuseColor = color;
   mat.specularColor = new BABYLON.Color3(0, 0, 0);
-  mat.flatShaded = true;
   return mat;
 }
 
@@ -30,11 +29,12 @@ export const envMaterials = {
   foliage: createFlatMat("foliageMat", new BABYLON.Color3(0.26, 0.68, 0.28)),
   foliageLight: createFlatMat("foliageLightMat", new BABYLON.Color3(0.40, 0.78, 0.32)),
 
-  // Meadow scatter - two grass shades so a field of tufts does not read as one
-  // flat colour, plus the stem green the wildflowers stand on.
-  grass: createFlatMat("grassMat", new BABYLON.Color3(0.34, 0.60, 0.26)),
-  grassDark: createFlatMat("grassDarkMat", new BABYLON.Color3(0.25, 0.47, 0.19)),
-  stem: createFlatMat("stemMat", new BABYLON.Color3(0.42, 0.62, 0.26)),
+  // Meadow scatter - both grass shades sit ABOVE the ground tone: a vertical
+  // blade catches less sunlight than the upward-facing ground, so a colour at
+  // or below the ground's renders as a dark speck of dirt, not grass.
+  grass: createFlatMat("grassMat", new BABYLON.Color3(0.50, 0.78, 0.32)),
+  grassDark: createFlatMat("grassDarkMat", new BABYLON.Color3(0.36, 0.62, 0.24)),
+  stem: createFlatMat("stemMat", new BABYLON.Color3(0.46, 0.66, 0.28)),
 
   flowerPink: createFlatMat("flowerPinkMat", new BABYLON.Color3(0.95, 0.45, 0.55)),
   flowerYellow: createFlatMat("flowerYellowMat", new BABYLON.Color3(0.98, 0.85, 0.25)),
@@ -176,9 +176,7 @@ const SCATTER_EDGE = HALF_BUILD - 1.5;
 const scatterGroups = [];
 const scatterHidden = new Map();
 
-function scatterPoint(scaleRange) {
-  const x = (Math.random() * 2 - 1) * SCATTER_EDGE;
-  const z = (Math.random() * 2 - 1) * SCATTER_EDGE;
+function scatterEntry(x, z, scaleRange) {
   const [lo, hi] = scaleRange;
   const scale = lo + Math.random() * (hi - lo);
   return {
@@ -193,7 +191,36 @@ function scatterPoint(scaleRange) {
 
 function scatterPoints(count, scaleRange) {
   const out = [];
-  for (let i = 0; i < count; i++) out.push(scatterPoint(scaleRange));
+  for (let i = 0; i < count; i++) {
+    out.push(scatterEntry(
+      (Math.random() * 2 - 1) * SCATTER_EDGE,
+      (Math.random() * 2 - 1) * SCATTER_EDGE,
+      scaleRange
+    ));
+  }
+  return out;
+}
+
+// Flowers and pebbles grow in drifts, not on a grid: points falling off around
+// a handful of centres read as a meadow from the game camera, while the same
+// count spread uniformly reads as confetti.
+function driftPoints(count, scaleRange, spread) {
+  const drifts = Math.max(8, Math.round(count / 16));
+  const centres = [];
+  for (let i = 0; i < drifts; i++) {
+    centres.push([
+      (Math.random() * 2 - 1) * SCATTER_EDGE * 0.9,
+      (Math.random() * 2 - 1) * SCATTER_EDGE * 0.9
+    ]);
+  }
+  const clamp = (v) => Math.max(-SCATTER_EDGE, Math.min(SCATTER_EDGE, v));
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const [cx, cz] = centres[i % drifts];
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.random() * Math.random() * spread;
+    out.push(scatterEntry(clamp(cx + Math.cos(a) * r), clamp(cz + Math.sin(a) * r), scaleRange));
+  }
   return out;
 }
 
@@ -241,7 +268,7 @@ function buildGrassTuft(name, material) {
     const h = 0.15 + Math.random() * 0.17;
     const blade = BABYLON.MeshBuilder.CreateBox(name + "_b" + i, { width: 0.05, height: h, depth: 0.022 }, scene);
     blade.position.set((Math.random() - 0.5) * 0.14, h / 2, (Math.random() - 0.5) * 0.14);
-    blade.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * Math.PI, (Math.random() - 0.5) * 0.5);
+    blade.rotation.set((Math.random() - 0.5) * 0.9, Math.random() * Math.PI, (Math.random() - 0.5) * 0.9);
     blades.push(blade);
   }
   const tuft = BABYLON.Mesh.MergeMeshes(blades, true, true);
@@ -264,7 +291,7 @@ function buildStalk(name, material, height) {
 }
 
 function buildFlowerHead(name, material, y) {
-  const head = BABYLON.MeshBuilder.CreateSphere(name, { diameter: 0.12, segments: 3 }, scene);
+  const head = BABYLON.MeshBuilder.CreateSphere(name, { diameter: 0.18, segments: 3 }, scene);
   head.position.y = y;
   head.bakeCurrentTransformIntoVertices();
   head.material = material;
@@ -282,19 +309,19 @@ function buildPebble(name) {
 }
 
 function buildMeadowScatter() {
-  const grassScale = [0.8, 1.5];
-  registerScatter(buildGrassTuft("grassLight", envMaterials.grass), scatterPoints(260, grassScale));
-  registerScatter(buildGrassTuft("grassDark", envMaterials.grassDark), scatterPoints(200, grassScale));
+  const grassScale = [0.9, 1.8];
+  registerScatter(buildGrassTuft("grassLight", envMaterials.grass), scatterPoints(1100, grassScale));
+  registerScatter(buildGrassTuft("grassDark", envMaterials.grassDark), scatterPoints(800, grassScale));
 
-  const flowers = scatterPoints(114, [0.85, 1.35]);
-  registerScatter(buildStalk("flowerStem", envMaterials.stem, 0.24), flowers);
+  const flowers = driftPoints(420, [0.9, 1.5], 4.5);
+  registerScatter(buildStalk("flowerStem", envMaterials.stem, 0.32), flowers);
 
   const petalMats = [envMaterials.flowerPink, envMaterials.flowerYellow, envMaterials.flowerWhite];
   const heads = [[], [], []];
   flowers.forEach((f, i) => heads[i % 3].push(f));
-  petalMats.forEach((mat, i) => registerScatter(buildFlowerHead("flowerHead" + i, mat, 0.26), heads[i]));
+  petalMats.forEach((mat, i) => registerScatter(buildFlowerHead("flowerHead" + i, mat, 0.34), heads[i]));
 
-  registerScatter(buildPebble("pebbles"), scatterPoints(46, [0.7, 1.6]));
+  registerScatter(buildPebble("pebbles"), driftPoints(110, [0.7, 1.6], 3));
 }
 
 buildMeadowScatter();
