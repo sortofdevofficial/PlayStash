@@ -29,9 +29,27 @@ export const envMaterials = {
   // Vibrant, rich leafy foliage
   foliage: createFlatMat("foliageMat", new BABYLON.Color3(0.26, 0.68, 0.28)),
   foliageLight: createFlatMat("foliageLightMat", new BABYLON.Color3(0.40, 0.78, 0.32)),
+
+  // Meadow scatter - two grass shades so a field of tufts does not read as one
+  // flat colour, plus the stem green the wildflowers stand on.
+  grass: createFlatMat("grassMat", new BABYLON.Color3(0.34, 0.60, 0.26)),
+  grassDark: createFlatMat("grassDarkMat", new BABYLON.Color3(0.25, 0.47, 0.19)),
+  stem: createFlatMat("stemMat", new BABYLON.Color3(0.42, 0.62, 0.26)),
+
   flowerPink: createFlatMat("flowerPinkMat", new BABYLON.Color3(0.95, 0.45, 0.55)),
   flowerYellow: createFlatMat("flowerYellowMat", new BABYLON.Color3(0.98, 0.85, 0.25)),
-  flowerWhite: createFlatMat("flowerWhiteMat", new BABYLON.Color3(0.96, 0.96, 0.92))
+  flowerWhite: createFlatMat("flowerWhiteMat", new BABYLON.Color3(0.96, 0.96, 0.92)),
+
+  // Blossom is paler than the wildflower pink so a flowering tree reads from a
+  // distance as softly lit rather than as one big saturated blob.
+  blossom: createFlatMat("blossomMat", new BABYLON.Color3(0.98, 0.74, 0.81)),
+  fruit: createFlatMat("fruitMat", new BABYLON.Color3(0.88, 0.30, 0.24)),
+
+  // Shared boulder set - warm granite, its shaded side, and the moss that
+  // settles on top.
+  stone: createFlatMat("stoneMat", new BABYLON.Color3(0.56, 0.54, 0.51)),
+  stoneDark: createFlatMat("stoneDarkMat", new BABYLON.Color3(0.42, 0.41, 0.38)),
+  moss: createFlatMat("mossMat", new BABYLON.Color3(0.42, 0.65, 0.28))
 };
 
 scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
