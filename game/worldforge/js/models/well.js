@@ -24,10 +24,6 @@ export function createWell(id, scene) {
   waterMat.alpha = 0.88;
   waterMat.emissiveColor = new BABYLON.Color3(0.08, 0.22, 0.32);
 
-  // Vine / flower mats
-  const vineMat    = mat("_vn",  0.22, 0.42, 0.18);
-  const flowerMat  = mat("_fl",  0.92, 0.42, 0.55); // soft pink flower
-
   // --- Chunky cobblestone ring wall ---
   // 8 large uneven stones arranged in a ring for a hand-built feel
   const ringSegs = 8;
@@ -124,29 +120,6 @@ export function createWell(id, scene) {
   hoop.position.set(0.30, 0.64, 0);
   hoop.material = bucketBand;
   hoop.parent = root;
-
-  // --- Vine & flower decoration at the base ---
-  // 3 small vine leaves around the base of the well
-  const vineOffsets = [
-    [0.60, 0.22, -0.18],
-    [-0.58, 0.18, 0.22],
-    [-0.10, 0.20, 0.60],
-  ];
-  vineOffsets.forEach(([vx, vy, vz], i) => {
-    const vine = BABYLON.MeshBuilder.CreateSphere(id + "_vine_" + i, { diameter: 0.12, segments: 3 }, scene);
-    vine.scaling.set(1.6, 0.55, 1.3);
-    vine.position.set(vx, vy, vz);
-    vine.material = vineMat;
-    vine.parent = root;
-
-    // Tiny flower on top of some vines
-    if (i % 2 === 0) {
-      const flower = BABYLON.MeshBuilder.CreateSphere(id + "_flower_" + i, { diameter: 0.08, segments: 3 }, scene);
-      flower.position.set(vx, vy + 0.09, vz);
-      flower.material = flowerMat;
-      flower.parent = root;
-    }
-  });
 
   return flatShade(root);
 }

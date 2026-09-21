@@ -168,19 +168,31 @@ grid.freezeWorldMatrix();
 // NPC's feet would swallow the click.
 const SCATTER_EDGE = HALF_BUILD - 1.5;
 
-// Buildings hide the scatter under their own footprint - a blade of grass
-// poking up through a farm's soil box reads as a rendering glitch, not as a
-// meadow. Tiles are refcounted rather than boolean because visiting renders a
-// second world onto the same ground, and the player's own hidden scatter has
-// to still be hidden when they come back.
+// Buildings claim the ground they stand on so no tuft grows through a floor.
+// Claimed as exact rectangles rather than tiles: a farm's soil plot runs right
+// to the edge of its footprint, so tile-granular hiding left tufts leaning on
+// the border, which reads as grass on the floor. The margin clears that lip
+// without the whole-tile ring that would carve bald circles around every tree.
+const SCATTER_MARGIN = 0.45;
 const scatterGroups = [];
-const scatterHidden = new Map();
+const scatterBlocks = new Map(); // key -> { x0, x1, z0, z1 }
+
+// Visiting renders a second world onto the same ground, so claims are keyed by
+// object rather than counted - the host's buildings and the player's own have
+// to be releasable independently.
+function isBlocked(x, z) {
+  for (const b of scatterBlocks.values()) {
+    if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) return true;
+  }
+  return false;
+}
 
 function scatterEntry(x, z, scaleRange) {
   const [lo, hi] = scaleRange;
   const scale = lo + Math.random() * (hi - lo);
   return {
-    tile: Math.floor(x) + "," + Math.floor(z),
+    x,
+    z,
     matrix: BABYLON.Matrix.Compose(
       new BABYLON.Vector3(scale, scale, scale),
       BABYLON.Quaternion.RotationYawPitchRoll(Math.random() * Math.PI * 2, 0, 0),
@@ -237,7 +249,7 @@ function registerScatter(mesh, entries) {
 function refreshScatter(group) {
   let n = 0;
   for (const e of group.entries) {
-    if (scatterHidden.get(e.tile)) continue;
+    if (isBlocked(e.x, e.z)) continue;
     e.matrix.copyToArray(group.buffer, n * 16);
     n++;
   }
@@ -245,20 +257,19 @@ function refreshScatter(group) {
   group.mesh.thinInstanceBufferUpdated("matrix");
 }
 
-export function setScatterVisible(rootX, rootZ, size, visible) {
-  const touched = new Set();
-  for (let x = rootX; x < rootX + size; x++) {
-    for (let z = rootZ; z < rootZ + size; z++) {
-      const tile = x + "," + z;
-      const next = (scatterHidden.get(tile) || 0) + (visible ? -1 : 1);
-      if (next > 0) scatterHidden.set(tile, next);
-      else scatterHidden.delete(tile);
-      touched.add(tile);
-    }
-  }
-  for (const group of scatterGroups) {
-    if (group.entries.some((e) => touched.has(e.tile))) refreshScatter(group);
-  }
+export function claimScatter(key, rootX, rootZ, size) {
+  scatterBlocks.set(key, {
+    x0: rootX - SCATTER_MARGIN,
+    x1: rootX + size + SCATTER_MARGIN,
+    z0: rootZ - SCATTER_MARGIN,
+    z1: rootZ + size + SCATTER_MARGIN
+  });
+  scatterGroups.forEach(refreshScatter);
+}
+
+export function releaseScatter(key) {
+  if (!scatterBlocks.delete(key)) return;
+  scatterGroups.forEach(refreshScatter);
 }
 
 // Three blades merged into one geometry, so a whole tuft is a single instance.
@@ -404,24 +415,6 @@ export function createLowPolyStone(id, scene) {
   tinyRock.rotation.set(0.1, 0.8, 0.4);
   tinyRock.material = envMaterials.stone;
   tinyRock.parent = body;
-
-  // A little mushroom and a daisy growing off the moss, so a boulder reads as
-  // something the village walked past for years rather than a fresh spawn.
-  const shroomStem = BABYLON.MeshBuilder.CreateCylinder(id + "_shroomStem", { height: 0.12, diameter: 0.04, tessellation: 5 }, scene);
-  shroomStem.position.set(-0.16, 0.72, 0.18);
-  shroomStem.material = envMaterials.flowerWhite;
-  shroomStem.parent = body;
-
-  const shroomCap = BABYLON.MeshBuilder.CreateSphere(id + "_shroomCap", { diameter: 0.15, segments: 4 }, scene);
-  shroomCap.scaling.set(1.15, 0.6, 1.15);
-  shroomCap.position.set(-0.16, 0.79, 0.18);
-  shroomCap.material = envMaterials.fruit;
-  shroomCap.parent = body;
-
-  const daisy = BABYLON.MeshBuilder.CreateSphere(id + "_daisy", { diameter: 0.1, segments: 3 }, scene);
-  daisy.position.set(0.24, 0.72, -0.1);
-  daisy.material = envMaterials.flowerYellow;
-  daisy.parent = body;
 
   return flatShade(root);
 }

@@ -23,9 +23,9 @@ export function createFarm(id, scene) {
   wheatMat.diffuseColor = new BABYLON.Color3(0.96, 0.78, 0.26); // warm golden ripe wheat
   wheatMat.specularColor = new BABYLON.Color3(0, 0, 0);
 
-  const pumpkinMat = new BABYLON.StandardMaterial(id + "_pumpkinMat", scene);
-  pumpkinMat.diffuseColor = new BABYLON.Color3(0.95, 0.52, 0.12); // cozy orange pumpkin
-  pumpkinMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+  const wheatLightMat = new BABYLON.StandardMaterial(id + "_wheatMatL", scene);
+  wheatLightMat.diffuseColor = new BABYLON.Color3(0.99, 0.87, 0.45); // sun-bleached ears
+  wheatLightMat.specularColor = new BABYLON.Color3(0, 0, 0);
 
   // Base soil plot, sized for a 2x2 footprint
   const soil = BABYLON.MeshBuilder.CreateBox(id + "_soil", { width: 1.9, height: 0.1, depth: 1.9 }, scene);
@@ -55,47 +55,38 @@ export function createFarm(id, scene) {
     furrow.parent = root;
   }
 
-  // Dense wheat rows — each stalk gets its own pivot node so it can wiggle independently
+  // Dense wheat rows - each stalk gets its own pivot node so it can wiggle
+  // independently.
   const stalks = [];
-  const rows = 5;
-  const cols = 5;
+  const rows = 6;
+  const cols = 6;
   for (let ix = 0; ix < cols; ix++) {
     for (let iz = 0; iz < rows; iz++) {
-      const x = -0.72 + (ix / (cols - 1)) * 1.44 + (Math.random() - 0.5) * 0.06;
-      const z = -0.72 + (iz / (rows - 1)) * 1.44 + (Math.random() - 0.5) * 0.06;
+      const x = -0.74 + (ix / (cols - 1)) * 1.48 + (Math.random() - 0.5) * 0.05;
+      const z = -0.74 + (iz / (rows - 1)) * 1.48 + (Math.random() - 0.5) * 0.05;
       const idx = ix * rows + iz;
 
       const pivot = new BABYLON.TransformNode(id + "_stalkPivot_" + idx, scene);
       pivot.position.set(x, 0.1, z);
       pivot.parent = root;
 
-      const stalkHeight = 0.32 + Math.random() * 0.14;
-      const stalk = BABYLON.MeshBuilder.CreateCylinder(id + "_stalk_" + idx, { height: stalkHeight, diameterTop: 0.02, diameterBottom: 0.035, tessellation: 4 }, scene);
+      const stalkHeight = 0.38 + Math.random() * 0.2;
+      const stalk = BABYLON.MeshBuilder.CreateCylinder(id + "_stalk_" + idx, { height: stalkHeight, diameterTop: 0.016, diameterBottom: 0.032, tessellation: 4 }, scene);
       stalk.position.y = stalkHeight / 2;
       stalk.material = stalkMat;
       stalk.parent = pivot;
 
-      const head = BABYLON.MeshBuilder.CreateBox(id + "_head_" + idx, { width: 0.07, height: 0.16, depth: 0.07 }, scene);
-      head.position.y = stalkHeight + 0.06;
-      head.material = wheatMat;
-      head.parent = pivot;
+      // Tapered ear rather than a cube head: the widest point sits just under
+      // the tip so it catches a highlight the way a grain head does.
+      const ear = BABYLON.MeshBuilder.CreateCylinder(id + "_ear_" + idx, { height: 0.21, diameterTop: 0.028, diameterBottom: 0.078, tessellation: 5 }, scene);
+      ear.position.y = stalkHeight + 0.08;
+      ear.rotation.x = (Math.random() - 0.5) * 0.22;
+      ear.material = (ix + iz) % 3 === 0 ? wheatLightMat : wheatMat;
+      ear.parent = pivot;
 
       stalks.push({ pivot, phase: Math.random() * Math.PI * 2, speed: 0.8 + Math.random() * 0.5 });
     }
   }
-
-  // Cute low-poly corner pumpkin patch details
-  const pumpkin = BABYLON.MeshBuilder.CreateSphere(id + "_pumpkin", { diameter: 0.28, segments: 5 }, scene);
-  pumpkin.scaling.set(1.15, 0.85, 1.1);
-  pumpkin.position.set(0.72, 0.16, 0.72);
-  pumpkin.material = pumpkinMat;
-  pumpkin.parent = root;
-
-  const stem = BABYLON.MeshBuilder.CreateCylinder(id + "_pStem", { height: 0.08, diameter: 0.03, tessellation: 4 }, scene);
-  stem.position.set(0.72, 0.28, 0.72);
-  stem.rotation.z = 0.2;
-  stem.material = stalkMat;
-  stem.parent = root;
 
   root.metadata = { stalks };
   return flatShade(root);

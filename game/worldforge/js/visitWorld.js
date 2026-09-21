@@ -3,7 +3,7 @@
 // page navigation, no new tab. Never touches placedObjects/occupiedGrid or
 // calls markDirty(), so the live save can't be corrupted no matter what.
 // Leaving disposes every temporary node and hands the camera + world back.
-import { scene, camera, createLowPolyTree, createLowPolyStone, envMaterials, setScatterVisible } from "./environment.js";
+import { scene, camera, createLowPolyTree, createLowPolyStone, envMaterials, claimScatter, releaseScatter } from "./environment.js";
 import { createLowPolyHut } from "./models/hut.js";
 import { createCampfire } from "./models/campfire.js";
 import { createFarm } from "./models/farm.js";
@@ -35,7 +35,7 @@ const ONE_TILE_TYPES = new Set(["campfire", "well", "stone", "wall", "gate"]);
 function sizeForVisit(type) { return ONE_TILE_TYPES.has(type) ? 1 : 2; }
 
 let visitRoot = null; // a single TransformNode parenting every temporary mesh, so leaving is one .dispose()
-let visitScatter = []; // { x, z, size } tiles this visit claimed from the grass, replayed by endVisit
+let visitScatter = []; // scatter claim keys this visit took from the grass, replayed by endVisit
 let previousCameraState = null;
 let previousMode = null;
 let previousSpectating = false;
@@ -48,10 +48,10 @@ let liveActiveNPCs = null;
 export function isVisiting() { return visitRoot !== null; }
 
 // Hands the meadow back. The player's own buildings keep their scatter hidden
-// because setScatterVisible refcounts per tile, so releasing the visit's claim
-// cannot un-hide anything the live world is still standing on.
+// because claims are keyed per object, so releasing the visit's keys cannot
+// un-hide anything the live world is still standing on.
 function releaseVisitScatter() {
-  visitScatter.forEach((t) => setScatterVisible(t.x, t.z, t.size, true));
+  visitScatter.forEach((key) => releaseScatter(key));
   visitScatter = [];
 }
 
@@ -80,9 +80,10 @@ function buildVisitScene(worldData) {
       objRoot.parent = visitRoot;
 
       // The host's buildings stand on the visitor's own meadow, so they have to
-      // claim their tiles from the grass or blades poke through their floors.
-      setScatterVisible(cx, cz, size, false);
-      visitScatter.push({ x: cx, z: cz, size });
+      // claim their ground from the grass or blades poke through their floors.
+      const scatterKey = `visit_${key}`;
+      claimScatter(scatterKey, cx, cz, size);
+      visitScatter.push(scatterKey);
 
       buildingCount++;
     });

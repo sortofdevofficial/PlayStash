@@ -6,7 +6,7 @@ import { createWell } from "./models/well.js";
 import { createStorage } from "./models/storage.js";
 import { createMarket } from "./models/market.js";
 import { createWallSegment, createGate } from "./models/wall.js";
-import { envMaterials, createLowPolyTree, createLowPolyStone, shadowGen, setScatterVisible } from "./environment.js";
+import { envMaterials, createLowPolyTree, createLowPolyStone, shadowGen, claimScatter, releaseScatter } from "./environment.js";
 import {
   BOUND_MIN, BOUND_MAX, tileKey, gridToWorldCenter,
   getFootprintTiles, isFootprintValid, isTileNearStructure, restoreNPC, setNpcIdSeed
@@ -55,7 +55,7 @@ export function instantiateObject(type, rootX, rootZ, size, rotation = 0, extra 
 
   // Otherwise grass pokes up through the building's own floor. Runs for saved
   // worlds too, since restoreWorld goes through here.
-  setScatterVisible(rootX, rootZ, size, false);
+  claimScatter(objId, rootX, rootZ, size);
 
   node.getChildMeshes().forEach((m) => {
     m.metadata = { objId, rootX, rootZ, type, size };
@@ -134,7 +134,7 @@ export function removeObjectById(objId, onHoveredCleared, options = {}) {
   data.tiles.forEach((t) => occupiedGrid.delete(tileKey(t.x, t.z)));
 
   // Give the meadow back - otherwise every cleared tile stays a bald patch.
-  setScatterVisible(data.rootX, data.rootZ, data.size, true);
+  releaseScatter(objId);
 
   if (data.root) {
     createPoofParticles(data.root.position, data.type === "tree" ? "#4CAF50" : "#FFFFFF");
