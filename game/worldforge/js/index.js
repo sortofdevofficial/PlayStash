@@ -144,7 +144,7 @@ function initPlayStashHandler() {
   const playStashBtn = document.getElementById("menuPlayStashBtn");
   if (playStashBtn) {
     playStashBtn.addEventListener("click", () => {
-      window.location.href = "https://sortofdevofficial.github.io/PlayStash/";
+      window.location.href = playStashBtn.dataset.href || "https://playstash.vercel.app";
     });
   }
 }
