@@ -14,7 +14,7 @@ import {
 import {
   getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs
 } from "./npcBrain.js";
-import { state, updateResourceUI, showNotif, initRewards } from "./ui.js";
+import { state, updateResourceUI, showNotif } from "./ui.js";
 import {
   authReady, loadSave, loadWorldByUid, initAutosave, markDirty,
   getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser, getJoinTimes, initPresence
@@ -235,7 +235,6 @@ initAuthHandlers();
 initPlayStashHandler();
 initMenuHandler();
 initWelcomeBack();
-initRewards({ getPlacedObjects: () => placedObjects, onChanged: onWorldChanged, markDirty, isSpectating: () => state.isSpectating });
 if (isTouchDevice) initMobileControls();
 
 function startWorldTicks() {
@@ -352,7 +351,7 @@ async function boot() {
 updateResourceUI(0, 0, placedObjects);
 boot();
 
-window.__worldforge = {
+if (new URLSearchParams(location.search).get("debug") === "1") window.__worldforge = {
   placedObjects, activeNPCs, state, occupiedGrid,
   serializeWorld, restoreWorld, instantiateObject, getPlayerId
 };

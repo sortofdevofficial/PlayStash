@@ -3,6 +3,42 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+  <!-- Basic hardening: blocks plugin embeds and <base> tag injection. (Kept loose on purpose so Monetag ads still load.) -->
+  <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'">
+
+  <script>
+  // ---------------------------------------------------------------------------
+  // LOCK-DOWN (deterrent only - it cannot stop a determined user, see notes)
+  //  * silences console output           * blocks right-click / long-press menu
+  //  * blocks copy / cut / paste / drag  * blocks F12, Ctrl+Shift+I/J/C/K, Ctrl+U (and Mac equivalents)
+  // Owner debug switch: open the game with  ?debug=1  to get console output back.
+  // ---------------------------------------------------------------------------
+  (function () {
+    var debug = false;
+    try { debug = /[?&]debug=1(&|$)/.test(location.search) || localStorage.getItem('wf_debug') === '1'; } catch (e) {}
+    if (debug) return;
+
+    ['log', 'info', 'debug', 'warn', 'error', 'trace', 'table', 'dir', 'dirxml', 'group', 'groupCollapsed',
+     'groupEnd', 'time', 'timeEnd', 'count', 'assert'].forEach(function (m) {
+      try { console[m] = function () {}; } catch (e) {}
+    });
+
+    var stop = function (e) { e.preventDefault(); e.stopPropagation(); };
+    ['contextmenu', 'copy', 'cut', 'paste', 'dragstart', 'selectstart'].forEach(function (t) {
+      document.addEventListener(t, stop, true);
+    });
+
+    document.addEventListener('keydown', function (e) {
+      var mod = e.ctrlKey || e.metaKey, c = e.code;
+      var devKeys = c === 'KeyI' || c === 'KeyJ' || c === 'KeyC' || c === 'KeyK';
+      if (e.key === 'F12' ||
+          (mod && e.shiftKey && devKeys) ||
+          (mod && e.altKey && (devKeys || c === 'KeyU')) ||
+          (mod && !e.shiftKey && !e.altKey && c === 'KeyU')) stop(e);
+    }, true);
+  })();
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -353,21 +389,6 @@
     </div>
   </div>
 
-  <!-- Free Resources (rewarded ads). The topbar button stays hidden until an ad provider is set up.
-       Try the whole flow with fake ads: open the game as  index.html?adtest=1 -->
-  <div id="rewardsModal" class="game-modal hidden" role="dialog" aria-modal="true" aria-labelledby="rewardsTitle">
-    <div class="game-modal-card reward-card">
-      <h2>
-        <span id="rewardsTitle">🎁 Free Resources</span>
-        <button id="closeRewardsBtn" class="close-btn" title="Close">✕</button>
-      </h2>
-      <p class="reward-sub">Watch a short ad, pick a pack, and it lands in your storage. <span id="rewardsLeft" class="reward-left"></span></p>
-      <div id="rewardPacks" class="reward-packs"></div>
-      <div id="rewardsStatus" class="reward-status"></div>
-      <p class="reward-fine">You only get the reward if you watch the ad to the end.</p>
-    </div>
-  </div>
-
   <canvas id="renderCanvas"></canvas>
 
   <script>
@@ -520,7 +541,6 @@
       <button id="removeBtn" title="Remove">🗑️</button>
       <button id="dayBtn" title="Toggle Day / Night">🌙</button>
       <button id="viewWorldsBtn" class="iconBtn" title="See other players' worlds">🌍</button>
-      <button id="rewardsBtn" class="iconBtn" title="Watch a short ad for free resources" style="display: none;">🎁 Free</button>
       <button id="menuBtn" class="iconBtn" title="Back to Main Menu">🏠 Menu</button>
       
       <button id="clearBtn" class="danger">Clear</button>
