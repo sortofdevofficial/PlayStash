@@ -1,3 +1,5 @@
+import { flatShade } from "./flatShade.js";
+
 export const canvas = document.getElementById("renderCanvas");
 export const engine = new BABYLON.Engine(canvas, true, { 
   preserveDrawingBuffer: false, 
