@@ -43,29 +43,29 @@ shadowGen.usePoissonSampling = true;
 
 export function setEnvironmentLighting(isNight) {
   if (!isNight) {
-    // Warm sunny day, cozy fairytale atmosphere
-    scene.clearColor = new BABYLON.Color4(0.55, 0.78, 0.95, 1);
-    scene.fogColor = new BABYLON.Color3(0.62, 0.82, 0.95);
-    scene.fogDensity = 0.0012;
+    // Soft, pleasant sunny day — comfortable on eyes, warm low-poly fairytale tones
+    scene.clearColor = new BABYLON.Color4(0.48, 0.70, 0.88, 1);
+    scene.fogColor = new BABYLON.Color3(0.55, 0.72, 0.88);
+    scene.fogDensity = 0.0015;
 
-    hemiLight.intensity = 1.05;
-    hemiLight.skyColor = new BABYLON.Color3(1.0, 0.96, 0.90);
-    hemiLight.groundColor = new BABYLON.Color3(0.45, 0.58, 0.35);
+    hemiLight.intensity = 0.78; // reduced from 1.05
+    hemiLight.skyColor = new BABYLON.Color3(0.92, 0.95, 1.0);
+    hemiLight.groundColor = new BABYLON.Color3(0.38, 0.48, 0.32);
 
-    sunLight.intensity = 1.15;
-    sunLight.diffuse = new BABYLON.Color3(1.0, 0.94, 0.82); // Golden sun rays
+    sunLight.intensity = 0.85; // reduced from 1.15 to stop blown-out highlights
+    sunLight.diffuse = new BABYLON.Color3(0.98, 0.94, 0.86); // Soft warm golden sun
   } else {
     // Cozy enchanted twilight night
-    scene.clearColor = new BABYLON.Color4(0.09, 0.12, 0.25, 1);
-    scene.fogColor = new BABYLON.Color3(0.10, 0.14, 0.28);
-    scene.fogDensity = 0.0018;
+    scene.clearColor = new BABYLON.Color4(0.08, 0.11, 0.22, 1);
+    scene.fogColor = new BABYLON.Color3(0.09, 0.13, 0.26);
+    scene.fogDensity = 0.0020;
 
-    hemiLight.intensity = 0.72;
-    hemiLight.skyColor = new BABYLON.Color3(0.35, 0.45, 0.75);
-    hemiLight.groundColor = new BABYLON.Color3(0.12, 0.18, 0.22);
+    hemiLight.intensity = 0.60;
+    hemiLight.skyColor = new BABYLON.Color3(0.32, 0.42, 0.72);
+    hemiLight.groundColor = new BABYLON.Color3(0.10, 0.16, 0.20);
 
-    sunLight.intensity = 0.75;
-    sunLight.diffuse = new BABYLON.Color3(0.55, 0.65, 0.95); // Magical moonlight
+    sunLight.intensity = 0.65;
+    sunLight.diffuse = new BABYLON.Color3(0.52, 0.62, 0.92); // Magical moonlight
   }
 }
 setEnvironmentLighting(false);
