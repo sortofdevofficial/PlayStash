@@ -1,3 +1,5 @@
+import { flatShade } from "../flatShade.js";
+
 export function createWatchtower(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
@@ -182,7 +184,7 @@ export function createWatchtower(id, scene) {
     rung.parent = root;
   }
 
-  return root;
+  return flatShade(root);
 }
 
 // --------------------------------------------------------------------------

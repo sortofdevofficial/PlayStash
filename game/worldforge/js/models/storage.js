@@ -1,3 +1,5 @@
+import { flatShade } from "../flatShade.js";
+
 export function createStorage(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
@@ -71,5 +73,5 @@ export function createStorage(id, scene) {
     sack.parent = root;
   }
 
-  return root;
+  return flatShade(root);
 }

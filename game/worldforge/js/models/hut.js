@@ -1,3 +1,5 @@
+import { flatShade } from "../flatShade.js";
+
 function createFlatHutMat(id, suffix, scene, color) {
   const mat = new BABYLON.StandardMaterial(id + suffix, scene);
   mat.diffuseColor = color;
@@ -124,5 +126,5 @@ export function createLowPolyHut(id, scene) {
   step.material = mudMat;
   step.parent = root;
 
-  return root;
+  return flatShade(root);
 }

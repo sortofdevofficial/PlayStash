@@ -1,3 +1,5 @@
+import { flatShade } from "../flatShade.js";
+
 export function createFarm(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
@@ -102,7 +104,7 @@ export function createFarm(id, scene) {
   stem.parent = root;
 
   root.metadata = { stalks };
-  return root;
+  return flatShade(root);
 }
 
 // Call each frame to sway the wheat like wind is passing through it

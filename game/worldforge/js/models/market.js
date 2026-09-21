@@ -1,3 +1,5 @@
+import { flatShade } from "../flatShade.js";
+
 export function createMarket(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
@@ -101,5 +103,5 @@ export function createMarket(id, scene) {
   signCoin.material = goldMat;
   signCoin.parent = root;
 
-  return root;
+  return flatShade(root);
 }

@@ -1,4 +1,6 @@
-﻿export function createWell(id, scene) {
+﻿import { flatShade } from "../flatShade.js";
+
+export function createWell(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
   // --- Materials ---
@@ -147,5 +149,5 @@
     }
   });
 
-  return root;
+  return flatShade(root);
 }

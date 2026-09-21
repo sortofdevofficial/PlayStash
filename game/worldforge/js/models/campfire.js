@@ -1,3 +1,5 @@
+import { flatShade } from "../flatShade.js";
+
 export function createCampfire(id, scene, isGhost = false) {
   const root = new BABYLON.TransformNode(id, scene);
   const scale = 0.85; // Smaller, more grounded campfire
@@ -112,5 +114,5 @@ export function createCampfire(id, scene, isGhost = false) {
     root.metadata = { fireParticles: ps, fireLight, observer: obs };
   }
 
-  return root;
+  return flatShade(root);
 }
