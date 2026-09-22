@@ -1,11 +1,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile
+  getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, update, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, update, onValue, off, onDisconnect, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { initDiscordWidget } from "./discord.js";
-import { syncPresenceIdentity } from "./presence.js";
-import { renderDirectory, sanitizeHTML, formatDateDetailed, safeAvatarUrl, renderDetailedResources } from "./directory.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -25,7 +23,7 @@ const provider = new GoogleAuthProvider();
 // Initialize Discord widget live updates
 initDiscordWidget();
 
-// Anti-Inspect Security
+// Anti-Inspect & Security
 document.addEventListener('contextmenu', event => event.preventDefault());
 document.addEventListener('keydown', (e) => {
   if (
@@ -38,6 +36,12 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+function sanitizeHTML(str) {
+  const temp = document.createElement('div');
+  temp.textContent = str || '';
+  return temp.innerHTML;
+}
+
 // DOM Elements
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
@@ -45,48 +49,21 @@ const userProfile = document.getElementById('user-profile');
 const userEmail = document.getElementById('user-email');
 const userAvatar = document.getElementById('user-avatar');
 const memberSince = document.getElementById('member-since');
+const userCountEl = document.getElementById('user-count');
 
+const playstashOnlineCountEl = document.getElementById('playstash-online-count');
+const worldforgeOnlineCountEl = document.getElementById('worldforge-online-count');
+const onlineCountEl = document.getElementById('online-count');
+
+const usersContainer = document.getElementById('users-container');
+
+const heroOnlineCountEl = document.getElementById('hero-online-count');
+const cardOnlineCountEl = document.getElementById('card-online-count');
 const heroPlayersBtn = document.getElementById('hero-players-btn');
 const profileSigninBtn = document.getElementById('profile-signin-btn');
 const playerSearchEl = document.getElementById('player-search');
 const playerSortEl = document.getElementById('player-sort');
-const statCardDiscord = document.getElementById('stat-card-discord');
-
-const tabGamesBtn = document.getElementById('tab-games-btn');
-const tabPlayersBtn = document.getElementById('tab-players-btn');
-const tabDiscordBtn = document.getElementById('tab-discord-btn');
-const tabProfileBtn = document.getElementById('tab-profile-btn');
-
-const gamesSection = document.getElementById('games-section');
-const playersSection = document.getElementById('players-section');
-const discordSection = document.getElementById('discord-section');
-const profileSection = document.getElementById('profile-section');
-const openMyProfileBtn = document.getElementById('open-my-profile-btn');
-
-const profileCardAvatar = document.getElementById('profile-card-avatar');
-const profileCardName = document.getElementById('profile-card-name');
-const profileCardEmail = document.getElementById('profile-card-email');
-const profileCardJoinedPs = document.getElementById('profile-card-joined-ps');
-const profileCardJoinedWf = document.getElementById('profile-card-joined-wf');
-const profileCardStatusDot = document.getElementById('profile-card-status-dot');
-const profileCardStatusText = document.getElementById('profile-card-status-text');
-
-const profileBuildingsCount = document.getElementById('profile-buildings-count');
-const profileNpcsCount = document.getElementById('profile-npcs-count');
-const profileResourcesCount = document.getElementById('profile-resources-count');
-const profileResourcesList = document.getElementById('profile-resources-list');
-
-const editUsernameCard = document.getElementById('edit-username-card');
-const usernameInput = document.getElementById('username-input');
-const saveUsernameBtn = document.getElementById('save-username-btn');
-const usernameStatusMsg = document.getElementById('username-status-msg');
-
-const profileModal = document.getElementById('profile-modal');
-const closeModalBtn = document.getElementById('close-modal-btn');
-const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
-
-let rawUsersData = {};
-let rawGamesData = {};
+const playerResultCountEl = document.getElementById('player-result-count');
 
 function toast(msg, type = 'info', action = null) {
   const box = document.getElementById('toast-container');
@@ -114,7 +91,7 @@ function toast(msg, type = 'info', action = null) {
   }, action ? 9000 : 3500);
 }
 
-// WELCOME BACK BANNER
+// WELCOME BACK
 (function initWelcomeBack() {
   const CLICK_WINDOW_MS = 2000;
   const MIN_AWAY_MS = 3000;
@@ -152,33 +129,79 @@ function toast(msg, type = 'info', action = null) {
   }
 
   document.addEventListener('visibilitychange', () => { if (document.hidden) markTrip(); else maybeWelcome(); });
+  window.addEventListener('pagehide', markTrip);
   window.addEventListener('pageshow', maybeWelcome);
+  maybeWelcome();
 })();
 
-// TAB CATEGORY SYSTEM
+const tabGamesBtn = document.getElementById('tab-games-btn');
+const tabPlayersBtn = document.getElementById('tab-players-btn');
+const tabProfileBtn = document.getElementById('tab-profile-btn');
+
+const gamesSection = document.getElementById('games-section');
+const playersSection = document.getElementById('players-section');
+const profileSection = document.getElementById('profile-section');
+const openMyProfileBtn = document.getElementById('open-my-profile-btn');
+
+const profileCardAvatar = document.getElementById('profile-card-avatar');
+const profileCardName = document.getElementById('profile-card-name');
+const profileCardEmail = document.getElementById('profile-card-email');
+const profileCardJoinedPs = document.getElementById('profile-card-joined-ps');
+const profileCardJoinedWf = document.getElementById('profile-card-joined-wf');
+const profileCardStatusDot = document.getElementById('profile-card-status-dot');
+const profileCardStatusText = document.getElementById('profile-card-status-text');
+
+const profileBuildingsCount = document.getElementById('profile-buildings-count');
+const profileNpcsCount = document.getElementById('profile-npcs-count');
+const profileResourcesCount = document.getElementById('profile-resources-count');
+const profileResourcesList = document.getElementById('profile-resources-list');
+
+const editUsernameCard = document.getElementById('edit-username-card');
+const usernameInput = document.getElementById('username-input');
+const saveUsernameBtn = document.getElementById('save-username-btn');
+const usernameStatusMsg = document.getElementById('username-status-msg');
+
+const profileModal = document.getElementById('profile-modal');
+const modalAvatar = document.getElementById('modal-avatar');
+const modalName = document.getElementById('modal-name');
+const modalEmail = document.getElementById('modal-email');
+const modalJoinedPs = document.getElementById('modal-joined-ps');
+const modalJoinedWf = document.getElementById('modal-joined-wf');
+const modalBuildings = document.getElementById('modal-buildings');
+const modalNpcs = document.getElementById('modal-npcs');
+const modalResources = document.getElementById('modal-resources');
+const modalResourcesList = document.getElementById('modal-resources-list');
+const closeModalBtn = document.getElementById('close-modal-btn');
+const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
+
+let rawUsersData = {};
+let rawGamesData = {};
+
+const resourceMap = {
+  wo: { name: 'Wood', icon: '🪵' }, wood: { name: 'Wood', icon: '🪵' },
+  wa: { name: 'Water', icon: '💧' }, water: { name: 'Water', icon: '💧' },
+  w: { name: 'Wheat', icon: '🌾' }, wheat: { name: 'Wheat', icon: '🌾' },
+  s: { name: 'Stone', icon: '🪨' }, stone: { name: 'Stone', icon: '🪨' },
+  f: { name: 'Food', icon: '🍲' }, food: { name: 'Food', icon: '🍲' },
+  g: { name: 'Gold', icon: '🪙' }, gold: { name: 'Gold', icon: '🪙' },
+  i: { name: 'Iron', icon: '⚙️' }, iron: { name: 'Iron', icon: '⚙️' },
+  m: { name: 'Meat', icon: '🥩' }, meat: { name: 'Meat', icon: '🥩' },
+  fi: { name: 'Fish', icon: '🐟' }, fish: { name: 'Fish', icon: '🐟' }
+};
+
 const TAB_BASE = 'nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition cursor-pointer';
 const TAB_ACTIVE = TAB_BASE + ' text-white bg-sky-500/20 border border-sky-400/40';
 const TAB_INACTIVE = TAB_BASE + ' text-slate-400 hover:text-slate-200 border border-transparent';
-const TAB_NAMES = ['games', 'players', 'discord', 'profile'];
+const TAB_NAMES = ['games', 'players', 'profile'];
 
 function switchTab(selected, { updateHash = true } = {}) {
-  [
-    [tabGamesBtn, 'games'], 
-    [tabPlayersBtn, 'players'], 
-    [tabDiscordBtn, 'discord'], 
-    [tabProfileBtn, 'profile']
-  ].forEach(([btn, name]) => {
+  [[tabGamesBtn, 'games'], [tabPlayersBtn, 'players'], [tabProfileBtn, 'profile']].forEach(([btn, name]) => {
     if (!btn) return;
     btn.className = selected === name ? TAB_ACTIVE : TAB_INACTIVE;
     btn.setAttribute('aria-selected', String(selected === name));
   });
 
-  [
-    [gamesSection, 'games'], 
-    [playersSection, 'players'], 
-    [discordSection, 'discord'], 
-    [profileSection, 'profile']
-  ].forEach(([el, name]) => {
+  [[gamesSection, 'games'], [playersSection, 'players'], [profileSection, 'profile']].forEach(([el, name]) => {
     if (!el) return;
     const show = selected === name;
     el.classList.toggle('hidden', !show);
@@ -196,11 +219,8 @@ function switchTab(selected, { updateHash = true } = {}) {
 
 tabGamesBtn?.addEventListener('click', () => switchTab('games'));
 tabPlayersBtn?.addEventListener('click', () => switchTab('players'));
-tabDiscordBtn?.addEventListener('click', () => switchTab('discord'));
 tabProfileBtn?.addEventListener('click', () => switchTab('profile'));
-
 openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
-statCardDiscord?.addEventListener('click', () => switchTab('discord'));
 heroPlayersBtn?.addEventListener('click', () => { switchTab('players'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 profileSigninBtn?.addEventListener('click', () => loginBtn?.click());
 
@@ -211,14 +231,102 @@ window.addEventListener('hashchange', () => {
   if (TAB_NAMES.includes(t)) switchTab(t, { updateHash: false });
 });
 
-// MODAL CLOSE CONTROLS
+function formatDateDetailed(timestamp) {
+  if (!timestamp) return 'N/A';
+  return new Date(timestamp).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+
+function safeAvatarUrl(url) {
+  if (typeof url !== 'string' || !url) return 'favicon.png';
+  try {
+    const parsed = new URL(url, window.location.href);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : 'favicon.png';
+  } catch {
+    return 'favicon.png';
+  }
+}
+
+function renderDetailedResources(resourceObj, containerElement) {
+  if (!containerElement) return;
+  containerElement.innerHTML = '';
+
+  const mappedResources = {};
+
+  if (resourceObj && typeof resourceObj === 'object') {
+    Object.entries(resourceObj).forEach(([key, val]) => {
+      const lowerKey = key.toLowerCase();
+      const meta = resourceMap[lowerKey] || { name: key.toUpperCase(), icon: '📦' };
+      
+      if (!mappedResources[meta.name]) {
+        mappedResources[meta.name] = { amount: 0, icon: meta.icon };
+      }
+      mappedResources[meta.name].amount += Number(val || 0);
+    });
+  }
+
+  const entries = Object.entries(mappedResources);
+  if (entries.length === 0) {
+    containerElement.innerHTML = '<span class="text-xs text-slate-400">No resources collected yet</span>';
+    return;
+  }
+
+  entries.forEach(([name, data]) => {
+    const itemCard = document.createElement('div');
+    itemCard.className = 'bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs';
+    itemCard.innerHTML = `
+      <span class="text-slate-300 font-bold flex items-center gap-2">
+        <span>${data.icon}</span>
+        <span>${sanitizeHTML(name)}</span>
+      </span>
+      <span class="font-black text-sky-400 font-mono">${Number(data.amount)}</span>
+    `;
+    containerElement.appendChild(itemCard);
+  });
+}
+
 const closeModal = () => profileModal?.classList.add('hidden');
 closeModalBtn?.addEventListener('click', closeModal);
 closeModalBottomBtn?.addEventListener('click', closeModal);
 profileModal?.addEventListener('click', (e) => { if (e.target === profileModal) closeModal(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
-// EDIT USERNAME
+async function openUserModal(user, uid) {
+  if (!profileModal) return;
+  const gameSave = rawGamesData[uid] || {};
+  const bCount = gameSave.b ? Object.keys(gameSave.b).length : 0;
+  const nCount = gameSave.n ? Object.keys(gameSave.n).length : 0;
+  const rSum = gameSave.r ? Object.values(gameSave.r).reduce((a, b) => a + Number(b || 0), 0) : 0;
+
+  modalAvatar.src = safeAvatarUrl(user.pe);
+  modalName.textContent = user.dn || 'Player';
+  modalEmail.textContent = user.e ? user.e.replace(/(?<=.{2}).(?=.*@)/g, "*") : 'PlayStash Member';
+
+  const playstashJoined = formatDateDetailed(user.jt);
+  let worldforgeJoined = 'Not played yet';
+
+  if (gameSave.i && gameSave.i.jt) {
+    worldforgeJoined = formatDateDetailed(gameSave.i.jt);
+  } else {
+    try {
+      const snap = await get(ref(db, `G/1/${uid}/i/jt`));
+      if (snap.exists()) worldforgeJoined = formatDateDetailed(snap.val());
+    } catch(e) {}
+  }
+
+  if (modalJoinedPs) modalJoinedPs.textContent = `Joined PlayStash: ${playstashJoined}`;
+  if (modalJoinedWf) modalJoinedWf.textContent = `Joined WorldForge: ${worldforgeJoined}`;
+
+  if (modalBuildings) modalBuildings.textContent = bCount;
+  if (modalNpcs) modalNpcs.textContent = nCount;
+  if (modalResources) modalResources.textContent = rSum;
+
+  renderDetailedResources(gameSave.r, modalResourcesList);
+  profileModal.classList.remove('hidden');
+}
+
 saveUsernameBtn?.addEventListener('click', async () => {
   const rawName = usernameInput.value.trim();
   const newName = sanitizeHTML(rawName); 
@@ -252,7 +360,6 @@ function showUsernameStatus(msg, isSuccess) {
   toast(msg, isSuccess ? 'success' : 'error');
 }
 
-// AUTH HANDLERS
 loginBtn?.addEventListener('click', async () => {
   try {
     await signInWithPopup(auth, provider);
@@ -266,19 +373,144 @@ logoutBtn?.addEventListener('click', async () => {
   await signOut(auth);
 });
 
-function triggerDirectoryRender() {
-  renderDirectory(rawUsersData, rawGamesData, auth, db);
+// PRESENCE
+const PRESENCE_LOC = 'playstash';
+const PRESENCE_HEARTBEAT_MS = 25000;
+const PRESENCE_STALE_MS = 150000;
+
+let presenceStarted = false;
+let presenceArmed = false;
+let presenceOffset = 0;
+let presenceSessionId = null;
+let presenceNodeRef = null;
+let anonAttempted = false;
+
+function getPresenceSessionId() {
+  try {
+    const existing = sessionStorage.getItem('ps_presence_sid');
+    if (existing) return existing;
+    const fresh = 's_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    sessionStorage.setItem('ps_presence_sid', fresh);
+    return fresh;
+  } catch (e) {
+    return 's_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+}
+
+function presencePayload() {
+  return { online: true, loc: PRESENCE_LOC, uid: auth.currentUser ? auth.currentUser.uid : null, ts: serverTimestamp() };
+}
+
+function computePresenceCounts(val, offset, selfId) {
+  const now = Date.now() + offset;
+  const ps = new Set(), wf = new Set(), all = new Set();
+  const who = new Map();
+  for (const key in val) {
+    const p = val[key];
+    if (!p || p.online === false) continue;
+    if (typeof p.ts === 'number' && now - p.ts > PRESENCE_STALE_MS) continue;
+    const uid = p.uid || (key.startsWith('s_') ? null : key);
+    const id = uid || key;
+    all.add(id);
+    const inWf = p.loc === 'worldforge';
+    if (inWf) wf.add(id); else ps.add(id);
+    if (uid && (inWf || !who.has(uid))) who.set(uid, inWf ? 'worldforge' : 'playstash');
+  }
+  if (ps.size === 0 && wf.size === 0) { ps.add(selfId); all.add(selfId); }
+  return { ps: ps.size, wf: wf.size, total: all.size, who };
+}
+
+function setCount(el, value) {
+  if (!el) return;
+  const text = String(value);
+  if (el.textContent === text) return;
+  el.textContent = text;
+  el.classList.remove('bump');
+  void el.offsetWidth;
+  el.classList.add('bump');
+}
+
+let presenceWho = new Map();
+let presenceWhoKey = '';
+
+function renderPresenceCounts(c) {
+  setCount(playstashOnlineCountEl, c.ps);
+  setCount(worldforgeOnlineCountEl, c.wf);
+  setCount(onlineCountEl, c.total);
+  setCount(heroOnlineCountEl, c.wf);
+  setCount(cardOnlineCountEl, c.wf);
+
+  const who = c.who || new Map();
+  const key = [...who].map(([u, l]) => u + ':' + l).sort().join('|');
+  if (key !== presenceWhoKey) {
+    presenceWhoKey = key;
+    presenceWho = who;
+    renderDirectory();
+  }
+}
+
+async function armPresence() {
+  if (!presenceNodeRef) return;
+  try {
+    await onDisconnect(presenceNodeRef).remove();
+    await set(presenceNodeRef, presencePayload());
+    presenceArmed = true;
+  } catch (err) {
+    presenceArmed = false;
+    console.warn('presence write:', err.message);
+  }
+}
+
+function startPresence() {
+  if (presenceStarted) return;
+  presenceStarted = true;
+
+  presenceSessionId = getPresenceSessionId();
+  presenceNodeRef = ref(db, `presence/${presenceSessionId}`);
+  renderPresenceCounts({ ps: 1, wf: 0, total: 1 });
+
+  onValue(ref(db, '.info/serverTimeOffset'), (snap) => { presenceOffset = Number(snap.val()) || 0; });
+
+  onValue(ref(db, '.info/connected'), (snap) => {
+    if (snap.val() === true) armPresence();
+    else presenceArmed = false;
+  });
+
+  setInterval(() => {
+    if (!presenceArmed) { armPresence(); return; }
+    update(presenceNodeRef, presencePayload()).catch(() => { presenceArmed = false; });
+  }, PRESENCE_HEARTBEAT_MS);
+
+  window.addEventListener('pageshow', (e) => { if (e.persisted) armPresence(); });
+  window.addEventListener('pagehide', () => { try { set(presenceNodeRef, null); } catch (e) {} });
+
+  onValue(ref(db, 'presence'), (snap) => {
+    renderPresenceCounts(computePresenceCounts(snap.val() || {}, presenceOffset, presenceSessionId));
+  }, (err) => {
+    console.warn('presence read blocked - check database rules for presence/:', err.message);
+    renderPresenceCounts({ ps: 1, wf: 0, total: 1 });
+  });
+}
+
+function syncPresenceIdentity(user) {
+  startPresence();
+  if (user) {
+    armPresence();
+  } else if (!anonAttempted) {
+    anonAttempted = true;
+    signInAnonymously(auth).catch((err) => console.warn('anonymous sign-in:', err.message));
+  }
 }
 
 function startAuthDatabaseListeners() {
   onValue(ref(db, 'u'), (snapshot) => {
     rawUsersData = snapshot.val() || {};
-    triggerDirectoryRender();
+    renderDirectory();
   }, (err) => console.warn("u listener:", err.message));
 
   onValue(ref(db, 'G/1'), (snapshot) => {
     rawGamesData = snapshot.val() || {};
-    triggerDirectoryRender();
+    renderDirectory();
     if (auth.currentUser) updatePersonalProfileStats(auth.currentUser.uid);
   }, (err) => console.warn("G listener:", err.message));
 }
@@ -289,12 +521,11 @@ function stopAuthDatabaseListeners() {
   
   rawUsersData = {};
   rawGamesData = {};
-  triggerDirectoryRender();
+  renderDirectory();
 }
 
 onAuthStateChanged(auth, async (user) => {
-  syncPresenceIdentity(user, auth, db, triggerDirectoryRender);
-
+  syncPresenceIdentity(user);
   if (user && !user.isAnonymous) {
     loginBtn?.classList.add('hidden');
     profileSigninBtn?.classList.add('hidden');
@@ -380,6 +611,152 @@ function updatePersonalProfileStats(uid) {
   renderDetailedResources(gameSave.r, profileResourcesList);
 }
 
-// SEARCH / SORT LISTENERS
-playerSearchEl?.addEventListener('input', () => triggerDirectoryRender());
-playerSortEl?.addEventListener('change', () => triggerDirectoryRender());
+function buildPlayerList() {
+  return Object.entries(rawUsersData || {})
+    .filter(([uid, u]) => u && u.i)
+    .map(([uid, u]) => {
+      const save = rawGamesData[uid] || {};
+      return {
+        uid, ...u.i,
+        _b: save.b ? Object.keys(save.b).length : 0,
+        _n: save.n ? Object.keys(save.n).length : 0,
+        _online: presenceWho.get(uid) || null
+      };
+    });
+}
+
+function filterPlayers(list, query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return list;
+  return list.filter((p) => String(p.dn || 'Player').toLowerCase().includes(q));
+}
+
+function sortPlayers(list, mode) {
+  const byNewest = (a, b) => (b.jt || 0) - (a.jt || 0);
+  const cmp = {
+    online: (a, b) => (Number(!!b._online) - Number(!!a._online)) || byNewest(a, b),
+    newest: byNewest,
+    buildings: (a, b) => (b._b - a._b) || byNewest(a, b),
+    villagers: (a, b) => (b._n - a._n) || byNewest(a, b),
+    name: (a, b) => String(a.dn || '').localeCompare(String(b.dn || ''), undefined, { sensitivity: 'base' })
+  }[mode] || byNewest;
+  return [...list].sort(cmp);
+}
+
+function emptyMessage(text, withSignIn) {
+  const box = document.createElement('div');
+  box.className = 'col-span-full glass-box rounded-2xl p-8 text-center text-slate-400 text-xs font-medium flex flex-col items-center gap-4';
+  const p = document.createElement('span');
+  p.textContent = text;
+  box.appendChild(p);
+  if (withSignIn) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-main text-white font-black px-6 py-3 rounded-full text-xs uppercase tracking-wider active:scale-95';
+    btn.textContent = 'Sign in with Google';
+    btn.addEventListener('click', () => loginBtn?.click());
+    box.appendChild(btn);
+  }
+  return box;
+}
+
+let directoryAnimated = false;
+
+function renderDirectory() {
+  if (!usersContainer) return;
+
+  const all = buildPlayerList();
+  if (userCountEl) userCountEl.textContent = all.length;
+
+  if (all.length === 0) {
+    if (playerResultCountEl) playerResultCountEl.textContent = '0';
+    usersContainer.replaceChildren(emptyMessage('Sign in to view registered players.', !auth.currentUser || auth.currentUser.isAnonymous));
+    return;
+  }
+
+  const query = playerSearchEl ? playerSearchEl.value : '';
+  const list = sortPlayers(filterPlayers(all, query), playerSortEl ? playerSortEl.value : 'online');
+  if (playerResultCountEl) playerResultCountEl.textContent = list.length;
+
+  if (list.length === 0) {
+    usersContainer.replaceChildren(emptyMessage(`No players match "${query.trim()}".`, false));
+    return;
+  }
+
+  const animate = !directoryAnimated;
+  directoryAnimated = true;
+
+  usersContainer.replaceChildren(...list.map((u) => {
+    const gameSave = rawGamesData[u.uid] || {};
+    const res = gameSave.r || {};
+
+    const wood = Number(res.wo || res.wood || 0);
+    const water = Number(res.wa || res.water || 0);
+    const wheat = Number(res.w || res.wheat || 0);
+    const stone = Number(res.s || res.stone || 0);
+
+    const wfJoinedDate = gameSave.i && gameSave.i.jt ? formatDateDetailed(gameSave.i.jt) : 'Not played yet';
+
+    const card = document.createElement('div');
+    card.className = 'card-box rounded-2xl p-4 flex flex-col gap-3 cursor-pointer hover:-translate-y-0.5' + (animate ? ' fade-in' : '');
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `View ${u.dn || 'Player'}`);
+    card.addEventListener('click', () => openUserModal(u, u.uid));
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openUserModal(u, u.uid); }
+    });
+
+    const top = document.createElement('div');
+    top.className = 'flex items-center gap-3.5 min-w-0';
+
+    const avatarWrap = document.createElement('div');
+    avatarWrap.className = 'relative shrink-0';
+    const img = document.createElement('img');
+    img.src = safeAvatarUrl(u.pe);
+    img.className = 'w-12 h-12 rounded-full border object-cover shadow-md ' + (u._online ? 'border-emerald-400/70' : 'border-sky-400/40');
+    img.alt = '';
+    avatarWrap.appendChild(img);
+    const dot = document.createElement('span');
+    dot.className = 'absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#0b1220] ' + (u._online ? 'bg-emerald-400 dot-online' : 'bg-slate-600');
+    avatarWrap.appendChild(dot);
+
+    const details = document.createElement('div');
+    details.className = 'flex flex-col min-w-0';
+
+    const name = document.createElement('span');
+    name.className = 'font-bold text-sm text-white truncate';
+    name.textContent = u.dn || 'Player';
+
+    const status = document.createElement('span');
+    status.className = 'text-[10px] font-extrabold uppercase tracking-wider mt-0.5 ' + (u._online ? 'text-emerald-400' : 'text-slate-500');
+    status.textContent = u._online ? (u._online === 'worldforge' ? 'Online · WorldForge' : 'Online · Hub') : 'Offline';
+
+    const psJoined = document.createElement('span');
+    psJoined.className = 'text-[10px] text-sky-400/90 font-medium truncate mt-0.5';
+    psJoined.textContent = `Joined PlayStash: ${formatDateDetailed(u.jt)}`;
+
+    const wfJoined = document.createElement('span');
+    wfJoined.className = 'text-[10px] text-emerald-400/90 font-medium truncate';
+    wfJoined.textContent = `Joined WorldForge: ${wfJoinedDate}`;
+
+    details.append(name, status, psJoined, wfJoined);
+    top.append(avatarWrap, details);
+
+    const chips = document.createElement('div');
+    chips.className = 'flex items-center gap-1.5 flex-wrap text-[10px] font-bold text-slate-300 font-mono';
+    const chipData = [`🧱 ${u._b}`, `👤 ${u._n}`, `🪵 ${wood}`, `💧 ${water}`, `🌾 ${wheat}`, `🪨 ${stone}`];
+    chipData.forEach((t) => {
+      const c = document.createElement('span');
+      c.className = 'bg-slate-900/90 px-2 py-1 rounded-lg border border-slate-800';
+      c.textContent = t;
+      chips.appendChild(c);
+    });
+
+    card.append(top, chips);
+    return card;
+  }));
+}
+
+playerSearchEl?.addEventListener('input', () => renderDirectory());
+playerSortEl?.addEventListener('change', () => renderDirectory());
