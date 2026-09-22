@@ -137,10 +137,12 @@ function toast(msg, type = 'info', action = null) {
 const tabGamesBtn = document.getElementById('tab-games-btn');
 const tabPlayersBtn = document.getElementById('tab-players-btn');
 const tabProfileBtn = document.getElementById('tab-profile-btn');
+const tabDiscordBtn = document.getElementById('tab-discord-btn');
 
 const gamesSection = document.getElementById('games-section');
 const playersSection = document.getElementById('players-section');
 const profileSection = document.getElementById('profile-section');
+const discordSection = document.getElementById('discord-section');
 const openMyProfileBtn = document.getElementById('open-my-profile-btn');
 
 const profileCardAvatar = document.getElementById('profile-card-avatar');
@@ -192,16 +194,16 @@ const resourceMap = {
 const TAB_BASE = 'nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition cursor-pointer';
 const TAB_ACTIVE = TAB_BASE + ' text-white bg-sky-500/20 border border-sky-400/40';
 const TAB_INACTIVE = TAB_BASE + ' text-slate-400 hover:text-slate-200 border border-transparent';
-const TAB_NAMES = ['games', 'players', 'profile'];
+const TAB_NAMES = ['games', 'players', 'profile', 'discord'];
 
 function switchTab(selected, { updateHash = true } = {}) {
-  [[tabGamesBtn, 'games'], [tabPlayersBtn, 'players'], [tabProfileBtn, 'profile']].forEach(([btn, name]) => {
+  [[tabGamesBtn, 'games'], [tabPlayersBtn, 'players'], [tabProfileBtn, 'profile'], [tabDiscordBtn, 'discord']].forEach(([btn, name]) => {
     if (!btn) return;
     btn.className = selected === name ? TAB_ACTIVE : TAB_INACTIVE;
     btn.setAttribute('aria-selected', String(selected === name));
   });
 
-  [[gamesSection, 'games'], [playersSection, 'players'], [profileSection, 'profile']].forEach(([el, name]) => {
+  [[gamesSection, 'games'], [playersSection, 'players'], [profileSection, 'profile'], [discordSection, 'discord']].forEach(([el, name]) => {
     if (!el) return;
     const show = selected === name;
     el.classList.toggle('hidden', !show);
@@ -220,6 +222,7 @@ function switchTab(selected, { updateHash = true } = {}) {
 tabGamesBtn?.addEventListener('click', () => switchTab('games'));
 tabPlayersBtn?.addEventListener('click', () => switchTab('players'));
 tabProfileBtn?.addEventListener('click', () => switchTab('profile'));
+tabDiscordBtn?.addEventListener('click', () => switchTab('discord'));
 openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
 heroPlayersBtn?.addEventListener('click', () => { switchTab('players'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 profileSigninBtn?.addEventListener('click', () => loginBtn?.click());

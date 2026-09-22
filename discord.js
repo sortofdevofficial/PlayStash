@@ -25,9 +25,19 @@ export function renderDiscordWidget(data) {
   const membersContainer = document.getElementById('discord-members-container');
   const memberBadgeEl = document.getElementById('discord-member-badge');
 
+  // Full Discord tab elements
+  const serverNameFullEl = document.getElementById('discord-server-name-full');
+  const memberBadgeFullEl = document.getElementById('discord-member-badge-full');
+  const inviteBtnFullEl = document.getElementById('discord-invite-btn-full');
+  const statOnlineEl = document.getElementById('discord-stat-online');
+  const statMembersEl = document.getElementById('discord-stat-members');
+
   if (!data || data.code) {
     if (countEl) countEl.textContent = '0';
     if (memberBadgeEl) memberBadgeEl.textContent = '0 online';
+    if (memberBadgeFullEl) memberBadgeFullEl.textContent = '0 online';
+    if (statOnlineEl) statOnlineEl.textContent = '0';
+    if (statMembersEl) statMembersEl.textContent = '0';
     if (membersContainer) {
       membersContainer.innerHTML = `
         <div class="col-span-full p-6 text-center text-slate-400 text-xs">
@@ -39,6 +49,7 @@ export function renderDiscordWidget(data) {
   }
 
   const onlineCount = data.presence_count ?? (data.members ? data.members.length : 0);
+  const shownMembers = data.members ? data.members.length : 0;
 
   if (countEl) {
     countEl.textContent = onlineCount;
@@ -50,9 +61,23 @@ export function renderDiscordWidget(data) {
   if (memberBadgeEl) memberBadgeEl.textContent = `${onlineCount} online`;
   if (serverNameEl) serverNameEl.textContent = data.name || 'Discord Community';
 
+  if (memberBadgeFullEl) memberBadgeFullEl.textContent = `${onlineCount} online`;
+  if (serverNameFullEl) serverNameFullEl.textContent = data.name || 'Discord Community';
+  if (statOnlineEl) {
+    statOnlineEl.textContent = onlineCount;
+    statOnlineEl.classList.remove('bump');
+    void statOnlineEl.offsetWidth;
+    statOnlineEl.classList.add('bump');
+  }
+  if (statMembersEl) statMembersEl.textContent = shownMembers;
+
   if (inviteBtn && data.instant_invite) {
     inviteBtn.href = data.instant_invite;
     inviteBtn.classList.remove('pointer-events-none', 'opacity-50');
+  }
+  if (inviteBtnFullEl && data.instant_invite) {
+    inviteBtnFullEl.href = data.instant_invite;
+    inviteBtnFullEl.classList.remove('pointer-events-none', 'opacity-50');
   }
 
   if (membersContainer) {
