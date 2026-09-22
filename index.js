@@ -795,10 +795,9 @@ function renderDirectory() {
     });
 
     const footer = document.createElement('div');
-    footer.className = 'flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-slate-800/70';
+    footer.className = 'flex items-center text-[10px] text-slate-500 pt-2 border-t border-slate-800/70';
     footer.innerHTML = `
       <span class="flex items-center gap-1.5">${iconSpan('box', 'w-3 h-3 text-emerald-400')}<span>${totalItems} items total</span></span>
-      <span class="flex items-center gap-1 text-amber-300">${iconSpan('gold', 'w-3 h-3')}<span>${gold}</span></span>
     `;
 
     card.append(top, chips, footer);
