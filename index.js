@@ -191,7 +191,7 @@ const resourceMap = {
   fi: { name: 'Fish', icon: '🐟' }, fish: { name: 'Fish', icon: '🐟' }
 };
 
-const TAB_BASE = 'nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition cursor-pointer';
+const TAB_BASE = 'nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5';
 const TAB_ACTIVE = TAB_BASE + ' text-white bg-sky-500/20 border border-sky-400/40';
 const TAB_INACTIVE = TAB_BASE + ' text-slate-400 hover:text-slate-200 border border-transparent';
 const TAB_NAMES = ['games', 'players', 'profile', 'discord'];
