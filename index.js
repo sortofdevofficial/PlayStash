@@ -3,6 +3,7 @@ import {
   getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, update, onValue, off, onDisconnect, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { initDiscordWidget } from "./discord.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -18,6 +19,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 const provider = new GoogleAuthProvider();
+
+// Initialize Discord widget live updates
+initDiscordWidget();
 
 // Anti-Inspect & Security
 document.addEventListener('contextmenu', event => event.preventDefault());
@@ -87,12 +91,12 @@ function toast(msg, type = 'info', action = null) {
   }, action ? 9000 : 3500);
 }
 
-// ---- WELCOME BACK: friendly prompt when someone returns after an ad opened (new tab / same tab) ----
+// WELCOME BACK
 (function initWelcomeBack() {
-  const CLICK_WINDOW_MS = 2000;          // page left within 2s of a click -> probably an ad opened
-  const MIN_AWAY_MS = 3000;              // ignore instant flicks
-  const MAX_AWAY_MS = 30 * 60 * 1000;    // ignore very long absences
-  const COOLDOWN_MS = 10 * 60 * 1000;    // never show more than once per 10 minutes
+  const CLICK_WINDOW_MS = 2000;
+  const MIN_AWAY_MS = 3000;
+  const MAX_AWAY_MS = 30 * 60 * 1000;
+  const COOLDOWN_MS = 10 * 60 * 1000;
   const K_TRIP = 'ps_adtrip';
   const K_SHOWN = 'ps_welcome_shown';
   let lastClick = 0;
@@ -103,7 +107,6 @@ function toast(msg, type = 'info', action = null) {
     del(k) { try { sessionStorage.removeItem(k); } catch (e) {} }
   };
 
-  // Clicks on our own links/sign-in buttons are normal navigation, not an ad trip.
   document.addEventListener('click', (e) => {
     const el = e.target instanceof Element ? e.target : null;
     const own = el && el.closest('a[href], #login-btn, #profile-signin-btn, #logout-btn');
@@ -128,9 +131,8 @@ function toast(msg, type = 'info', action = null) {
   document.addEventListener('visibilitychange', () => { if (document.hidden) markTrip(); else maybeWelcome(); });
   window.addEventListener('pagehide', markTrip);
   window.addEventListener('pageshow', maybeWelcome);
-  maybeWelcome(); // fresh load after pressing Back from an ad page
+  maybeWelcome();
 })();
-// ---- /WELCOME BACK ----
 
 const tabGamesBtn = document.getElementById('tab-games-btn');
 const tabPlayersBtn = document.getElementById('tab-players-btn');
@@ -205,7 +207,7 @@ function switchTab(selected, { updateHash = true } = {}) {
     el.classList.toggle('hidden', !show);
     if (show) {
       el.classList.remove('fade-in');
-      void el.offsetWidth; // restart the entrance animation
+      void el.offsetWidth;
       el.classList.add('fade-in');
     }
   });
@@ -222,7 +224,6 @@ openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
 heroPlayersBtn?.addEventListener('click', () => { switchTab('players'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 profileSigninBtn?.addEventListener('click', () => loginBtn?.click());
 
-// Remember the tab across reloads / shared links (#players, #profile)
 const initialTab = location.hash.replace('#', '');
 if (TAB_NAMES.includes(initialTab)) switchTab(initialTab, { updateHash: false });
 window.addEventListener('hashchange', () => {
@@ -372,12 +373,7 @@ logoutBtn?.addEventListener('click', async () => {
   await signOut(auth);
 });
 
-// ---------------------------------------------------------------------------
-// PRESENCE  (same schema as WorldForge: presence/{tabSessionId} = {online, loc, uid, ts})
-//  - one node per browser tab, so guests, multi-tab and account switching all work
-//  - counts are shown to EVERYONE (guests too) and never reset on sign-out
-//  - deduped by uid, staleness measured on the server clock
-// ---------------------------------------------------------------------------
+// PRESENCE
 const PRESENCE_LOC = 'playstash';
 const PRESENCE_HEARTBEAT_MS = 25000;
 const PRESENCE_STALE_MS = 150000;
@@ -408,7 +404,7 @@ function presencePayload() {
 function computePresenceCounts(val, offset, selfId) {
   const now = Date.now() + offset;
   const ps = new Set(), wf = new Set(), all = new Set();
-  const who = new Map(); // uid -> 'worldforge' | 'playstash'  (worldforge wins if in both)
+  const who = new Map();
   for (const key in val) {
     const p = val[key];
     if (!p || p.online === false) continue;
@@ -449,7 +445,7 @@ function renderPresenceCounts(c) {
   if (key !== presenceWhoKey) {
     presenceWhoKey = key;
     presenceWho = who;
-    renderDirectory(); // refresh the green "online" badges on player cards
+    renderDirectory();
   }
 }
 
@@ -475,7 +471,6 @@ function startPresence() {
 
   onValue(ref(db, '.info/serverTimeOffset'), (snap) => { presenceOffset = Number(snap.val()) || 0; });
 
-  // Firebase forgets onDisconnect handlers when the socket drops, so re-arm on every reconnect.
   onValue(ref(db, '.info/connected'), (snap) => {
     if (snap.val() === true) armPresence();
     else presenceArmed = false;
@@ -489,7 +484,6 @@ function startPresence() {
   window.addEventListener('pageshow', (e) => { if (e.persisted) armPresence(); });
   window.addEventListener('pagehide', () => { try { set(presenceNodeRef, null); } catch (e) {} });
 
-  // Counts for everyone, guests included. Never torn down on sign-out.
   onValue(ref(db, 'presence'), (snap) => {
     renderPresenceCounts(computePresenceCounts(snap.val() || {}, presenceOffset, presenceSessionId));
   }, (err) => {
@@ -498,8 +492,6 @@ function startPresence() {
   });
 }
 
-// Called on every auth change: stamp the uid on this tab's node, and give guests an
-// anonymous session so they can be counted (same as WorldForge does).
 function syncPresenceIdentity(user) {
   startPresence();
   if (user) {
@@ -530,7 +522,6 @@ function stopAuthDatabaseListeners() {
   rawUsersData = {};
   rawGamesData = {};
   renderDirectory();
-
 }
 
 onAuthStateChanged(auth, async (user) => {
