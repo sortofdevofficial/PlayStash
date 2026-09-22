@@ -556,6 +556,8 @@ function stopAuthDatabaseListeners() {
 
 onAuthStateChanged(auth, async (user) => {
   syncPresenceIdentity(user);
+  startAuthDatabaseListeners();
+
   if (user && !user.isAnonymous) {
     loginBtn?.classList.add('hidden');
     profileSigninBtn?.classList.add('hidden');
