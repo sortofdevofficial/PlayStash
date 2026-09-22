@@ -63,6 +63,7 @@ export function renderDiscordWidget(data) {
   const serverNameFullEl = document.getElementById('discord-server-name-full');
   const memberBadgeFullEl = document.getElementById('discord-member-badge-full');
   const inviteBtnFullEl = document.getElementById('discord-invite-btn-full');
+  const inviteBtnFloatEl = document.getElementById('discord-float-btn');
   const statOnlineEl = document.getElementById('discord-stat-online');
   const statMembersEl = document.getElementById('discord-stat-members');
   const statVoiceEl = document.getElementById('discord-stat-voice');
@@ -145,6 +146,10 @@ export function renderDiscordWidget(data) {
   if (inviteBtnFullEl && data.instant_invite) {
     inviteBtnFullEl.href = data.instant_invite;
     inviteBtnFullEl.classList.remove('pointer-events-none', 'opacity-50');
+  }
+  if (inviteBtnFloatEl && data.instant_invite) {
+    inviteBtnFloatEl.href = data.instant_invite;
+    inviteBtnFloatEl.classList.remove('pointer-events-none', 'opacity-50');
   }
 
   // Voice channels: group members by channel_id using data.channels for names
