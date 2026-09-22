@@ -28,16 +28,25 @@ const STATUS_DOT = {
 };
 
 // Discord activity "type" codes: 0 Playing, 1 Streaming, 2 Listening, 3 Watching, 4 Custom, 5 Competing
-const ACTIVITY_ICON = { 0: '🎮', 1: '🔴', 2: '🎵', 3: '📺', 4: '💭', 5: '🏆' };
+const ACTIVITY_SVG = {
+  0: '<svg viewBox="0 0 24 24" class="fill-current w-full h-full"><path d="M17.5 6.5h-11A3.5 3.5 0 0 0 3 10v4a3.5 3.5 0 0 0 3.5 3.5c.75 0 1.47-.28 2.02-.79L11 14.5h2l2.48 2.21c.55.51 1.27.79 2.02.79A3.5 3.5 0 0 0 21 14v-4a3.5 3.5 0 0 0-3.5-3.5ZM8.5 12.75h-1.25V14H6v-1.25H4.75v-1.5H6V10h1.25v1.25H8.5v1.5Zm5.75-2.25a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm2.5 3a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/></svg>',
+  1: '<svg viewBox="0 0 24 24" class="fill-current w-full h-full"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12Z"/></svg>',
+  2: '<svg viewBox="0 0 24 24" class="fill-current w-full h-full"><path d="M9 3v10.55A4 4 0 1 0 11 17V7h6V3H9Z"/></svg>',
+  3: '<svg viewBox="0 0 24 24" class="fill-current w-full h-full"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-5l2 2.5V20H7v-.5L9 17H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm1 2v8h14V7H5Z"/></svg>',
+  4: '<svg viewBox="0 0 24 24" class="fill-current w-full h-full"><path d="M2 12a10 10 0 1 1 4.5 8.3L2 21l1-4.2A9.96 9.96 0 0 1 2 12Z"/></svg>',
+  5: '<svg viewBox="0 0 24 24" class="fill-current w-full h-full"><path d="M7 2h10v2h3a1 1 0 0 1 1 1v2a4 4 0 0 1-4 4 5 5 0 0 1-3.5 3.9V17H16v2h1a1 1 0 0 1 1 1v1H6v-1a1 1 0 0 1 1-1h1v-2h2.5v-2.1A5 5 0 0 1 7 10a4 4 0 0 1-4-4V4a1 1 0 0 1 1-1h3V2ZM5 5v1a2 2 0 0 0 2 2V5H5Zm12 0v3a2 2 0 0 0 2-2V5h-2Z"/></svg>'
+};
 const ACTIVITY_VERB = { 0: 'Playing', 1: 'Streaming', 2: 'Listening to', 3: 'Watching', 4: '', 5: 'Competing in' };
+const ACTIVITY_COLOR = { 0: 'text-emerald-400', 1: 'text-purple-400', 2: 'text-pink-400', 3: 'text-sky-400', 4: 'text-slate-400', 5: 'text-amber-400' };
 
 function describeActivity(m) {
   const act = m.game || m.activity || null;
   if (!act || !act.name) return null;
   const verb = ACTIVITY_VERB[act.type] ?? 'Playing';
-  const icon = ACTIVITY_ICON[act.type] ?? '🎮';
+  const icon = ACTIVITY_SVG[act.type] ?? ACTIVITY_SVG[0];
+  const color = ACTIVITY_COLOR[act.type] ?? 'text-emerald-400';
   const label = verb ? `${verb} ${act.name}` : act.name;
-  return { icon, label };
+  return { icon, label, color };
 }
 
 /**
@@ -139,10 +148,10 @@ export function renderDiscordWidget(data) {
   }
 
   // Voice channels: group members by channel_id using data.channels for names
-  if (voiceSection && voiceContainer) {
-    const channelMap = {};
-    (data.channels || []).forEach((c) => { channelMap[c.id] = c.name; });
+  const channelNameById = {};
+  (data.channels || []).forEach((c) => { channelNameById[c.id] = c.name; });
 
+  if (voiceSection && voiceContainer) {
     const voiceGroups = {};
     members.forEach((m) => {
       if (!m.channel_id) return;
@@ -156,7 +165,7 @@ export function renderDiscordWidget(data) {
     } else {
       voiceSection.classList.remove('hidden');
       voiceContainer.innerHTML = channelIds.map((cid) => {
-        const name = escapeHtml(channelMap[cid] || 'Voice Channel');
+        const name = escapeHtml(channelNameById[cid] || 'Voice Channel');
         const groupMembers = voiceGroups[cid];
         const avatars = groupMembers.slice(0, 6).map((m) => {
           const avatarUrl = m.avatar_url || 'favicon.png';
@@ -204,7 +213,14 @@ export function renderDiscordWidget(data) {
       const activity = describeActivity(m);
       const avatarUrl = m.avatar_url || 'favicon.png';
       const inVoice = !!m.channel_id;
+      const voiceChannelName = inVoice ? escapeHtml(channelNameById[m.channel_id] || 'Voice') : null;
       const username = escapeHtml(m.username);
+
+      const subline = activity
+        ? `<span class="inline-flex items-center gap-1 ${activity.color}"><span class="w-3 h-3 shrink-0">${activity.icon}</span><span class="truncate">${escapeHtml(activity.label)}</span></span>`
+        : (inVoice
+          ? `<span class="inline-flex items-center gap-1 text-violet-300"><svg class="w-3 h-3 shrink-0 fill-current" viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3z"/></svg><span class="truncate">In ${voiceChannelName}</span></span>`
+          : `<span class="text-slate-400">${statusLabel}</span>`);
 
       return `
         <div class="flex items-center gap-3 p-3 rounded-2xl bg-slate-900/80 border border-slate-800/90 hover:border-indigo-500/40 transition">
@@ -215,7 +231,7 @@ export function renderDiscordWidget(data) {
           </div>
           <div class="min-w-0 flex-1">
             <div class="text-xs font-bold text-white truncate">${username}</div>
-            <div class="text-[10px] text-slate-400 truncate">${activity ? `${activity.icon} ${escapeHtml(activity.label)}` : statusLabel}</div>
+            <div class="text-[10px] truncate mt-0.5">${subline}</div>
           </div>
         </div>
       `;

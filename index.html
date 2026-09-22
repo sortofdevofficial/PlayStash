@@ -178,12 +178,20 @@
     }
     .btn-ghost:hover { background: rgba(30, 41, 59, .9); border-color: rgba(56,189,248,.5); }
 
-    .stat-card { position: relative; overflow: hidden; transition: transform .3s var(--ease), border-color .3s; }
-    .stat-card:hover { transform: translateY(-2px); }
+    .stat-card { position: relative; overflow: hidden; transition: transform .3s var(--ease), border-color .3s, box-shadow .3s var(--ease); }
+    .stat-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent, #38bdf8) 45%, transparent); box-shadow: 0 14px 32px -14px color-mix(in srgb, var(--accent, #38bdf8) 55%, transparent); }
     .stat-card::before {
       content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; opacity: .8;
       background: linear-gradient(90deg, transparent, var(--accent, #38bdf8), transparent);
     }
+    .icon-tile {
+      width: 2.75rem; height: 2.75rem; border-radius: .9rem; display: flex; align-items: center; justify-content: center;
+      background: color-mix(in srgb, var(--accent, #38bdf8) 16%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent, #38bdf8) 35%, transparent);
+      color: var(--accent, #38bdf8);
+      transition: transform .3s var(--ease);
+    }
+    .stat-card:hover .icon-tile { transform: scale(1.08) rotate(-4deg); }
     .bump { animation: bump .5s var(--ease); }
     @keyframes bump { 0% { transform: scale(1); } 35% { transform: scale(1.28); color: #fff; } 100% { transform: scale(1); } }
 
@@ -271,9 +279,18 @@
     </div>
 
     <nav class="order-3 sm:order-2 w-full sm:w-auto flex items-center gap-1 bg-slate-900/80 p-1 rounded-full border border-slate-800" role="tablist">
-      <button id="tab-games-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-sky-500/20 border border-sky-400/40 transition cursor-pointer" aria-selected="true">🎮 Games</button>
-      <button id="tab-players-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer" aria-selected="false">👥 Players</button>
-      <button id="tab-profile-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer" aria-selected="false">👤 Profile</button>
+      <button id="tab-games-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-sky-500/20 border border-sky-400/40 transition cursor-pointer flex items-center justify-center gap-1.5" aria-selected="true">
+        <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24"><path d="M17.5 6.5h-11A3.5 3.5 0 0 0 3 10v4a3.5 3.5 0 0 0 3.5 3.5c.75 0 1.47-.28 2.02-.79L11 14.5h2l2.48 2.21c.55.51 1.27.79 2.02.79A3.5 3.5 0 0 0 21 14v-4a3.5 3.5 0 0 0-3.5-3.5ZM8.5 12.75h-1.25V14H6v-1.25H4.75v-1.5H6V10h1.25v1.25H8.5v1.5Zm5.75-2.25a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm2.5 3a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/></svg>
+        <span>Games</span>
+      </button>
+      <button id="tab-players-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer flex items-center justify-center gap-1.5" aria-selected="false">
+        <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3Zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5Zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5Z"/></svg>
+        <span>Players</span>
+      </button>
+      <button id="tab-profile-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer flex items-center justify-center gap-1.5" aria-selected="false">
+        <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24"><path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5Zm0 2.5c-3.34 0-10 1.68-10 5V22h20v-2.5c0-3.32-6.66-5-10-5Z"/></svg>
+        <span>Profile</span>
+      </button>
       <button id="tab-discord-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer flex items-center justify-center gap-1.5" aria-selected="false">
         <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
         <span>Discord</span>
@@ -324,14 +341,14 @@
         <div class="stat-card glass-box rounded-2xl p-4" style="--accent:#38bdf8">
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">PlayStash Hub</span>
-            <span class="text-base">🏠</span>
+            <svg class="w-5 h-5 fill-sky-400" viewBox="0 0 24 24"><path d="M12 3 2 11.5h2.5V21h5.5v-6h4v6h5.5v-9.5H22L12 3Z"/></svg>
           </div>
           <span id="playstash-online-count" class="block mt-2 text-3xl font-black text-sky-400 font-mono tabular-nums">0</span>
         </div>
         <div class="stat-card glass-box rounded-2xl p-4" style="--accent:#fbbf24">
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">WorldForge</span>
-            <span class="text-base">🔥</span>
+            <svg class="w-5 h-5 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2c1 3-1 4.5-2 6-1.5 2.2-1 4 .5 5-1-2 .2-3.3 1-4 .3 1.5 1.2 2.1 2 3 1.1 1.3 1 3.3-.3 4.6C11.9 17.9 10 18.5 8.7 18A5.5 5.5 0 0 1 6 12.8C6 9 9 6.5 9 4c0-.8.3-1.5.8-2C10.4 3 11.2 2.5 12 2Zm2.8 12.4c.3 1.4-.2 3-1.5 3.8-1.8 1.1-4.1.5-5.1-1.3-.6-1-.5-2.3.3-3.2.3 1 1 1.6 2 1.7-.2-.9.1-1.8.8-2.4.2.8.6 1.3 1.3 1.6.6.2 1.5-.2 2.2.8Z"/></svg>
           </div>
           <span id="worldforge-online-count" class="block mt-2 text-3xl font-black text-amber-400 font-mono tabular-nums">0</span>
         </div>
@@ -345,14 +362,17 @@
         <div class="stat-card glass-box rounded-2xl p-4" style="--accent:#34d399">
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Online</span>
-            <span class="text-base">🟢</span>
+            <span class="relative flex h-3 w-3 shrink-0">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
           </div>
           <span id="online-count" class="block mt-2 text-3xl font-black text-emerald-400 font-mono tabular-nums">0</span>
         </div>
         <div class="stat-card glass-box rounded-2xl p-4" style="--accent:#a78bfa">
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Players</span>
-            <span class="text-base">👥</span>
+            <svg class="w-5 h-5 fill-violet-400" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3Zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5Zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5Z"/></svg>
           </div>
           <span id="user-count" class="block mt-2 text-3xl font-black text-violet-400 font-mono tabular-nums">0</span>
         </div>
@@ -369,11 +389,11 @@
         <div class="absolute -bottom-28 left-1/4 w-96 h-96 rounded-full bg-violet-500/15 blur-3xl"></div>
 
         <div class="absolute inset-0 pointer-events-none select-none overflow-hidden" aria-hidden="true">
-          <span class="float-a absolute top-[12%] right-[10%] text-5xl sm:text-7xl opacity-90 drop-shadow-2xl">🏡</span>
-          <span class="float-b absolute top-[38%] right-[26%] text-3xl sm:text-5xl opacity-80">🌲</span>
-          <span class="float-c absolute top-[20%] right-[34%] text-2xl sm:text-4xl opacity-70">🪨</span>
-          <span class="float-b absolute top-[52%] right-[8%] text-3xl sm:text-5xl opacity-80">🌾</span>
-          <span class="float-a absolute top-[8%] right-[46%] text-xl sm:text-3xl opacity-60 hidden sm:block">🔥</span>
+          <svg class="float-a absolute top-[10%] right-[8%] w-24 h-24 sm:w-36 sm:h-36 opacity-90 drop-shadow-2xl fill-sky-200" viewBox="0 0 24 24"><path d="M4 21V10.5L12 4l8 6.5V21h-5v-7h-6v7H4Z"/></svg>
+          <svg class="float-b absolute top-[36%] right-[25%] w-14 h-14 sm:w-24 sm:h-24 opacity-75 fill-emerald-400" viewBox="0 0 24 24"><path d="M13 2 8 10h3l-4 8h3l-2 4h8l-2-4h3l-4-8h3L13 2Z"/></svg>
+          <svg class="float-c absolute top-[18%] right-[35%] w-10 h-10 sm:w-16 sm:h-16 opacity-60 fill-slate-400" viewBox="0 0 24 24"><path d="M6 18c-2 0-4-1.6-4-4 0-1.9 1.3-3.4 3.1-3.9C5.6 8 7.6 6 10 6c1.4 0 2.7.6 3.6 1.6.4-.1.8-.2 1.2-.2 2.3 0 4.2 1.9 4.2 4.2 0 .3 0 .5-.1.8C20.7 12.8 22 14.3 22 16c0 2-1.8 3.6-4 3.6H6Z"/></svg>
+          <svg class="float-b absolute top-[50%] right-[6%] w-14 h-14 sm:w-24 sm:h-24 opacity-75 fill-amber-300" viewBox="0 0 24 24"><path d="M12 2c1.1 2 .3 3.4-.8 4.6C10 7.8 9 9 9 10.7c0 1.7 1.3 3.1 2.9 3.3-1-.2-1.7-1-1.7-1.9 0-1.1.9-1.7 1.8-2.7.4 1 .6 1.6 1.4 2.2.9.7 1.4 1.8 1.1 2.9C14.1 15.7 13 16.5 12 16.5c-2.5 0-4.5-2-4.5-4.5C7.5 8 12 5 12 2Zm4.5 12.5c.7 1.9 0 4-1.8 5.1-1 .6-2.2.7-3.3.4v-1.5c.9.2 1.9 0 2.6-.6.9-.8 1.1-2.1.5-3.1-.2 1-.9 1.4-1.7 1.5.5-.6.8-1.1 1-1.9.3-.9 1.1-1.3 1.7 .1Z"/></svg>
+          <svg class="float-a absolute top-[6%] right-[45%] w-8 h-8 sm:w-14 sm:h-14 opacity-55 hidden sm:block fill-orange-400" viewBox="0 0 24 24"><path d="M13 2 3 14h6l-1 8 11-13h-6l0-7Z"/></svg>
         </div>
         <div class="absolute inset-0 bg-gradient-to-t from-[#030712] via-[#030712]/55 to-transparent z-10"></div>
 
@@ -395,10 +415,10 @@
           </p>
 
           <div class="flex flex-wrap gap-2 text-[11px] font-semibold text-slate-300">
-            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800">⌨️ Keyboard &amp; touch</span>
-            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800">☁️ Cloud auto-save</span>
-            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800">🧑‍🌾 Living villagers</span>
-            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800">🌪️ Disasters</span>
+            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 fill-slate-300 shrink-0" viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2ZM7 8h2v2H7V8Zm0 3h2v2H7v-2Zm-3-3h2v2H4V8Zm0 3h2v2H4v-2Zm3 6H5v-2h2v2Zm4 0H9v-2h2v2Zm0-3H9v-2h2v2Zm0-3H9V8h2v2Zm3 6h-2v-2h2v2Zm0-3h-2v-2h2v2Zm0-3h-2V8h2v2Zm0-3h-2V6h2v2Zm3 9h-2v-2h2v2Zm0-3h-2v-2h2v2Zm0-3h-2V8h2v2Zm0-3h-2V6h2v2Z"/></svg>Keyboard &amp; touch</span>
+            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 fill-slate-300 shrink-0" viewBox="0 0 24 24"><path d="M6.5 19a4.5 4.5 0 0 1-.65-8.95 6 6 0 0 1 11.7-1.72A4 4 0 0 1 17.5 16h-11a4.5 4.5 0 0 1 0-3v0Z"/></svg>Cloud auto-save</span>
+            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 fill-slate-300 shrink-0" viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 1 5 5c0 2-1.2 3.6-2.6 4.7 2.6.8 4.6 2.9 4.6 5.8V19a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-1.5c0-2.9 2-5 4.6-5.8C8.2 10.6 7 9 7 7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3c0 1.5 1 2.6 2 3.3.3.2.5.6.5 1v.4c0 .5-.3.9-.8 1-1.9.6-3.2 2-3.6 3.8-.1.3.1.5.4.5h9c.3 0 .5-.2.4-.5-.4-1.8-1.7-3.2-3.6-3.8-.5-.1-.8-.5-.8-1v-.4c0-.4.2-.8.5-1 1-.7 2-1.8 2-3.3a3 3 0 0 0-3-3Z"/></svg>Living villagers</span>
+            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 fill-slate-300 shrink-0" viewBox="0 0 24 24"><path d="M13 2 3 14h6l-1 8 11-13h-6l0-7Z"/></svg>Disasters</span>
           </div>
 
           <div class="pt-2 flex items-center gap-3 flex-wrap">
@@ -441,7 +461,7 @@
                   <span class="w-2 h-2 rounded-full bg-emerald-400 dot-online"></span>
                   <span><span id="card-online-count">0</span> online · Auto saves</span>
                 </span>
-                <span class="text-sky-400 group-hover:translate-x-1 transition flex items-center gap-1">Play ➔</span>
+                <span class="text-sky-400 group-hover:translate-x-1 transition flex items-center gap-1">Play <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M8.5 5 7 6.5 13.5 13 7 19.5 8.5 21l8-8-8-8Z"/></svg></span>
               </div>
             </div>
           </a>
@@ -611,31 +631,34 @@
         <h3 class="text-xs font-extrabold uppercase tracking-widest text-slate-300">WorldForge Progress</h3>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div class="stat-card glass-box rounded-2xl p-5 border border-slate-800 flex items-center justify-between" style="--accent:#e2e8f0">
+          <div class="stat-card glass-box rounded-2xl p-5 border border-slate-800 flex items-center justify-between" style="--accent:#cbd5e1">
             <div>
               <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Houses &amp; Buildings</span>
               <span id="profile-buildings-count" class="text-3xl font-black text-white font-mono tabular-nums">0</span>
             </div>
-            <span class="text-4xl">🧱</span>
+            <div class="icon-tile"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M4 21V9l8-5 8 5v12h-6v-6h-4v6H4Z"/></svg></div>
           </div>
           <div class="stat-card glass-box rounded-2xl p-5 border border-slate-800 flex items-center justify-between" style="--accent:#38bdf8">
             <div>
               <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Villagers</span>
               <span id="profile-npcs-count" class="text-3xl font-black text-sky-400 font-mono tabular-nums">0</span>
             </div>
-            <span class="text-4xl">👤</span>
+            <div class="icon-tile"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5Zm0 2.5c-3.34 0-10 1.68-10 5V22h20v-2.5c0-3.32-6.66-5-10-5Z"/></svg></div>
           </div>
           <div class="stat-card glass-box rounded-2xl p-5 border border-slate-800 flex items-center justify-between" style="--accent:#34d399">
             <div>
               <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Total Items</span>
               <span id="profile-resources-count" class="text-3xl font-black text-emerald-400 font-mono tabular-nums">0</span>
             </div>
-            <span class="text-4xl">📦</span>
+            <div class="icon-tile"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2 3 6.5V17.5L12 22l9-4.5V6.5L12 2Zm0 2.24 6.3 3.15L12 10.56 5.7 7.39 12 4.24ZM5 8.85l6 3v7.3l-6-3v-7.3Zm8 10.3v-7.3l6-3v7.3l-6 3Z"/></svg></div>
           </div>
         </div>
 
         <div class="glass-box rounded-2xl p-5 border border-slate-800 space-y-3">
-          <span class="text-xs font-extrabold uppercase tracking-widest text-sky-400 block border-b border-slate-800 pb-2">All Resource Details</span>
+          <span class="text-xs font-extrabold uppercase tracking-widest text-sky-400 flex items-center gap-2 border-b border-slate-800 pb-2">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2 3 6.5V17.5L12 22l9-4.5V6.5L12 2Zm0 2.24 6.3 3.15L12 10.56 5.7 7.39 12 4.24ZM5 8.85l6 3v7.3l-6-3v-7.3Zm8 10.3v-7.3l6-3v7.3l-6 3Z"/></svg>
+            All Resource Details
+          </span>
           <div id="profile-resources-list" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <span class="text-xs text-slate-400">No resources collected yet.</span>
           </div>
@@ -664,7 +687,7 @@
   <!-- PLAYER MODAL -->
   <div id="profile-modal" class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-name">
     <div class="glass-box rounded-3xl max-w-md w-full p-6 border border-slate-700/80 relative space-y-6 shadow-2xl max-h-[92vh] overflow-y-auto">
-      <button id="close-modal-btn" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-sm font-bold transition" aria-label="Close">✕</button>
+      <button id="close-modal-btn" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition flex items-center justify-center" aria-label="Close"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.3 19.7 2.88 18.3 9.17 12 2.88 5.71 4.3 4.29l6.29 6.3 6.29-6.3Z"/></svg></button>
 
       <div class="flex items-center gap-4 pr-8">
         <img id="modal-avatar" class="w-16 h-16 rounded-full border-2 border-sky-400 object-cover shadow-lg shadow-sky-500/30" src="favicon.png" alt="Avatar" />

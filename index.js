@@ -65,13 +65,20 @@ const playerSearchEl = document.getElementById('player-search');
 const playerSortEl = document.getElementById('player-sort');
 const playerResultCountEl = document.getElementById('player-result-count');
 
+const TOAST_ICON = {
+  success: '<svg class="w-4 h-4 fill-emerald-400 shrink-0" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.6-4.2-4.2 1.4-1.4 2.8 2.8 5.8-5.8 1.4 1.4-7.2 7.2Z"/></svg>',
+  error: '<svg class="w-4 h-4 fill-red-400 shrink-0" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>',
+  info: '<svg class="w-4 h-4 fill-sky-400 shrink-0" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z"/></svg>'
+};
+
 function toast(msg, type = 'info', action = null) {
   const box = document.getElementById('toast-container');
   if (!box) return;
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   const icon = document.createElement('span');
-  icon.textContent = type === 'success' ? '✅' : type === 'error' ? '⚠️' : 'ℹ️';
+  icon.className = 'flex items-center';
+  icon.innerHTML = TOAST_ICON[type] || TOAST_ICON.info;
   const text = document.createElement('span');
   text.className = 'flex-1';
   text.textContent = msg;
@@ -179,16 +186,36 @@ const closeModalBottomBtn = document.getElementById('close-modal-bottom-btn');
 let rawUsersData = {};
 let rawGamesData = {};
 
+// Shared inline-SVG icon set — used in place of emoji everywhere on the site.
+const ICON_SVG = {
+  wood: '<svg viewBox="0 0 24 24" class="fill-current"><path d="M3 12c0-3 2.5-5 5.5-5S14 9 14 12s-2.5 5-5.5 5S3 15 3 12Zm2 0a3.5 3.5 0 1 0 7 0 3.5 3.5 0 0 0-7 0Zm9-7h7v2h-7V5Zm0 5.5h7v2h-7v-2Zm0 5.5h7v2h-7v-2Z"/></svg>',
+  water: '<svg viewBox="0 0 24 24" class="fill-current"><path d="M12 2c3.5 4.5 7 8.8 7 12.5A7 7 0 0 1 5 14.5C5 10.8 8.5 6.5 12 2Zm0 3.4C9.7 8.4 7 11.7 7 14.5a5 5 0 0 0 10 0c0-2.8-2.7-6.1-5-9.1Z"/></svg>',
+  wheat: '<svg viewBox="0 0 24 24" class="fill-current"><path d="M12 2c.6 1.6.2 2.7-.7 3.7 1 .2 1.7.9 2 1.9.9-.6 2-.6 2.8.2.9.9.9 2.1.1 3 1 .1 1.8.8 2 1.8.9-.4 2-.1 2.6.7.7.9.6 2.1-.2 2.9l-1.4-1.4c.2-.2.2-.5 0-.7a.5.5 0 0 0-.7 0l-1.4-1.4a1 1 0 0 0-1.4 0L14.3 14a1 1 0 0 0 0 1.4l-1.4 1.4a1 1 0 0 0 0 1.4L11.5 20a1 1 0 0 1-1.4 0l-1.4-1.4a1 1 0 0 1 0-1.4l1.4-1.4a1 1 0 0 1 1.4 0l1.4-1.4a1 1 0 0 1 0-1.4L11.5 12a1 1 0 0 1 0-1.4l1.4-1.4a.5.5 0 0 0 0-.7.5.5 0 0 0-.7 0C11.4 9.3 10.7 9 10 9c-1 0-1.8.6-2.1 1.5-.9-.2-1.8.2-2.3 1-.6.9-.4 2.1.4 2.8-.9.3-1.5 1.1-1.5 2.1 0 1.2 1 2.2 2.2 2.2.3 0 .6-.1.9-.2C7.9 19.5 9 20 10.2 20c.5 0 1-.1 1.4-.3.5.8 1.4 1.3 2.4 1.3 1.5 0 2.8-1.2 2.8-2.8 0-.2 0-.4-.1-.6.9-.3 1.6-1.1 1.6-2.1 0-1-.6-1.8-1.5-2.1.6-.8.6-1.9-.1-2.7C16 10 15 9.8 14.2 10.2 14 9.2 13.1 8.5 12 8.5c.9-1 .8-2.5-.3-3.4C12.5 4.2 12.4 3 12 2Z"/></svg>',
+  stone: '<svg viewBox="0 0 24 24" class="fill-current"><path d="M6 18c-2 0-4-1.6-4-4 0-1.9 1.3-3.4 3.1-3.9C5.6 8 7.6 6 10 6c1.4 0 2.7.6 3.6 1.6.4-.1.8-.2 1.2-.2 2.3 0 4.2 1.9 4.2 4.2 0 .3 0 .5-.1.8C20.7 12.8 22 14.3 22 16c0 2-1.8 3.6-4 3.6H6Z"/></svg>',
+  food: '<svg viewBox="0 0 24 24" class="fill-current"><path d="M4 11a8 8 0 0 1 16 0v1H4v-1Zm-1 3h18v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1Zm7-11h2v3h-2V3Zm-4 1 1.5 2.6L6 8 4.5 5.4 6 4Zm10 0 1.5 1.4L16 8l-1.5-2.4L16 4Z"/></svg>',
+  gold: '<svg viewBox="0 0 24 24" class="fill-current"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15ZM11 7h2v1.2c1.2.3 2 1.2 2 2.4h-1.6c0-.5-.5-.9-1.4-.9s-1.4.4-1.4.8c0 .5.5.7 1.6 1 1.5.4 2.8.9 2.8 2.6 0 1.3-.9 2.2-2 2.5V18h-2v-1.2c-1.2-.3-2.1-1.2-2.1-2.5H10c0 .6.6 1 1.5 1s1.5-.4 1.5-.9c0-.5-.6-.7-1.7-1-1.5-.4-2.7-.9-2.7-2.5 0-1.2.9-2.1 2-2.4V7Z"/></svg>',
+  iron: '<svg viewBox="0 0 24 24" class="fill-current"><path d="m12 1 1.5 2.6L16 2l.6 3 3-.6L18 7.5 21 9l-2.6 1.5L21 13l-3-.6.6 3-3-1.4L14.9 17 13 15l-1 2.9L10 15l-1.9 2-.6-3-3 1.4.6-3L2 13l2.6-2.5L2 9l3-1.5L4.4 4.4l3 .6L8 2l2.5 1.6L12 1Zm0 6.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/></svg>',
+  meat: '<svg viewBox="0 0 24 24" class="fill-current"><path d="M16.5 3c-2.5 0-5.5 2-6.5 5-1 3-1 4.5-3 5.5A3.5 3.5 0 0 0 3 17a3.5 3.5 0 0 0 3.5 3.5 3.5 3.5 0 0 0 3.4-2.7c1-2 2.5-2.1 5.5-3.1 3-1 5-4 5-6.5C20.4 5.2 18.8 3 16.5 3ZM6.5 19a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg>',
+  fish: '<svg viewBox="0 0 24 24" class="fill-current"><path d="M2 12s3.5-5 9-5c4 0 6.4 2.3 7.7 4-.2-1.6-.9-3-1.9-4.3l1.5-.9c1.5 1.9 2.4 4.1 2.6 6.4a12 12 0 0 1-2.6 6.4l-1.5-.9c1-1.3 1.7-2.7 1.9-4.3-1.3 1.7-3.7 4-7.7 4-5.5 0-9-5-9-5s1.6-2.3 4-3.7C4.9 10 3.2 11 2 12Zm14.5-.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>',
+  box: '<svg viewBox="0 0 24 24" class="fill-current"><path d="M12 2 3 6.5V17.5L12 22l9-4.5V6.5L12 2Zm0 2.24 6.3 3.15L12 10.56 5.7 7.39 12 4.24ZM5 8.85l6 3v7.3l-6-3v-7.3Zm8 10.3v-7.3l6-3v7.3l-6 3Z"/></svg>',
+  house: '<svg viewBox="0 0 24 24" class="fill-current"><path d="M4 21V9l8-5 8 5v12h-6v-6h-4v6H4Z"/></svg>',
+  person: '<svg viewBox="0 0 24 24" class="fill-current"><path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5Zm0 2.5c-3.34 0-10 1.68-10 5V22h20v-2.5c0-3.32-6.66-5-10-5Z"/></svg>'
+};
+
+function iconSpan(key, extraClass = '') {
+  return `<span class="inline-flex items-center justify-center shrink-0 ${extraClass}">${ICON_SVG[key] || ICON_SVG.box}</span>`;
+}
+
 const resourceMap = {
-  wo: { name: 'Wood', icon: '🪵' }, wood: { name: 'Wood', icon: '🪵' },
-  wa: { name: 'Water', icon: '💧' }, water: { name: 'Water', icon: '💧' },
-  w: { name: 'Wheat', icon: '🌾' }, wheat: { name: 'Wheat', icon: '🌾' },
-  s: { name: 'Stone', icon: '🪨' }, stone: { name: 'Stone', icon: '🪨' },
-  f: { name: 'Food', icon: '🍲' }, food: { name: 'Food', icon: '🍲' },
-  g: { name: 'Gold', icon: '🪙' }, gold: { name: 'Gold', icon: '🪙' },
-  i: { name: 'Iron', icon: '⚙️' }, iron: { name: 'Iron', icon: '⚙️' },
-  m: { name: 'Meat', icon: '🥩' }, meat: { name: 'Meat', icon: '🥩' },
-  fi: { name: 'Fish', icon: '🐟' }, fish: { name: 'Fish', icon: '🐟' }
+  wo: { name: 'Wood', icon: 'wood' }, wood: { name: 'Wood', icon: 'wood' },
+  wa: { name: 'Water', icon: 'water' }, water: { name: 'Water', icon: 'water' },
+  w: { name: 'Wheat', icon: 'wheat' }, wheat: { name: 'Wheat', icon: 'wheat' },
+  s: { name: 'Stone', icon: 'stone' }, stone: { name: 'Stone', icon: 'stone' },
+  f: { name: 'Food', icon: 'food' }, food: { name: 'Food', icon: 'food' },
+  g: { name: 'Gold', icon: 'gold' }, gold: { name: 'Gold', icon: 'gold' },
+  i: { name: 'Iron', icon: 'iron' }, iron: { name: 'Iron', icon: 'iron' },
+  m: { name: 'Meat', icon: 'meat' }, meat: { name: 'Meat', icon: 'meat' },
+  fi: { name: 'Fish', icon: 'fish' }, fish: { name: 'Fish', icon: 'fish' }
 };
 
 const TAB_BASE = 'nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5';
@@ -261,7 +288,7 @@ function renderDetailedResources(resourceObj, containerElement) {
   if (resourceObj && typeof resourceObj === 'object') {
     Object.entries(resourceObj).forEach(([key, val]) => {
       const lowerKey = key.toLowerCase();
-      const meta = resourceMap[lowerKey] || { name: key.toUpperCase(), icon: '📦' };
+      const meta = resourceMap[lowerKey] || { name: key.toUpperCase(), icon: 'box' };
       
       if (!mappedResources[meta.name]) {
         mappedResources[meta.name] = { amount: 0, icon: meta.icon };
@@ -278,10 +305,10 @@ function renderDetailedResources(resourceObj, containerElement) {
 
   entries.forEach(([name, data]) => {
     const itemCard = document.createElement('div');
-    itemCard.className = 'bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs';
+    itemCard.className = 'bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs hover:border-sky-500/40 transition';
     itemCard.innerHTML = `
       <span class="text-slate-300 font-bold flex items-center gap-2">
-        <span>${data.icon}</span>
+        ${iconSpan(data.icon, 'w-4 h-4 text-sky-400')}
         <span>${sanitizeHTML(name)}</span>
       </span>
       <span class="font-black text-sky-400 font-mono">${Number(data.amount)}</span>
@@ -697,6 +724,10 @@ function renderDirectory() {
     const water = Number(res.wa || res.water || 0);
     const wheat = Number(res.w || res.wheat || 0);
     const stone = Number(res.s || res.stone || 0);
+    const food = Number(res.f || res.food || 0);
+    const gold = Number(res.g || res.gold || 0);
+    const totalItems = wood + water + wheat + stone + food + gold
+      + Number(res.i || res.iron || 0) + Number(res.m || res.meat || 0) + Number(res.fi || res.fish || 0);
 
     const wfJoinedDate = gameSave.i && gameSave.i.jt ? formatDateDetailed(gameSave.i.jt) : 'Not played yet';
 
@@ -748,15 +779,29 @@ function renderDirectory() {
 
     const chips = document.createElement('div');
     chips.className = 'flex items-center gap-1.5 flex-wrap text-[10px] font-bold text-slate-300 font-mono';
-    const chipData = [`🧱 ${u._b}`, `👤 ${u._n}`, `🪵 ${wood}`, `💧 ${water}`, `🌾 ${wheat}`, `🪨 ${stone}`];
-    chipData.forEach((t) => {
+    const chipData = [
+      { icon: 'house', val: u._b, color: 'text-slate-200' },
+      { icon: 'person', val: u._n, color: 'text-sky-300' },
+      { icon: 'wood', val: wood, color: 'text-amber-300' },
+      { icon: 'water', val: water, color: 'text-sky-300' },
+      { icon: 'wheat', val: wheat, color: 'text-yellow-300' },
+      { icon: 'stone', val: stone, color: 'text-slate-300' }
+    ];
+    chipData.forEach(({ icon, val, color }) => {
       const c = document.createElement('span');
-      c.className = 'bg-slate-900/90 px-2 py-1 rounded-lg border border-slate-800';
-      c.textContent = t;
+      c.className = `bg-slate-900/90 px-2 py-1 rounded-lg border border-slate-800 flex items-center gap-1 ${color}`;
+      c.innerHTML = `${iconSpan(icon, 'w-3 h-3')}<span>${Number(val || 0)}</span>`;
       chips.appendChild(c);
     });
 
-    card.append(top, chips);
+    const footer = document.createElement('div');
+    footer.className = 'flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-slate-800/70';
+    footer.innerHTML = `
+      <span class="flex items-center gap-1.5">${iconSpan('box', 'w-3 h-3 text-emerald-400')}<span>${totalItems} items total</span></span>
+      <span class="flex items-center gap-1 text-amber-300">${iconSpan('gold', 'w-3 h-3')}<span>${gold}</span></span>
+    `;
+
+    card.append(top, chips, footer);
     return card;
   }));
 }
