@@ -262,8 +262,10 @@ window.addEventListener('hashchange', () => {
 });
 
 // Load bot community data (giveaways/levels/voice/invites) immediately on page load,
-// not lazily on tab click — it now lives inside the Discord tab.
-loadCommunityData();
+// not lazily on tab click — it now lives inside the Discord tab. Deferred to the next
+// microtask so it runs after the rest of this module (including `let` declarations
+// further down the file) has finished initializing.
+queueMicrotask(() => loadCommunityData());
 
 function formatDateDetailed(timestamp) {
   if (!timestamp) return 'N/A';
