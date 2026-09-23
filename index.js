@@ -145,11 +145,13 @@ const tabGamesBtn = document.getElementById('tab-games-btn');
 const tabPlayersBtn = document.getElementById('tab-players-btn');
 const tabProfileBtn = document.getElementById('tab-profile-btn');
 const tabDiscordBtn = document.getElementById('tab-discord-btn');
+const tabCommunityBtn = document.getElementById('tab-community-btn');
 
 const gamesSection = document.getElementById('games-section');
 const playersSection = document.getElementById('players-section');
 const profileSection = document.getElementById('profile-section');
 const discordSection = document.getElementById('discord-section');
+const communitySection = document.getElementById('community-section');
 const openMyProfileBtn = document.getElementById('open-my-profile-btn');
 
 const profileCardAvatar = document.getElementById('profile-card-avatar');
@@ -221,16 +223,16 @@ const resourceMap = {
 const TAB_BASE = 'nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5';
 const TAB_ACTIVE = TAB_BASE + ' text-white bg-sky-500/20 border border-sky-400/40';
 const TAB_INACTIVE = TAB_BASE + ' text-slate-400 hover:text-slate-200 border border-transparent';
-const TAB_NAMES = ['games', 'players', 'profile', 'discord'];
+const TAB_NAMES = ['games', 'players', 'profile', 'discord', 'community'];
 
 function switchTab(selected, { updateHash = true } = {}) {
-  [[tabGamesBtn, 'games'], [tabPlayersBtn, 'players'], [tabProfileBtn, 'profile'], [tabDiscordBtn, 'discord']].forEach(([btn, name]) => {
+  [[tabGamesBtn, 'games'], [tabPlayersBtn, 'players'], [tabProfileBtn, 'profile'], [tabDiscordBtn, 'discord'], [tabCommunityBtn, 'community']].forEach(([btn, name]) => {
     if (!btn) return;
     btn.className = selected === name ? TAB_ACTIVE : TAB_INACTIVE;
     btn.setAttribute('aria-selected', String(selected === name));
   });
 
-  [[gamesSection, 'games'], [playersSection, 'players'], [profileSection, 'profile'], [discordSection, 'discord']].forEach(([el, name]) => {
+  [[gamesSection, 'games'], [playersSection, 'players'], [profileSection, 'profile'], [discordSection, 'discord'], [communitySection, 'community']].forEach(([el, name]) => {
     if (!el) return;
     const show = selected === name;
     el.classList.toggle('hidden', !show);
@@ -241,6 +243,8 @@ function switchTab(selected, { updateHash = true } = {}) {
     }
   });
 
+  if (selected === 'community') loadCommunityData();
+
   if (updateHash) {
     try { history.replaceState(null, '', '#' + selected); } catch (e) {}
   }
@@ -250,6 +254,7 @@ tabGamesBtn?.addEventListener('click', () => switchTab('games'));
 tabPlayersBtn?.addEventListener('click', () => switchTab('players'));
 tabProfileBtn?.addEventListener('click', () => switchTab('profile'));
 tabDiscordBtn?.addEventListener('click', () => switchTab('discord'));
+tabCommunityBtn?.addEventListener('click', () => switchTab('community'));
 openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
 heroPlayersBtn?.addEventListener('click', () => { switchTab('players'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 profileSigninBtn?.addEventListener('click', () => loginBtn?.click());
@@ -593,8 +598,6 @@ onAuthStateChanged(auth, async (user) => {
       });
     } catch (err) {}
 
-    startAuthDatabaseListeners();
-
     let wfJoinedTime = null;
     try {
       const snap = await get(ref(db, `G/1/${user.uid}/i/jt`));
@@ -607,8 +610,6 @@ onAuthStateChanged(auth, async (user) => {
 
     updatePersonalProfileStats(user.uid);
   } else {
-    stopAuthDatabaseListeners();
-
     loginBtn?.classList.remove('hidden');
     profileSigninBtn?.classList.remove('hidden');
     userProfile?.classList.add('hidden');
@@ -809,3 +810,155 @@ function renderDirectory() {
 
 playerSearchEl?.addEventListener('input', () => renderDirectory());
 playerSortEl?.addEventListener('change', () => renderDirectory());
+
+// ============================================================
+// COMMUNITY TAB — live data from the Discord bot's HTTP API
+// ============================================================
+
+const BOT_API_BASE = 'https://72wkgkq29b.apps.bot-hosting.cloud';
+const BOT_API_KEY = 'sortofdev'; // Public-safe: this key is read-only on the bot's /api endpoints.
+
+let communityLoaded = false;
+
+function escapeHtmlJs(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function fmtDuration(sec) {
+  sec = Number(sec || 0);
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.floor(sec % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function fmtUptime(ms) {
+  const sec = Math.floor(Number(ms || 0) / 1000);
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function communityAvatarImg(user, size = 'w-8 h-8') {
+  const src = user.avatar || 'favicon.png';
+  const name = escapeHtmlJs(user.username || 'User');
+  return `<img src="${src}" class="${size} rounded-full object-cover border border-slate-700/80 shrink-0" alt="${name}" onerror="this.src='favicon.png'" />`;
+}
+
+function renderGiveawayCard(g) {
+  const isDone = g.done;
+  const timeLabel = isDone
+    ? `Ended ${g.endedAt ? new Date(g.endedAt).toLocaleDateString() : ''}`
+    : `Ends ${new Date(g.endsAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+  const winnersLine = isDone
+    ? (g.winners && g.winners.length
+        ? `<div class="flex items-center gap-1.5 flex-wrap mt-2">${g.winners.map((w) => `<span class="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full pl-1 pr-2 py-0.5 text-[10px] text-emerald-300 font-bold">${communityAvatarImg(w, 'w-4 h-4')}${escapeHtmlJs(w.username)}</span>`).join('')}</div>`
+        : `<div class="text-[10px] text-slate-500 mt-2">No valid entries</div>`)
+    : '';
+
+  return `
+    <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 hover:border-amber-500/30 transition">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-xs font-black text-white truncate">${escapeHtmlJs(g.prize)}</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">#${g.gwId} · Hosted by ${escapeHtmlJs(g.host?.username || 'Unknown')}</div>
+        </div>
+        <span class="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full ${isDone ? 'bg-slate-700/50 text-slate-400' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}">${isDone ? 'Ended' : 'Live'}</span>
+      </div>
+      <div class="flex items-center gap-3 mt-3 text-[10px] text-slate-400">
+        <span class="flex items-center gap-1">${iconSpan('person', 'w-3 h-3')}<span>${g.entries} entered</span></span>
+        <span class="flex items-center gap-1"><svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M12 2 3 6.5V17.5L12 22l9-4.5V6.5L12 2Z"/></svg><span>${g.winnersCount} winner${g.winnersCount === 1 ? '' : 's'}</span></span>
+        <span>${timeLabel}</span>
+      </div>
+      ${winnersLine}
+    </div>
+  `;
+}
+
+function renderLeaderboardRow({ rank, user, right, sub }) {
+  const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+  return `
+    <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/90">
+      <span class="w-7 text-center text-xs font-black text-slate-400 shrink-0">${medal}</span>
+      ${communityAvatarImg(user)}
+      <div class="min-w-0 flex-1">
+        <div class="text-xs font-bold text-white truncate">${escapeHtmlJs(user.username)}</div>
+        ${sub ? `<div class="text-[10px] text-slate-500 truncate">${sub}</div>` : ''}
+      </div>
+      <span class="shrink-0 text-xs font-black text-sky-400 font-mono">${right}</span>
+    </div>
+  `;
+}
+
+async function loadCommunityData() {
+  if (communityLoaded) return;
+  communityLoaded = true;
+
+  const offlineEl = document.getElementById('community-offline');
+  const statPing = document.getElementById('community-stat-ping');
+  const statMembers = document.getElementById('community-stat-members');
+  const statGiveaways = document.getElementById('community-stat-giveaways');
+  const statUptime = document.getElementById('community-stat-uptime');
+  const activeGwEl = document.getElementById('community-active-giveaways');
+  const recentGwEl = document.getElementById('community-recent-giveaways');
+  const msgLbEl = document.getElementById('community-msg-leaderboard');
+  const voiceLbEl = document.getElementById('community-voice-leaderboard');
+  const inviteLbEl = document.getElementById('community-invite-leaderboard');
+
+  try {
+    const res = await fetch(`${BOT_API_BASE}/api/community`, {
+      headers: { Authorization: `Bearer ${BOT_API_KEY}` }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    offlineEl?.classList.add('hidden');
+
+    if (statPing) statPing.textContent = `${data.stats?.ping ?? '–'}ms`;
+    if (statMembers) statMembers.textContent = data.stats?.members ?? '–';
+    if (statGiveaways) statGiveaways.textContent = data.giveaways?.active?.length ?? 0;
+    if (statUptime) statUptime.textContent = fmtUptime(data.stats?.uptime);
+
+    const active = data.giveaways?.active || [];
+    if (activeGwEl) {
+      activeGwEl.innerHTML = active.length
+        ? active.map(renderGiveawayCard).join('')
+        : `<div class="col-span-full p-6 text-center text-slate-400 text-xs">No giveaways running right now.</div>`;
+    }
+
+    const recent = data.giveaways?.recent || [];
+    if (recentGwEl) {
+      recentGwEl.innerHTML = recent.length
+        ? recent.map(renderGiveawayCard).join('')
+        : `<div class="col-span-full p-6 text-center text-slate-400 text-xs">No past giveaways yet.</div>`;
+    }
+
+    const messages = data.leaderboard?.messages || [];
+    if (msgLbEl) {
+      msgLbEl.innerHTML = messages.length
+        ? messages.map((m) => renderLeaderboardRow({ rank: m.rank, user: m.user, right: `Lv.${m.level}`, sub: `${m.messages.toLocaleString()} messages` })).join('')
+        : `<div class="p-6 text-center text-slate-400 text-xs">No message activity yet.</div>`;
+    }
+
+    const voice = data.leaderboard?.voice || [];
+    if (voiceLbEl) {
+      voiceLbEl.innerHTML = voice.length
+        ? voice.map((v) => renderLeaderboardRow({ rank: v.rank, user: v.user, right: fmtDuration(v.seconds) })).join('')
+        : `<div class="p-6 text-center text-slate-400 text-xs">No voice activity yet.</div>`;
+    }
+
+    const invites = data.invites || [];
+    if (inviteLbEl) {
+      inviteLbEl.innerHTML = invites.length
+        ? invites.map((v) => renderLeaderboardRow({ rank: v.rank, user: v.user, right: v.total, sub: `${v.regular} joined · ${v.left} left · ${v.fake} fake` })).join('')
+        : `<div class="p-6 text-center text-slate-400 text-xs">No invite activity yet.</div>`;
+    }
+  } catch (err) {
+    console.warn('Community API fetch failed:', err.message);
+    offlineEl?.classList.remove('hidden');
+    [activeGwEl, recentGwEl].forEach((el) => { if (el) el.innerHTML = `<div class="col-span-full p-6 text-center text-slate-500 text-xs">Unavailable</div>`; });
+    [msgLbEl, voiceLbEl, inviteLbEl].forEach((el) => { if (el) el.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">Unavailable</div>`; });
+    communityLoaded = false; // allow retry next time the tab is opened
+  }
+}
