@@ -145,13 +145,11 @@ const tabGamesBtn = document.getElementById('tab-games-btn');
 const tabPlayersBtn = document.getElementById('tab-players-btn');
 const tabProfileBtn = document.getElementById('tab-profile-btn');
 const tabDiscordBtn = document.getElementById('tab-discord-btn');
-const tabCommunityBtn = document.getElementById('tab-community-btn');
 
 const gamesSection = document.getElementById('games-section');
 const playersSection = document.getElementById('players-section');
 const profileSection = document.getElementById('profile-section');
 const discordSection = document.getElementById('discord-section');
-const communitySection = document.getElementById('community-section');
 const openMyProfileBtn = document.getElementById('open-my-profile-btn');
 
 const profileCardAvatar = document.getElementById('profile-card-avatar');
@@ -223,16 +221,16 @@ const resourceMap = {
 const TAB_BASE = 'nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5';
 const TAB_ACTIVE = TAB_BASE + ' text-white bg-sky-500/20 border border-sky-400/40';
 const TAB_INACTIVE = TAB_BASE + ' text-slate-400 hover:text-slate-200 border border-transparent';
-const TAB_NAMES = ['games', 'players', 'profile', 'discord', 'community'];
+const TAB_NAMES = ['games', 'players', 'profile', 'discord'];
 
 function switchTab(selected, { updateHash = true } = {}) {
-  [[tabGamesBtn, 'games'], [tabPlayersBtn, 'players'], [tabProfileBtn, 'profile'], [tabDiscordBtn, 'discord'], [tabCommunityBtn, 'community']].forEach(([btn, name]) => {
+  [[tabGamesBtn, 'games'], [tabPlayersBtn, 'players'], [tabProfileBtn, 'profile'], [tabDiscordBtn, 'discord']].forEach(([btn, name]) => {
     if (!btn) return;
     btn.className = selected === name ? TAB_ACTIVE : TAB_INACTIVE;
     btn.setAttribute('aria-selected', String(selected === name));
   });
 
-  [[gamesSection, 'games'], [playersSection, 'players'], [profileSection, 'profile'], [discordSection, 'discord'], [communitySection, 'community']].forEach(([el, name]) => {
+  [[gamesSection, 'games'], [playersSection, 'players'], [profileSection, 'profile'], [discordSection, 'discord']].forEach(([el, name]) => {
     if (!el) return;
     const show = selected === name;
     el.classList.toggle('hidden', !show);
@@ -243,8 +241,6 @@ function switchTab(selected, { updateHash = true } = {}) {
     }
   });
 
-  if (selected === 'community') loadCommunityData();
-
   if (updateHash) {
     try { history.replaceState(null, '', '#' + selected); } catch (e) {}
   }
@@ -254,7 +250,6 @@ tabGamesBtn?.addEventListener('click', () => switchTab('games'));
 tabPlayersBtn?.addEventListener('click', () => switchTab('players'));
 tabProfileBtn?.addEventListener('click', () => switchTab('profile'));
 tabDiscordBtn?.addEventListener('click', () => switchTab('discord'));
-tabCommunityBtn?.addEventListener('click', () => switchTab('community'));
 openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
 heroPlayersBtn?.addEventListener('click', () => { switchTab('players'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 profileSigninBtn?.addEventListener('click', () => loginBtn?.click());
@@ -265,6 +260,10 @@ window.addEventListener('hashchange', () => {
   const t = location.hash.replace('#', '');
   if (TAB_NAMES.includes(t)) switchTab(t, { updateHash: false });
 });
+
+// Load bot community data (giveaways/levels/voice/invites) immediately on page load,
+// not lazily on tab click — it now lives inside the Discord tab.
+loadCommunityData();
 
 function formatDateDetailed(timestamp) {
   if (!timestamp) return 'N/A';
@@ -907,9 +906,13 @@ async function loadCommunityData() {
   const inviteLbEl = document.getElementById('community-invite-leaderboard');
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(`${BOT_API_BASE}/api/community`, {
-      headers: { Authorization: `Bearer ${BOT_API_KEY}` }
+      headers: { Authorization: `Bearer ${BOT_API_KEY}` },
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
@@ -959,6 +962,6 @@ async function loadCommunityData() {
     offlineEl?.classList.remove('hidden');
     [activeGwEl, recentGwEl].forEach((el) => { if (el) el.innerHTML = `<div class="col-span-full p-6 text-center text-slate-500 text-xs">Unavailable</div>`; });
     [msgLbEl, voiceLbEl, inviteLbEl].forEach((el) => { if (el) el.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">Unavailable</div>`; });
-    communityLoaded = false; // allow retry next time the tab is opened
+    communityLoaded = false; // allow a later manual retry
   }
 }
