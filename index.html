@@ -215,8 +215,23 @@
       *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
     }
   </style>
-  <script>(function(s){s.dataset.zone='11839981',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
-  <script>(function(s){s.dataset.zone='11878241',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+  <script>
+  // Monetag: In-Page Push + Vignette load on every visit, then rest for COOLDOWN_MIN minutes.
+  // Cooldown key is shared with the WorldForge page.
+  (function () {
+    var COOLDOWN_MIN = 5, KEY = "ps_ads_last";
+    try {
+      var last = Number(localStorage.getItem(KEY) || 0);
+      if (last && Date.now() - last < COOLDOWN_MIN * 60000) return;
+      localStorage.setItem(KEY, String(Date.now()));
+    } catch (e) {}
+    [["11839981", "https://nap5k.com/tag.min.js"], ["11878241", "https://n6wxm.com/vignette.min.js"]].forEach(function (z) {
+      var s = document.createElement("script");
+      s.dataset.zone = z[0]; s.src = z[1];
+      [document.documentElement, document.body].filter(Boolean).pop().appendChild(s);
+    });
+  })();
+  </script>
 </head>
 <body oncontextmenu="return false" class="bg-[#030712] text-slate-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden">
 
