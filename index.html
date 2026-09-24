@@ -622,6 +622,75 @@
           <div class="skeleton h-[52px]"></div>
         </div>
       </section>
+
+      <!-- MODERATION (tickets + warns, from the moderation bot) -->
+      <div id="moderation-offline" class="hidden glass-box rounded-2xl p-5 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2.5">
+        <svg class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>
+        <span>Couldn't reach the moderation bot's API right now. It may be offline or restarting.</span>
+      </div>
+
+      <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#3498db">
+          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3V4Z"/></svg></div>
+          <span id="moderation-stat-open" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Open tickets</span>
+        </div>
+        <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#95a5a6">
+          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 11h5v2h-7V6h2v7Z"/></svg></div>
+          <span id="moderation-stat-closed" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Closed (recent)</span>
+        </div>
+        <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#f59e0b">
+          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg></div>
+          <span id="moderation-stat-warns" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active warns</span>
+        </div>
+        <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#5865f2">
+          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15Z"/></svg></div>
+          <span id="moderation-stat-ping" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Mod bot ping</span>
+        </div>
+      </section>
+
+      <section class="glass-box rounded-3xl p-6 sm:p-8 border border-sky-500/20">
+        <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4">
+          <span class="text-xs font-extrabold uppercase tracking-widest text-sky-400 flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3V4Z"/></svg>
+            Open Tickets
+          </span>
+        </div>
+        <div id="moderation-open-tickets" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="skeleton h-[92px]"></div>
+          <div class="skeleton h-[92px]"></div>
+        </div>
+      </section>
+
+      <section class="glass-box rounded-3xl p-6 sm:p-8 border border-slate-700/40">
+        <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4">
+          <span class="text-xs font-extrabold uppercase tracking-widest text-slate-300 flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 11h5v2h-7V6h2v7Z"/></svg>
+            Recently Closed Tickets
+          </span>
+        </div>
+        <div id="moderation-closed-tickets" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="skeleton h-[92px]"></div>
+          <div class="skeleton h-[92px]"></div>
+        </div>
+      </section>
+
+      <section class="glass-box rounded-3xl p-6 sm:p-8 border border-amber-500/20">
+        <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4">
+          <span class="text-xs font-extrabold uppercase tracking-widest text-amber-400 flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>
+            Recent Warns
+          </span>
+        </div>
+        <div id="moderation-warns" class="space-y-2">
+          <div class="skeleton h-[52px]"></div>
+          <div class="skeleton h-[52px]"></div>
+          <div class="skeleton h-[52px]"></div>
+        </div>
+      </section>
     </div>
 
     <!-- PLAYERS -->

@@ -266,6 +266,7 @@ window.addEventListener('hashchange', () => {
 // microtask so it runs after the rest of this module (including `let` declarations
 // further down the file) has finished initializing.
 queueMicrotask(() => loadCommunityData());
+queueMicrotask(() => loadModerationData());
 
 function formatDateDetailed(timestamp) {
   if (!timestamp) return 'N/A';
@@ -965,5 +966,116 @@ async function loadCommunityData() {
     [activeGwEl, recentGwEl].forEach((el) => { if (el) el.innerHTML = `<div class="col-span-full p-6 text-center text-slate-500 text-xs">Unavailable</div>`; });
     [msgLbEl, voiceLbEl, inviteLbEl].forEach((el) => { if (el) el.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">Unavailable</div>`; });
     communityLoaded = false; // allow a later manual retry
+  }
+}
+
+// ============================================================
+// MODERATION — live tickets & warns from the moderation bot's API
+// ============================================================
+
+const MOD_API_BASE = 'https://1gkm2xh7wx.apps.bot-hosting.cloud';
+const MOD_API_KEY = 'sortofdev'; // Public-safe: read-only on the mod bot's /api endpoints.
+
+let moderationLoaded = false;
+
+function renderTicketCard(t, isClosed) {
+  const statusLabel = isClosed ? 'Closed' : (t.status === 'claimed' ? 'Claimed' : 'Open');
+  const statusClass = isClosed ? 'bg-slate-700/50 text-slate-400' : (t.status === 'claimed' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30');
+  const timeLabel = isClosed
+    ? `Closed ${new Date(t.closedAt).toLocaleDateString()}`
+    : `Opened ${new Date(t.createdAt).toLocaleDateString()}`;
+
+  return `
+    <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 hover:border-sky-500/30 transition">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-xs font-black text-white truncate">#${t.ticketId} · ${escapeHtmlJs(t.categoryLabel)}</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">Opened by ${escapeHtmlJs(t.opener.username)}</div>
+        </div>
+        <span class="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full ${statusClass}">${statusLabel}</span>
+      </div>
+      ${t.reason ? `<div class="text-[10px] text-slate-500 mt-2 truncate">${escapeHtmlJs(t.reason)}</div>` : ''}
+      <div class="flex items-center gap-3 mt-3 text-[10px] text-slate-400 flex-wrap">
+        ${t.claimedBy ? `<span class="flex items-center gap-1">${iconSpan('person', 'w-3 h-3')}<span>Claimed by ${escapeHtmlJs(t.claimedBy.username)}</span></span>` : ''}
+        ${isClosed && t.closedBy ? `<span class="flex items-center gap-1">${iconSpan('person', 'w-3 h-3')}<span>Closed by ${escapeHtmlJs(t.closedBy.username)}</span></span>` : ''}
+        <span class="flex items-center gap-1"><svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3V4Z"/></svg><span>${t.messageCount} messages</span></span>
+        <span>${timeLabel}</span>
+      </div>
+      ${isClosed && t.closeReason ? `<div class="text-[10px] text-slate-500 mt-2 pt-2 border-t border-slate-800/70 truncate">Close reason: ${escapeHtmlJs(t.closeReason)}</div>` : ''}
+    </div>
+  `;
+}
+
+function renderWarnRow(w) {
+  const ts = new Date(w.at).toLocaleDateString();
+  return `
+    <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/90">
+      ${communityAvatarImg(w.user)}
+      <div class="min-w-0 flex-1">
+        <div class="text-xs font-bold text-white truncate">${escapeHtmlJs(w.user.username)} <span class="text-slate-500 font-normal">#${w.id}</span></div>
+        <div class="text-[10px] text-slate-500 truncate">${escapeHtmlJs(w.reason)} · by ${escapeHtmlJs(w.moderator.username)} · ${ts}</div>
+      </div>
+      <span class="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full ${w.active ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-slate-700/50 text-slate-400'}">${w.active ? 'Active' : 'Removed'}</span>
+    </div>
+  `;
+}
+
+async function loadModerationData() {
+  if (moderationLoaded) return;
+  moderationLoaded = true;
+
+  const offlineEl = document.getElementById('moderation-offline');
+  const statOpen = document.getElementById('moderation-stat-open');
+  const statClosed = document.getElementById('moderation-stat-closed');
+  const statWarns = document.getElementById('moderation-stat-warns');
+  const statPing = document.getElementById('moderation-stat-ping');
+  const openEl = document.getElementById('moderation-open-tickets');
+  const closedEl = document.getElementById('moderation-closed-tickets');
+  const warnsEl = document.getElementById('moderation-warns');
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${MOD_API_BASE}/api/moderation`, {
+      headers: { Authorization: `Bearer ${MOD_API_KEY}` },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    offlineEl?.classList.add('hidden');
+
+    if (statOpen) statOpen.textContent = data.stats?.openTicketCount ?? 0;
+    if (statClosed) statClosed.textContent = data.tickets?.closed?.length ?? 0;
+    if (statWarns) statWarns.textContent = data.stats?.activeWarnCount ?? 0;
+    if (statPing) statPing.textContent = `${data.stats?.ping ?? '–'}ms`;
+
+    const open = data.tickets?.open || [];
+    if (openEl) {
+      openEl.innerHTML = open.length
+        ? open.map((t) => renderTicketCard(t, false)).join('')
+        : `<div class="col-span-full p-6 text-center text-slate-400 text-xs">No open tickets right now.</div>`;
+    }
+
+    const closed = data.tickets?.closed || [];
+    if (closedEl) {
+      closedEl.innerHTML = closed.length
+        ? closed.map((t) => renderTicketCard(t, true)).join('')
+        : `<div class="col-span-full p-6 text-center text-slate-400 text-xs">No closed tickets yet.</div>`;
+    }
+
+    const warnList = data.warns || [];
+    if (warnsEl) {
+      warnsEl.innerHTML = warnList.length
+        ? warnList.map(renderWarnRow).join('')
+        : `<div class="p-6 text-center text-slate-400 text-xs">No warns on record.</div>`;
+    }
+  } catch (err) {
+    console.warn('Moderation API fetch failed:', err.message);
+    offlineEl?.classList.remove('hidden');
+    [openEl, closedEl].forEach((el) => { if (el) el.innerHTML = `<div class="col-span-full p-6 text-center text-slate-500 text-xs">Unavailable</div>`; });
+    if (warnsEl) warnsEl.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">Unavailable</div>`;
+    moderationLoaded = false;
   }
 }
