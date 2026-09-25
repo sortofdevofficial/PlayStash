@@ -203,7 +203,9 @@ const ghosts = {
   well: createWell("ghostWell", scene),
   storage: createStorage("ghostStorage", scene),
   market: createMarket("ghostMarket", scene),
-  lumbermill: createLumbermill("ghostLumbermill", scene)
+  // No yard on the ghost: the translucent outline reads as the footprint, and a
+  // 7x7 fence would imply the placement blocks tiles the validity check ignores.
+  lumbermill: createLumbermill("ghostLumbermill", scene, false)
 };
 
 // One material for every ghost child: they are all the same translucent green,
@@ -265,53 +267,11 @@ function updateRotateButton() {
   if (rotateBtnEl) rotateBtnEl.style.display = show ? "flex" : "none";
 }
 
-// Integrated GPUs and phones cannot hold 60fps at native resolution once a
-// village grows, so trade sharpness for frame rate instead of stuttering.
-const SCALING_MIN = 1;
-const SCALING_MAX = 1.75;
-const SCALING_STEP = 0.25;
-const FPS_FLOOR = 42;
-const FPS_HEADROOM = 57;
-
-let scalingFrames = 0;
-let scalingSeconds = 0;
-let scalingWarmup = 2;  // boot stalls on shader compile - not a real frame rate
-let slowStreak = 0;
-let fastStreak = 0;
-let scalingCooldown = 0;
-
-function adaptResolution(delta) {
-  scalingFrames++;
-  scalingSeconds += delta;
-  if (scalingSeconds < 0.5) return;
-  const fps = scalingFrames / scalingSeconds;
-  scalingFrames = 0;
-  scalingSeconds = 0;
-
-  if (scalingWarmup > 0) { scalingWarmup--; return; }
-  if (scalingCooldown > 0) { scalingCooldown--; return; }
-
-  slowStreak = fps < FPS_FLOOR ? slowStreak + 1 : 0;
-  fastStreak = fps > FPS_HEADROOM ? fastStreak + 1 : 0;
-
-  const level = engine.getHardwareScalingLevel();
-  let next = level;
-  if (slowStreak >= 3 && level < SCALING_MAX) next = Math.min(SCALING_MAX, level + SCALING_STEP);
-  else if (fastStreak >= 6 && level > SCALING_MIN) next = Math.max(SCALING_MIN, level - SCALING_STEP);
-  if (next === level) return;
-
-  slowStreak = 0;
-  fastStreak = 0;
-  scalingCooldown = 4; // wait several windows before nudging again
-  engine.setHardwareScalingLevel(next);
-}
-
 function startRenderLoop() {
   engine.runRenderLoop(() => {
     const delta = engine.getDeltaTime() / 1000;
     elapsedTime += delta;
     updateGusts();
-    adaptResolution(delta);
 
     const trackedNpcId = getTrackedNpcId();
     if (trackedNpcId) {

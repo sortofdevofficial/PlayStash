@@ -25,7 +25,7 @@ function materials(scene) {
     shingle: make("lm_shingle", 0.52, 0.28, 0.22),             // weathered roof
     steel:   make("lm_steel",   0.72, 0.74, 0.76, 0.35),       // saw blade
     stone:   make("lm_stone",   0.52, 0.50, 0.47),             // footing
-    wheel:   make("lm_wheel",   0.40, 0.27, 0.15),             // water wheel
+    yard:    make("lm_yard",    0.40, 0.27, 0.15),             // woodlot fence
     lamp:    (() => {
       const m = make("lm_lamp", 0.55, 0.40, 0.20);
       m.emissiveColor = new BABYLON.Color3(0.85, 0.58, 0.20);  // warm workshop glow
@@ -36,7 +36,10 @@ function materials(scene) {
   return cached;
 }
 
-export function createLumbermill(id, scene) {
+// withYard is off for the build preview and the placement ghost: those cameras
+// auto-fit the mesh bounding box, so the full woodlot fence would shrink the
+// shed itself to a speck in its card.
+export function createLumbermill(id, scene, withYard = true) {
   const root = new BABYLON.TransformNode(id, scene);
   const mat = materials(scene);
   const add = (mesh, m) => { mesh.material = m; mesh.parent = root; return mesh; };
@@ -124,33 +127,52 @@ export function createLumbermill(id, scene) {
     add(end, mat.sap);
   });
 
-  // --- Water wheel on the right, driven by the same motion as the saw ---
-  const wheelHolder = new BABYLON.TransformNode(id + "_wheelHolder", scene);
-  wheelHolder.position.set(1.02, 0.62, 0);
-  wheelHolder.rotation.x = Math.PI / 2;
-  wheelHolder.parent = root;
+  // --- The mill's woodlot: a fenced yard enclosing the shed. YARD_HALF has to
+  //     agree with WOODLOT_PAD in world.js, because that pad is the square the
+  //     lot's trees regrow inside. Every post and rail merges into one mesh, so
+  //     a yard costs a single draw call instead of two dozen. ---
+  if (withYard) {
+    const YARD_HALF = 3.5; // local units; the root sits at the centre of the lot
+    const GATE_HALF = 0.95;
+    const parts = [];
+    const seen = new Set();
 
-  const hub = BABYLON.MeshBuilder.CreateCylinder(id + "_hub", { height: 0.16, diameter: 0.2, tessellation: 8 }, scene);
-  hub.material = mat.dark;
-  hub.parent = wheelHolder;
-  const rim = BABYLON.MeshBuilder.CreateTorus(id + "_rim", { diameter: 0.86, thickness: 0.09, tessellation: 14 }, scene);
-  rim.rotation.x = Math.PI / 2;
-  rim.material = mat.wheel;
-  rim.parent = wheelHolder;
-  for (let i = 0; i < 6; i++) {
-    const spoke = BABYLON.MeshBuilder.CreateBox(id + "_spoke_" + i, { width: 0.78, height: 0.06, depth: 0.09 }, scene);
-    spoke.rotation.y = (i / 6) * Math.PI;
-    spoke.material = mat.wheel;
-    spoke.parent = wheelHolder;
-  }
-  // Paddles catch the light differently as the wheel turns.
-  for (let i = 0; i < 6; i++) {
-    const paddle = BABYLON.MeshBuilder.CreateBox(id + "_paddle_" + i, { width: 0.16, height: 0.05, depth: 0.2 }, scene);
-    const a = (i / 6) * Math.PI * 2;
-    paddle.position.set(Math.cos(a) * 0.44, 0, Math.sin(a) * 0.44);
-    paddle.rotation.y = -a;
-    paddle.material = mat.timber;
-    paddle.parent = wheelHolder;
+    const post = (x, z) => {
+      const key = x + "," + z;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const p = BABYLON.MeshBuilder.CreateCylinder(id + "_yardPost", { height: 0.95, diameter: 0.16, tessellation: 6 }, scene);
+      p.position.set(x, 0.475, z);
+      parts.push(p);
+    };
+
+    const run = (x0, z0, x1, z1) => {
+      post(x0, z0);
+      post(x1, z1);
+      const alongX = Math.abs(x1 - x0) > Math.abs(z1 - z0);
+      const len = Math.hypot(x1 - x0, z1 - z0);
+      [0.36, 0.68].forEach((railY) => {
+        const rail = BABYLON.MeshBuilder.CreateBox(id + "_yardRail", {
+          width: alongX ? len : 0.08, height: 0.11, depth: alongX ? 0.08 : len
+        }, scene);
+        rail.position.set((x0 + x1) / 2, railY, (z0 + z1) / 2);
+        parts.push(rail);
+      });
+    };
+
+    run(-YARD_HALF, -YARD_HALF, YARD_HALF, -YARD_HALF);                   // back
+    run(-YARD_HALF, YARD_HALF, -GATE_HALF, YARD_HALF);                     // front, left of the gate
+    run(GATE_HALF, YARD_HALF, YARD_HALF, YARD_HALF);                       // front, right of the gate
+    run(-YARD_HALF, -YARD_HALF, -YARD_HALF, YARD_HALF);                    // flanks
+    run(YARD_HALF, -YARD_HALF, YARD_HALF, YARD_HALF);
+    post(-YARD_HALF, 0); post(YARD_HALF, 0); post(0, -YARD_HALF);          // mid posts carry the long runs
+
+    const fence = BABYLON.Mesh.MergeMeshes(parts, true, true, undefined, false, false);
+    if (fence) {
+      fence.name = id + "_yard";
+      fence.material = mat.yard;
+      fence.parent = root;
+    }
   }
 
   // --- Lantern under the eave: the one warm, glowing note on the building ---
@@ -160,19 +182,18 @@ export function createLumbermill(id, scene) {
   lamp.position.set(0.62, 1.28, 1.04);
   add(lamp, mat.lamp);
 
-  root.metadata = { saw: sawHolder, wheel: wheelHolder, lamp };
+  root.metadata = { saw: sawHolder, lamp };
   return flatShade(root);
 }
 
 /**
- * Spin the saw and the wheel. Speed tracks how many NPCs the player staffed
- * the mill with, so an empty mill idles and a full crew visibly works faster.
+ * Spin the saw. Speed tracks how many NPCs the player staffed the mill with,
+ * so an empty mill idles and a full crew visibly works faster.
  */
 export function updateLumbermill(millRoot, delta) {
   const meta = millRoot.metadata;
   if (!meta) return;
   const speed = 1.2 + 2.6 * (meta.crewSpeed || 0);
   if (meta.saw) meta.saw.rotation.y += delta * speed * 3.2;
-  if (meta.wheel) meta.wheel.rotation.y += delta * speed * 0.5;
   if (meta.lamp) meta.lamp.scaling.y = 1 + Math.sin(performance.now() * 0.0012) * 0.03;
 }

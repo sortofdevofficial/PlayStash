@@ -16,7 +16,9 @@ const creators = {
   well:     createWell,
   storage:  createStorage,
   market:   createMarket,
-  lumbermill: createLumbermill,
+  // The preview camera auto-fits the whole hierarchy, so the woodlot fence is
+  // left off this one - the card should show the shed, not its yard.
+  lumbermill: (id, scene) => createLumbermill(id, scene, false),
 };
 
 // Every preview shares one rAF loop, and each card only spins for a fixed

@@ -132,16 +132,10 @@ export function showFloatingText(text, worldPos, color = "#81C784", scene, camer
     camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight())
   );
 
-  // The render loop can downscale the backbuffer, so render pixels are not CSS
-  // pixels and the overlay has to be converted back.
-  const cssScale = engine.getHardwareScalingLevel();
-  const px = projected.x * cssScale;
-  const py = projected.y * cssScale;
-
   const popup = document.createElement("div");
   popup.textContent = text;
   popup.style.cssText = `
-    position: absolute; left: ${px}px; top: ${py}px;
+    position: absolute; left: ${projected.x}px; top: ${projected.y}px;
     color: ${color}; font-weight: bold; font-size: 15px; font-family: sans-serif;
     pointer-events: none; transition: transform 0.8s ease-out, opacity 0.8s ease-out;
     transform: translate(-50%, -100%); z-index: 1000; text-shadow: 0px 2px 4px rgba(0,0,0,0.8);
