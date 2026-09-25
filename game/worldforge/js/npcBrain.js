@@ -162,7 +162,7 @@ export function getMaxNPCCapacity(placedObjects) {
 }
 
 const NPC_NAMES = ["Bram", "Kael", "Lyra", "Torn", "Elian", "Mila", "Rowan"];
-export const WALK_SPEED = 9;
+export const WALK_SPEED = 7.2;   // tiles/second; the walk cycle derives its rate from this
 
 let npcIdCounter = 0;
 export function setNpcIdSeed(n) { npcIdCounter = Math.max(npcIdCounter, n); }

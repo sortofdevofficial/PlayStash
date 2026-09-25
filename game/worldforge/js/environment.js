@@ -149,11 +149,14 @@ grid.freezeWorldMatrix();
 // ------------------------------------------------------------
 // GROUND SCATTER
 // ------------------------------------------------------------
-// Pebbles. One thin-instanced mesh, so a few hundred stones cost a single draw
-// call and add nothing to scene.meshes the way regular instances would.
+// Thin-instanced decoration scattered over the meadow: one mesh per layer, so a
+// few hundred props cost a single draw call and add nothing to scene.meshes the
+// way regular instances would. No layer is registered right now - the pebbles
+// came off at the player's request - but buildings still claim the ground they
+// stand on, so anything added back here stays off their floors.
 //
-// isPickable has to stay false: pebbles are ground decoration, and a pick that
-// lands on one should never eat the click meant for a villager or a building.
+// isPickable has to stay false on every layer: decoration must never eat the
+// click meant for a villager or a building.
 const SCATTER_EDGE = HALF_BUILD - 1.5;
 
 // Buildings claim the ground they stand on so nothing sits on a floor. Claimed
@@ -295,19 +298,6 @@ export function releaseScatter(key) {
   unbucketRect(rect);
   scheduleScatterRefresh();
 }
-
-function buildPebble(name) {
-  const pebble = BABYLON.MeshBuilder.CreatePolyhedron(name, { type: 1, size: 0.09 }, scene);
-  pebble.position.y = 0.04;
-  pebble.bakeCurrentTransformIntoVertices();
-  pebble.material = envMaterials.stoneDark;
-  pebble.convertToFlatShadedMesh();
-  return pebble;
-}
-
-// Pebbles in scree patches rather than uniform noise, so they read as ground
-// detail instead of confetti.
-registerScatter(buildPebble("pebbles"), driftPoints(110, [0.7, 1.6], 3));
 
 // Per-object variation has to be seeded from the object id ("tree_23_28"),
 // not Math.random(). Neither scale nor canopy twist is part of the save format,

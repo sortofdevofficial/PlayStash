@@ -20,7 +20,7 @@ import {
   authReady, loadSave, loadWorldByUid, initAutosave, markDirty,
   getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser, getJoinTimes, initPresence
 } from "./db.js";
-import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById, tickWoodlots, MAX_WORKERS } from "./world.js";
+import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById, tickWoodlots } from "./world.js";
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
 import { initNpcPanel, tickNpcPanel, getTrackedNpcId, clearTrackedNpc } from "./npcPanel.js";
 import { isTouchDevice, initMobileControls, applyMobileHeightHold } from "./mobileControls.js";
@@ -303,8 +303,7 @@ function startRenderLoop() {
     if (ghosts.farm) updateFarmWiggle(ghosts.farm, elapsedTime);
 
     for (const mill of objectsOfType("lumbermill")) {
-      if (mill.root?.metadata) mill.root.metadata.crewSpeed = mill.workers / MAX_WORKERS;
-      if (mill.root) updateLumbermill(mill.root, delta);
+      if (mill.root) updateLumbermill(mill.root);
     }
     tickWoodlots(delta);
 

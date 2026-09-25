@@ -88,6 +88,12 @@ export function instantiateObject(type, rootX, rootZ, size, rotation = 0, extra 
 
   const tiles = getFootprintTiles(rootX, rootZ, size);
   tiles.forEach((t) => occupiedGrid.set(tileKey(t.x, t.z), objId));
+  // Restoring a save can drop a building onto ground a neighbouring mill has
+  // already claimed. Standing there beats the claim, or those tiles would stay
+  // reserved forever once the building is removed. Trees are the exception: the
+  // lot sprouts its own through here, and must not unreserve its ground.
+  const isBuilding = type !== "lumbermill" && type !== "tree" && type !== "stone";
+  if (isBuilding) tiles.forEach((t) => yardClaims.delete(tileKey(t.x, t.z)));
 
   const entry = { id: objId, root: node, tiles, rootX, rootZ, type, size, ...extra };
   if (!entry.key) entry.key = nextBuildKey(type);
@@ -95,6 +101,7 @@ export function instantiateObject(type, rootX, rootZ, size, rotation = 0, extra 
 
   indexObject(entry);
   if (type === "tree" || type === "stone") nodeCount++;
+  if (type === "lumbermill") claimYard(entry);
 
   return entry;
 }
@@ -105,12 +112,11 @@ export function spawnRandomWildernessNode() {
   const rx = Math.floor(Math.random() * (BOUND_MAX - BOUND_MIN - 2)) + BOUND_MIN + 1;
   const rz = Math.floor(Math.random() * (BOUND_MAX - BOUND_MIN - 2)) + BOUND_MIN + 1;
 
-  if (!isFootprintValid(rx, rz, 2, occupiedGrid) || isTileNearStructure(rx, rz, placedObjects, 3)) return;
+  if (!isFootprintValid(rx, rz, 2, occupiedGrid) || isYardReserved(rx, rz, 2) || isTileNearStructure(rx, rz, placedObjects, 3)) return;
 
-  // A world with a mill gets its timber from that mill's woodlot and nowhere
-  // else, which is what makes the building worth the space. Without one,
-  // trees drop in the wild as they always have, so existing saves play on.
-  const type = hasLumbermill() ? "stone" : (Math.random() > 0.5 ? "tree" : "stone");
+  // The mill's woodlot is a faster, guaranteed source, not the only one: wild
+  // trees keep dropping so the player always has something to swing at.
+  const type = Math.random() > 0.5 ? "tree" : "stone";
   instantiateObject(type, rx, rz, sizeFor(type), 0, { health: 3 });
   markDirty();
   onStatsChanged();
@@ -137,7 +143,41 @@ export function woodlotRegrowSeconds(mill) {
   return Math.max(WOODLOT_MIN_S, WOODLOT_REGROW_S / Math.max(1, mill.workers || 0));
 }
 
-export function hasLumbermill() { return objectsOfType("lumbermill").size > 0; }
+// The fenced woodlot is the mill's ground, so nothing else may build there. It
+// is deliberately NOT written into occupiedGrid: that grid also drives NPC
+// pathfinding and the lot's own regrowth scan, and a yard of "blocked" tiles
+// would wall the crew out of the trees they work on.
+const yardClaims = new Map();         // tileKey -> id of the mill that owns it
+
+function claimYard(mill) {
+  const b = woodlotBounds(mill);
+  mill.yard = [];
+  for (let x = b.x0; x <= b.x1; x++) {
+    for (let z = b.z0; z <= b.z1; z++) {
+      if (x >= mill.rootX && x < mill.rootX + mill.size && z >= mill.rootZ && z < mill.rootZ + mill.size) continue;
+      const key = tileKey(x, z);
+      // Anything already standing there - a neighbour built before this mill -
+      // keeps its ground. The claim only ever reserves free tiles.
+      if (occupiedGrid.has(key) || yardClaims.has(key)) continue;
+      yardClaims.set(key, mill.id);
+      mill.yard.push(key);
+    }
+  }
+}
+
+function releaseYard(mill) {
+  mill.yard.forEach((key) => { if (yardClaims.get(key) === mill.id) yardClaims.delete(key); });
+  mill.yard = [];
+}
+
+export function isYardReserved(rootX, rootZ, size) {
+  for (let dx = 0; dx < size; dx++) {
+    for (let dz = 0; dz < size; dz++) {
+      if (yardClaims.has(tileKey(rootX + dx, rootZ + dz))) return true;
+    }
+  }
+  return false;
+}
 
 export function woodlotBounds(mill) {
   return {
@@ -224,7 +264,7 @@ export function placeObject(rootX, rootZ) {
   }
 
   const size = getFootprintSize();
-  if (!isFootprintValid(rootX, rootZ, size, occupiedGrid)) return showNotif("Tile Blocked!", "warn");
+  if (!isFootprintValid(rootX, rootZ, size, occupiedGrid) || isYardReserved(rootX, rootZ, size)) return showNotif("Tile Blocked!", "warn");
 
   Object.keys(cost).forEach((key) => { state.resources[key] -= cost[key]; });
 
@@ -281,6 +321,7 @@ export function removeObjectById(objId, onHoveredCleared, options = {}) {
   if (data.type === "tree" || data.type === "stone") nodeCount--;
 
   if (data.type === "lumbermill") {
+    releaseYard(data);
     if (data.crew) for (const npcId of Array.from(data.crew)) releaseWorker(data, npcId);
     // The forest it was tending does not vanish with the mill - those trees
     // simply stop belonging to a lot and become ordinary wilderness again.

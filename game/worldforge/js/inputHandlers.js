@@ -3,7 +3,7 @@ import { worldToGrid, gridToWorldCenter, isFootprintValid, getMaxNPCCapacity } f
 import { state, showNotif, showFloatingText, updateCardHighlights, deselectAllModes, addResourceClamped, updateResourceUI } from "./ui.js";
 import { playSound } from "./audio.js";
 import { markDirty } from "./db.js";
-import { getFootprintSize, placeObject, removeObjectById, clearWorld } from "./world.js";
+import { getFootprintSize, placeObject, removeObjectById, clearWorld, isYardReserved } from "./world.js";
 import { toggleTrackNpc } from "./npcPanel.js";
 import { openMillPanel } from "./millPanel.js";
 
@@ -95,7 +95,7 @@ function updateGhostFromPointer() {
     const size = getFootprintSize();
     const g = worldToGrid(pick.pickedPoint);
     targetGhostPos = gridToWorldCenter(g.x, g.z, size);
-    tintGhost(isFootprintValid(g.x, g.z, size, occupiedGrid));
+    tintGhost(isFootprintValid(g.x, g.z, size, occupiedGrid) && !isYardReserved(g.x, g.z, size));
   } else {
     showOnlyActiveGhost();
     const targetId = pick.pickedMesh?.metadata?.objId;

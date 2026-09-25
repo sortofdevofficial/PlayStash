@@ -1,199 +1,314 @@
 import { flatShade } from "../flatShade.js";
+import { sharedMat, solidMat } from "./materials.js";
 
-// Materials are per-scene, not per-call. Every model used to build its own
-// StandardMaterials, and world.js then cloned each one again per mesh, so a
-// 100-building world carried well over a thousand materials. Previews run in
-// their own scenes, so the cache is keyed by scene rather than global.
-const matCache = new WeakMap();
-
-function materials(scene) {
-  let cached = matCache.get(scene);
-  if (cached) return cached;
-
-  const make = (name, r, g, b, spec = 0) => {
-    const m = new BABYLON.StandardMaterial(name, scene);
-    m.diffuseColor = new BABYLON.Color3(r, g, b);
-    m.specularColor = new BABYLON.Color3(spec, spec, spec);
-    return m;
-  };
-
-  cached = {
-    timber:  make("lm_timber",  0.46, 0.30, 0.17),            // milled pine frame
-    dark:    make("lm_dark",    0.30, 0.19, 0.11),             // shadowed beams
-    bark:    make("lm_bark",    0.36, 0.25, 0.15),             // log bark
-    sap:     make("lm_sap",     0.72, 0.55, 0.32),             // cut log ends
-    shingle: make("lm_shingle", 0.52, 0.28, 0.22),             // weathered roof
-    steel:   make("lm_steel",   0.72, 0.74, 0.76, 0.35),       // saw blade
-    stone:   make("lm_stone",   0.52, 0.50, 0.47),             // footing
-    yard:    make("lm_yard",    0.40, 0.27, 0.15),             // woodlot fence
-    lamp:    (() => {
-      const m = make("lm_lamp", 0.55, 0.40, 0.20);
-      m.emissiveColor = new BABYLON.Color3(0.85, 0.58, 0.20);  // warm workshop glow
-      return m;
-    })(),
-  };
-  matCache.set(scene, cached);
-  return cached;
-}
-
-// withYard is off for the build preview and the placement ghost: those cameras
-// auto-fit the mesh bounding box, so the full woodlot fence would shrink the
-// shed itself to a speck in its card.
+// The mill is built from a lot of small parts - plank courses, shingle rows,
+// knee braces, log ends - and a mesh per part would cost more draw calls and
+// more shadow casters than the rest of the village. Every part therefore goes
+// into a per-material bucket through put(), and each bucket merges into one
+// mesh at the end, so the detail costs about eleven meshes either way.
 export function createLumbermill(id, scene, withYard = true) {
   const root = new BABYLON.TransformNode(id, scene);
-  const mat = materials(scene);
-  const add = (mesh, m) => { mesh.material = m; mesh.parent = root; return mesh; };
 
-  // --- Stone footing, then the timber floor it raises the shed on ---
-  add(BABYLON.MeshBuilder.CreateBox(id + "_footing", { width: 1.94, height: 0.16, depth: 1.94 }, scene), mat.stone)
-    .position.y = 0.08;
-  add(BABYLON.MeshBuilder.CreateBox(id + "_floor", { width: 1.8, height: 0.12, depth: 1.8 }, scene), mat.timber)
-    .position.y = 0.22;
+  const m = {
+    frame:   solidMat(scene, "lm_frame",   [0.48, 0.32, 0.18]),  // milled pine
+    dark:    solidMat(scene, "lm_dark",    [0.32, 0.20, 0.11]),  // shadowed beams
+    bark:    solidMat(scene, "lm_bark",    [0.36, 0.25, 0.15]),
+    sap:     solidMat(scene, "lm_sap",     [0.76, 0.59, 0.35]),  // cut ends
+    shingle: solidMat(scene, "lm_shingle", [0.46, 0.24, 0.19]),  // weathered roof
+    tile:    solidMat(scene, "lm_tile",    [0.35, 0.17, 0.15]),  // roof courses
+    stone:   solidMat(scene, "lm_stone",   [0.52, 0.50, 0.47]),
+    stoneDk: solidMat(scene, "lm_stoneDk", [0.41, 0.39, 0.36]),
+    dust:    solidMat(scene, "lm_dust",    [0.82, 0.70, 0.48]),  // sawdust
+    cloth:   solidMat(scene, "lm_cloth",   [0.72, 0.63, 0.45]),  // sacking
+    moss:    solidMat(scene, "lm_moss",    [0.42, 0.65, 0.28]),
+    iron:    sharedMat(scene, "lm_iron", () => {
+      const mat = new BABYLON.StandardMaterial("lm_iron", scene);
+      mat.diffuseColor = new BABYLON.Color3(0.30, 0.31, 0.34);
+      mat.specularColor = new BABYLON.Color3(0.45, 0.45, 0.48);
+      return mat;
+    }),
+  };
 
-  // --- Frame posts, including a mid-pair that carries the roof's ridge ---
-  const posts = [[-0.82, -0.82], [0.82, -0.82], [-0.82, 0.82], [0.82, 0.82], [0, -0.82], [0, 0.82]];
-  posts.forEach(([px, pz], i) => {
-    const post = BABYLON.MeshBuilder.CreateCylinder(id + "_post_" + i, { height: 1.32, diameter: 0.15, tessellation: 6 }, scene);
-    post.position.set(px, 0.94, pz);
-    add(post, i % 2 ? mat.dark : mat.timber);
+  const groups = new Map();
+  let seq = 0;
+  const put = (mesh, mat) => {
+    const list = groups.get(mat);
+    if (list) list.push(mesh);
+    else groups.set(mat, [mesh]);
+    return mesh;
+  };
+  const nextName = () => id + "_p" + (seq++);
+
+  const box = (mat, x, y, z, w, h, d, rot) => {
+    const b = BABYLON.MeshBuilder.CreateBox(nextName(), { width: w, height: h, depth: d }, scene);
+    b.position.set(x, y, z);
+    if (rot) b.rotation.set(rot[0], rot[1], rot[2] || 0);
+    return put(b, mat);
+  };
+  const cyl = (mat, x, y, z, h, d, rot, tess = 6, dTop) => {
+    const opts = dTop === undefined
+      ? { height: h, diameter: d, tessellation: tess }
+      : { height: h, diameterTop: dTop, diameterBottom: d, tessellation: tess };
+    const c = BABYLON.MeshBuilder.CreateCylinder(nextName(), opts, scene);
+    c.position.set(x, y, z);
+    if (rot) c.rotation.set(rot[0], rot[1], rot[2] || 0);
+    return put(c, mat);
+  };
+  // A stack of boards, laid along the given axis - the mill's stock in trade.
+  const stack = (mat, x, y, z, count, alongZ) => {
+    for (let s = 0; s < count; s++) {
+      const sy = y + s * 0.19;
+      if (alongZ) box(s % 2 ? m.frame : mat, x, sy, z, 0.66, 0.14, 0.3);
+      else box(s % 2 ? m.frame : mat, x, sy, z, 0.3, 0.14, 0.66);
+    }
+  };
+
+  // ============================================================
+  // Stone footing, corner plinths, and the plank floor they raise
+  // ============================================================
+  box(m.stone, 0, 0.08, 0, 2.02, 0.16, 2.02);
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) =>
+    box(m.stoneDk, sx * 0.88, 0.12, sz * 0.88, 0.3, 0.24, 0.3));
+  for (let i = 0; i < 7; i++)
+    box(i % 2 ? m.dark : m.frame, 0, 0.22, -0.81 + i * 0.27, 1.78, 0.12, 0.23);
+  // Worn stone threshold at the front, and two shallow steps down to the yard.
+  box(m.stoneDk, 0, 0.16, 1.1, 1.16, 0.1, 0.3);
+  box(m.stone, 0, 0.1, 1.36, 1.3, 0.12, 0.26);
+
+  // ============================================================
+  // Timber frame: posts, sills, plate, and a brace at every corner
+  // ============================================================
+  const TOP = 1.78;
+  const posts = [[-0.88, -0.88], [0.88, -0.88], [-0.88, 0.88], [0.88, 0.88], [-0.46, 0.88], [0.46, 0.88]];
+  posts.forEach(([px, pz]) => cyl(m.frame, px, (0.28 + TOP) / 2, pz, TOP - 0.28, 0.17));
+
+  [-0.9, 0.9].forEach((z) => {
+    box(m.dark, 0, 0.34, z, 1.9, 0.13, 0.12);
+    box(m.dark, 0, TOP, z, 1.98, 0.14, 0.14);
+  });
+  [-0.9, 0.9].forEach((x) => {
+    box(m.dark, x, 0.34, 0, 0.12, 0.13, 1.9);
+    box(m.dark, x, TOP, 0, 0.14, 0.14, 1.98);
   });
 
-  // --- Gable roof: two slanted planes meeting at a ridge board ---
-  const roofPitch = 0.52;
-  [-1, 1].forEach((side) => {
-    const slope = BABYLON.MeshBuilder.CreateBox(id + "_roof_" + side, { width: 1.28, height: 0.09, depth: 2.16 }, scene);
-    slope.position.set(side * 0.55, 1.72, 0);
-    slope.rotation.z = -side * roofPitch;
-    add(slope, mat.shingle);
-  });
-  add(BABYLON.MeshBuilder.CreateBox(id + "_ridge", { width: 0.24, height: 0.13, depth: 2.26 }, scene), mat.dark)
-    .position.set(0, 2.02, 0);
-
-  // Gable ends close the triangles under the roof.
-  [-1, 1].forEach((side) => {
-    const gable = BABYLON.MeshBuilder.CreateCylinder(id + "_gable_" + side, { height: 0.06, diameter: 1.5, tessellation: 3 }, scene);
-    gable.rotation.x = Math.PI / 2;
-    gable.rotation.y = side * Math.PI / 2;
-    gable.scaling.set(1, 0.62, 1);
-    gable.position.set(side * 0.9, 1.68, 0);
-    add(gable, mat.timber);
+  // Angled braces off each post. They are what makes a timber frame read as
+  // built rather than as a box with posts stuck on the corners.
+  posts.forEach(([px, pz]) => {
+    const inX = px === 0 ? 1 : -Math.sign(px);
+    const inZ = pz === 0 ? 1 : -Math.sign(pz);
+    box(m.dark, px + inX * 0.2, 0.62, pz, 0.4, 0.08, 0.08, [0, 0, -inX * 0.62]);
+    box(m.dark, px, 0.62, pz + inZ * 0.2, 0.08, 0.08, 0.4, [inZ * 0.62, 0, 0]);
   });
 
-  // --- Saw pit: a log on trestles fed into the blade at the open front ---
-  const trestle = [-0.52, 0.52];
-  trestle.forEach((tx, i) => {
-    const leg = BABYLON.MeshBuilder.CreateBox(id + "_trestle_" + i, { width: 0.1, height: 0.46, depth: 0.34 }, scene);
-    leg.position.set(tx, 0.51, 0.66);
-    add(leg, mat.dark);
-  });
-  add(BABYLON.MeshBuilder.CreateBox(id + "_log", { width: 1.3, height: 0.24, depth: 0.24 }, scene), mat.bark)
-    .position.set(0, 0.86, 0.66);
-
-  // Holder supplies the blade's orientation; the blade spins inside it, so the
-  // animation axis never has to be recomposed out of Euler order.
-  const sawHolder = new BABYLON.TransformNode(id + "_sawHolder", scene);
-  sawHolder.position.set(0, 1.02, 0.66);
-  sawHolder.rotation.z = Math.PI / 2;
-  sawHolder.parent = root;
-
-  const blade = BABYLON.MeshBuilder.CreateCylinder(id + "_blade", { height: 0.035, diameter: 0.62, tessellation: 24 }, scene);
-  blade.material = mat.steel;
-  blade.parent = sawHolder;
-
-  // Four teeth keep the spin readable at gameplay camera distance - a plain
-  // disc looks stationary no matter how fast it turns.
-  for (let i = 0; i < 4; i++) {
-    const tooth = BABYLON.MeshBuilder.CreateBox(id + "_tooth_" + i, { width: 0.09, height: 0.05, depth: 0.13 }, scene);
-    const a = (i / 4) * Math.PI * 2;
-    tooth.position.set(Math.cos(a) * 0.32, 0, Math.sin(a) * 0.32);
-    tooth.rotation.y = -a;
-    tooth.material = mat.steel;
-    tooth.parent = sawHolder;
+  // ============================================================
+  // Walls: closed back and left, half-high on the right so the light
+  // gets in, and open across the front saw bay.
+  // ============================================================
+  for (let i = 0; i < 8; i++) {
+    const x = -0.86 + i * 0.245;
+    box(i % 3 === 1 ? m.dark : m.frame, x, 1.06, -0.92, 0.21, 1.42, 0.07);
+    box(i % 3 === 2 ? m.dark : m.frame, -0.92, 1.06, x, 0.07, 1.42, 0.21);
+    box(i % 2 ? m.dark : m.frame, 0.92, 0.72, x, 0.07, 0.74, 0.21);
   }
-  const arbor = BABYLON.MeshBuilder.CreateCylinder(id + "_arbor", { height: 0.12, diameter: 0.13, tessellation: 8 }, scene);
-  arbor.material = mat.dark;
-  arbor.parent = sawHolder;
+  // A window on the right wall with its shutter propped open.
+  box(m.dark, 0.94, 1.32, -0.24, 0.05, 0.36, 0.46);
+  box(m.frame, 1.16, 1.32, -0.5, 0.05, 0.36, 0.46, [0, -0.85, 0]);
 
-  // --- Log pile stacked against the left wall ---
-  const pile = [[-0.62, -0.42], [-0.62, -0.02], [-0.62, 0.38], [-0.32, -0.22], [-0.32, 0.18]];
-  pile.forEach(([px, pz], i) => {
-    const log = BABYLON.MeshBuilder.CreateCylinder(id + "_log_" + i, { height: 0.78, diameter: 0.26, tessellation: 7 }, scene);
-    log.rotation.x = Math.PI / 2;
-    log.position.set(px, 0.41 + (i > 2 ? 0.24 : 0), pz);
-    add(log, mat.bark);
-    const end = BABYLON.MeshBuilder.CreateCylinder(id + "_logEnd_" + i, { height: 0.04, diameter: 0.22, tessellation: 7 }, scene);
-    end.rotation.x = Math.PI / 2;
-    end.position.set(px, 0.41 + (i > 2 ? 0.24 : 0), pz + 0.39);
-    add(end, mat.sap);
+  // Gable ends, stepped up to the ridge at both ends of the frame.
+  [-0.9, 0.9].forEach((z) => {
+    [[1.5, 1.88], [1.0, 2.05], [0.5, 2.22]].forEach(([w, y], i) =>
+      box(i === 1 ? m.dark : m.frame, 0, y, z, w, 0.16, 0.07));
   });
 
-  // --- The mill's woodlot: a fenced yard enclosing the shed. YARD_HALF has to
-  //     agree with WOODLOT_PAD in world.js, because that pad is the square the
-  //     lot's trees regrow inside. Every post and rail merges into one mesh, so
-  //     a yard costs a single draw call instead of two dozen. ---
+  // ============================================================
+  // Roof: two shingled slopes with overlapping courses, barge boards,
+  // an eave fascia and a capped ridge.
+  // ============================================================
+  const PITCH = 0.42;
+  const SLOPE = 1.46;
+  const eaveY = 1.74;
+  const ridgeY = eaveY + Math.sin(PITCH) * SLOPE;
+  const eaveX = Math.cos(PITCH) * SLOPE;
+  [-1, 1].forEach((side) => {
+    box(m.shingle, side * eaveX * 0.5, (eaveY + ridgeY) / 2, 0, SLOPE, 0.09, 2.36, [0, 0, -side * PITCH]);
+    [0.2, 0.44, 0.68, 0.92].forEach((t) =>
+      box(m.tile, side * eaveX * t, ridgeY - (ridgeY - eaveY) * t + 0.07, 0, 0.3, 0.05, 2.38, [0, 0, -side * PITCH]));
+    [-1.18, 1.18].forEach((z) =>
+      box(m.dark, side * eaveX * 0.52, (eaveY + ridgeY) / 2 + 0.07, z, SLOPE * 1.02, 0.07, 0.12, [0, 0, -side * PITCH]));
+    box(m.dark, side * (eaveX + 0.02), eaveY + 0.04, 0, 0.1, 0.16, 2.38);
+  });
+  box(m.dark, 0, ridgeY + 0.08, 0, 0.26, 0.14, 2.44);
+  [-1.24, 1.24].forEach((z) => cyl(m.dark, 0, ridgeY + 0.15, z, 0.2, 0.17, [Math.PI / 2, 0, 0], 6));
+  // Moss on the shady slope - the one growth the roof lets through.
+  cyl(m.moss, -0.62, eaveY + 0.55, 0.52, 0.12, 0.3, null, 7, 0.02);
+  cyl(m.moss, -0.34, eaveY + 0.72, -0.66, 0.11, 0.24, null, 7, 0.02);
+
+  // ============================================================
+  // Saw bay: a log on trestles, a two-man whipsaw across it, and the
+  // mess it makes. Nothing here turns - the crew is the animation.
+  // ============================================================
+  [-0.5, 0.5].forEach((tx) => {
+    [-0.15, 0.15].forEach((tz) => box(m.dark, tx, 0.5, 0.7 + tz, 0.09, 0.5, 0.09, [tz > 0 ? -0.18 : 0.18, 0, 0]));
+    box(m.frame, tx, 0.78, 0.7, 0.12, 0.08, 0.44);
+  });
+  box(m.bark, 0, 0.9, 0.7, 1.34, 0.28, 0.28, [0, 0, 0.05]);
+  [-0.68, 0.68].forEach((ex) => cyl(m.sap, ex, 0.9, 0.7, 0.05, 0.26, [0, 0, Math.PI / 2], 9));
+  [-0.34, 0.34].forEach((dx) => box(m.iron, dx, 1.06, 0.7, 0.06, 0.15, 0.3));
+
+  box(m.iron, 0, 1.09, 0.7, 1.62, 0.025, 0.11, [0, 0, 0.05]);
+  [-1, 1].forEach((side) => {
+    box(m.frame, side * 0.87, 1.17, 0.7, 0.2, 0.06, 0.06, [0, 0, side * -0.5]);
+    box(m.dark, side * 0.78, 1.06, 0.7, 0.05, 0.1, 0.1);
+  });
+
+  // Sawdust heaped under the cut.
+  cyl(m.dust, 0.12, 0.3, 1.26, 0.2, 0.68, null, 10, 0.04);
+  cyl(m.dust, -0.36, 0.28, 1.16, 0.14, 0.42, null, 9, 0.03);
+
+  // Tool bench against the front-left post: axe, maul, and a sharpening stone.
+  box(m.frame, -0.58, 0.5, 0.44, 0.62, 0.08, 0.34);
+  [-0.8, -0.36].forEach((bx) => box(m.dark, bx, 0.32, 0.44, 0.07, 0.36, 0.3));
+  box(m.iron, -0.66, 0.6, 0.44, 0.16, 0.11, 0.07, [0, 0.3, 0]);
+  cyl(m.frame, -0.56, 0.58, 0.46, 0.36, 0.045, [0, 0.3, Math.PI / 2.5], 6);
+  cyl(m.dark, -0.44, 0.6, 0.38, 0.16, 0.11, [Math.PI / 2, 0, 0], 8);
+  box(m.stoneDk, -0.7, 0.57, 0.34, 0.14, 0.05, 0.09);
+
+  // Sack of offcuts and a nail bucket by the door.
+  cyl(m.cloth, 0.66, 0.42, 0.44, 0.36, 0.34, null, 9);
+  cyl(m.cloth, 0.66, 0.63, 0.44, 0.1, 0.34, null, 9, 0.16);
+  cyl(m.dark, 0.72, 0.36, -0.34, 0.28, 0.3, null, 10);
+  cyl(m.iron, 0.72, 0.5, -0.34, 0.02, 0.31, null, 10);
+
+  // ============================================================
+  // Finished lumber: a lean-to rack on the right, stacked with bundles
+  // ============================================================
+  [0.06, 1.04].forEach((lz) => cyl(m.dark, 1.66, 0.62, lz, 1.0, 0.13));
+  box(m.shingle, 1.62, 1.24, 0.55, 0.94, 0.08, 1.34, [0, 0, -0.32]);
+  box(m.dark, 1.2, 0.78, 0.55, 0.1, 0.08, 1.3);
+  stack(m.dark, 1.54, 0.34, 0.2, 3, true);
+  stack(m.dark, 1.54, 0.34, 0.9, 2, true);
+  // End grain on every bundle, so the stack reads as planks and not as crates.
+  [0.2, 0.58, 0.9].forEach((bz) => [-0.02, 0.17, 0.36].forEach((oy) =>
+    box(m.sap, 1.2, 0.34 + oy, bz, 0.03, 0.12, 0.26)));
+
+  // ============================================================
+  // Green logs: a wall of them against the left outside, plus rounds
+  // ============================================================
+  [[-0.5, 0.36], [-0.16, 0.36], [0.18, 0.36], [-0.33, 0.65], [0.01, 0.65], [-0.16, 0.93]].forEach(([lz, ly]) => {
+    cyl(m.bark, -1.42, ly, lz, 1.5, 0.3, [0, 0, Math.PI / 2], 8);
+    cyl(m.sap, -2.18, ly, lz, 0.04, 0.26, [0, 0, Math.PI / 2], 8);
+  });
+  cyl(m.bark, -1.16, 0.16, 1.28, 0.5, 0.3, [0, 0, Math.PI / 2], 8);
+  cyl(m.sap, -0.9, 0.16, 1.28, 0.04, 0.26, [0, 0, Math.PI / 2], 8);
+
+  // ============================================================
+  // Sign over the bay: bracket, board, and a carved log emblem
+  // ============================================================
+  box(m.dark, 0.3, TOP - 0.04, 1.14, 0.7, 0.09, 0.09);
+  box(m.dark, 0.6, TOP - 0.2, 1.14, 0.07, 0.26, 0.07);
+  [-0.06, 0.06].forEach((dx) => box(m.iron, 0.6 + dx, TOP - 0.35, 1.14, 0.03, 0.1, 0.03));
+  box(m.frame, 0.6, TOP - 0.54, 1.14, 0.52, 0.32, 0.06);
+  box(m.dark, 0.6, TOP - 0.54, 1.17, 0.44, 0.24, 0.02);
+  cyl(m.bark, 0.6, TOP - 0.54, 1.19, 0.28, 0.1, [0, 0, Math.PI / 2], 8);
+  cyl(m.sap, 0.46, TOP - 0.54, 1.19, 0.1, 0.02, [0, 0, Math.PI / 2], 8);
+
+  // ============================================================
+  // The woodlot fence. YARD_HALF has to agree with WOODLOT_PAD in
+  // world.js, because that pad is the square the lot's trees regrow in.
+  // ============================================================
   if (withYard) {
-    const YARD_HALF = 3.5; // local units; the root sits at the centre of the lot
+    const YARD_HALF = 3.5;
     const GATE_HALF = 0.95;
-    const parts = [];
     const seen = new Set();
 
-    const post = (x, z) => {
+    const fencePost = (x, z, tall = 0.95) => {
       const key = x + "," + z;
       if (seen.has(key)) return;
       seen.add(key);
-      const p = BABYLON.MeshBuilder.CreateCylinder(id + "_yardPost", { height: 0.95, diameter: 0.16, tessellation: 6 }, scene);
-      p.position.set(x, 0.475, z);
-      parts.push(p);
+      cyl(m.dark, x, tall / 2, z, tall, 0.17);
+      cyl(m.frame, x, tall + 0.06, z, 0.12, 0.17, null, 6, 0.02);
     };
-
-    const run = (x0, z0, x1, z1) => {
-      post(x0, z0);
-      post(x1, z1);
+    const railRun = (x0, z0, x1, z1) => {
+      fencePost(x0, z0);
+      fencePost(x1, z1);
       const alongX = Math.abs(x1 - x0) > Math.abs(z1 - z0);
       const len = Math.hypot(x1 - x0, z1 - z0);
-      [0.36, 0.68].forEach((railY) => {
-        const rail = BABYLON.MeshBuilder.CreateBox(id + "_yardRail", {
-          width: alongX ? len : 0.08, height: 0.11, depth: alongX ? 0.08 : len
-        }, scene);
-        rail.position.set((x0 + x1) / 2, railY, (z0 + z1) / 2);
-        parts.push(rail);
-      });
+      [0.34, 0.66].forEach((railY) =>
+        box(m.frame, (x0 + x1) / 2, railY, (z0 + z1) / 2, alongX ? len : 0.08, 0.12, alongX ? 0.08 : len));
+      // A stub post and a short mid-rail break up the long runs.
+      if (len > 3) {
+        const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+        fencePost(mx, mz, 0.84);
+        box(m.frame, mx, 0.5, mz, alongX ? len * 0.44 : 0.07, 0.09, alongX ? 0.07 : len * 0.44);
+      }
     };
 
-    run(-YARD_HALF, -YARD_HALF, YARD_HALF, -YARD_HALF);                   // back
-    run(-YARD_HALF, YARD_HALF, -GATE_HALF, YARD_HALF);                     // front, left of the gate
-    run(GATE_HALF, YARD_HALF, YARD_HALF, YARD_HALF);                       // front, right of the gate
-    run(-YARD_HALF, -YARD_HALF, -YARD_HALF, YARD_HALF);                    // flanks
-    run(YARD_HALF, -YARD_HALF, YARD_HALF, YARD_HALF);
-    post(-YARD_HALF, 0); post(YARD_HALF, 0); post(0, -YARD_HALF);          // mid posts carry the long runs
+    railRun(-YARD_HALF, -YARD_HALF, YARD_HALF, -YARD_HALF);
+    railRun(-YARD_HALF, YARD_HALF, -GATE_HALF, YARD_HALF);
+    railRun(GATE_HALF, YARD_HALF, YARD_HALF, YARD_HALF);
+    railRun(-YARD_HALF, -YARD_HALF, -YARD_HALF, YARD_HALF);
+    railRun(YARD_HALF, -YARD_HALF, YARD_HALF, YARD_HALF);
 
-    const fence = BABYLON.Mesh.MergeMeshes(parts, true, true, undefined, false, false);
-    if (fence) {
-      fence.name = id + "_yard";
-      fence.material = mat.yard;
-      fence.parent = root;
-    }
+    // Gate leaf, hinged on the left jamb and swung open into the yard.
+    const GA = -1.15;
+    const cos = Math.cos(GA), sin = Math.sin(GA);
+    const leaf = (mat, along, up, w, h, roll = 0) =>
+      box(mat, -GATE_HALF + cos * along, up, YARD_HALF + sin * along, w, h, 0.06, [0, -GA, roll]);
+    fencePost(-GATE_HALF, YARD_HALF, 1.08);
+    fencePost(GATE_HALF, YARD_HALF, 1.08);
+    leaf(m.frame, 0.95, 0.32, 1.85, 0.1);
+    leaf(m.frame, 0.95, 0.68, 1.85, 0.1);
+    [0.25, 0.95, 1.65].forEach((a) => leaf(m.dark, a, 0.5, 0.12, 0.62));
+    leaf(m.dark, 0.95, 0.5, 1.66, 0.07, 0.5);
+
+    // A stump, a bench and a trough: the yard is worked ground, not a pen.
+    cyl(m.bark, 2.35, 0.2, -2.2, 0.4, 0.56, null, 9);
+    cyl(m.sap, 2.35, 0.41, -2.2, 0.03, 0.5, null, 9);
+    box(m.frame, -2.42, 0.42, 2.15, 0.9, 0.09, 0.3, [0, 0.42, 0]);
+    [-2.76, -2.08].forEach((bx) => box(m.dark, bx, 0.2, 2.24, 0.09, 0.4, 0.26));
+    [0.17, -0.17].forEach((tz) => box(m.dark, 2.92, 0.24, 1.5 + tz, 0.62, 0.44, 0.07));
+    [0.29, -0.29].forEach((tx) => box(m.dark, 2.92 + tx, 0.24, 1.5, 0.07, 0.44, 0.32));
+    box(m.frame, 2.92, 0.48, 1.5, 0.68, 0.06, 0.42);
   }
 
-  // --- Lantern under the eave: the one warm, glowing note on the building ---
-  add(BABYLON.MeshBuilder.CreateBox(id + "_lampArm", { width: 0.06, height: 0.06, depth: 0.28 }, scene), mat.dark)
-    .position.set(0.62, 1.42, 0.9);
-  const lamp = BABYLON.MeshBuilder.CreateCylinder(id + "_lamp", { height: 0.2, diameterTop: 0.1, diameterBottom: 0.14, tessellation: 6 }, scene);
-  lamp.position.set(0.62, 1.28, 1.04);
-  add(lamp, mat.lamp);
+  groups.forEach((parts, mat) => {
+    const merged = BABYLON.Mesh.MergeMeshes(parts, true, true, undefined, false, false);
+    if (!merged) return;
+    merged.name = id + "_body";
+    merged.material = mat;
+    merged.parent = root;
+  });
 
-  root.metadata = { saw: sawHolder, lamp };
+  // ============================================================
+  // Lantern: the one warm note on the building, and the only thing that
+  // still moves - so it stays out of the merge.
+  // ============================================================
+  const add = (mesh, mat) => { mesh.material = mat; mesh.parent = root; return mesh; };
+  add(BABYLON.MeshBuilder.CreateBox(id + "_lampArm", { width: 0.06, height: 0.06, depth: 0.3 }, scene), m.dark)
+    .position.set(0.46, 1.66, 0.96);
+
+  const lampMat = sharedMat(scene, "lm_lamp", () => {
+    const mat = new BABYLON.StandardMaterial("lm_lamp", scene);
+    mat.diffuseColor = new BABYLON.Color3(0.55, 0.4, 0.2);
+    mat.emissiveColor = new BABYLON.Color3(0.92, 0.62, 0.2);
+    mat.specularColor = new BABYLON.Color3(0, 0, 0);
+    return mat;
+  });
+  const lamp = add(BABYLON.MeshBuilder.CreateCylinder(id + "_lamp", { height: 0.24, diameterTop: 0.11, diameterBottom: 0.17, tessellation: 6 }, scene), lampMat);
+  lamp.position.set(0.46, 1.48, 1.1);
+  add(BABYLON.MeshBuilder.CreateCylinder(id + "_lampCap", { height: 0.08, diameterTop: 0.02, diameterBottom: 0.16, tessellation: 6 }, scene), m.iron)
+    .position.set(0.46, 1.63, 1.1);
+
+  root.metadata = { lamp };
   return flatShade(root);
 }
 
 /**
- * Spin the saw. Speed tracks how many NPCs the player staffed the mill with,
- * so an empty mill idles and a full crew visibly works faster.
+ * The lantern breathes; that is all. The mill has no turning parts - the crew
+ * working the lot is what says the building is running.
  */
-export function updateLumbermill(millRoot, delta) {
+export function updateLumbermill(millRoot) {
   const meta = millRoot.metadata;
-  if (!meta) return;
-  const speed = 1.2 + 2.6 * (meta.crewSpeed || 0);
-  if (meta.saw) meta.saw.rotation.y += delta * speed * 3.2;
-  if (meta.lamp) meta.lamp.scaling.y = 1 + Math.sin(performance.now() * 0.0012) * 0.03;
+  if (!meta || !meta.lamp) return;
+  meta.lamp.scaling.y = 1 + Math.sin(performance.now() * 0.0012) * 0.04;
 }
