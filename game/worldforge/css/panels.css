@@ -1,6 +1,6 @@
 #rightStack {
   position: fixed;
-  top: 14px;
+  top: var(--stackTop, 14px);
   right: calc(14px + clamp(90px, 10vw, 120px) + 12px);
   width: clamp(200px, 22vw, 250px);
   display: flex;
@@ -8,7 +8,7 @@
   gap: 12px;
   pointer-events: none;
   z-index: 2000;
-  max-height: calc(100vh - 28px);
+  max-height: calc(100vh - var(--stackTop, 14px) - 14px);
   overflow-y: auto;
 }
 .stack-panel {

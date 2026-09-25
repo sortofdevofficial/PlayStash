@@ -234,6 +234,18 @@ removeGhostBox.material = removeMat;
 removeGhostBox.isPickable = false;
 removeGhostBox.isVisible = false;
 
+// #rightStack is anchored by --stackTop. It used to sit 14px from the top, the
+// same band the topbar occupies, so an open panel covered the very button that
+// toggles it. The topbar wraps, so its bottom edge has to be measured.
+function syncStackTop() {
+  const bar = document.getElementById("topbar");
+  if (!bar) return;
+  document.documentElement.style.setProperty(
+    "--stackTop",
+    Math.ceil(bar.getBoundingClientRect().bottom + 8) + "px"
+  );
+}
+
 initWorld({ scene, placedObjects, occupiedGrid, activeNPCs, buildCounters, onStatsChanged: onWorldChanged, nextBuildKey });
 initInputHandlers({ placedObjects, occupiedGrid, activeNPCs, ghosts, removeGhostBox, onWorldChanged, onSyncNPCs: syncNPCs });
 initNpcPanel();
@@ -244,6 +256,15 @@ initPlayStashHandler();
 initMenuHandler();
 initWelcomeBack();
 if (isTouchDevice) initMobileControls();
+
+// The topbar grows as its counts and save pill populate, and re-wraps when the
+// window changes, so the stack anchor has to follow it rather than be measured
+// once.
+const topbarEl = document.getElementById("topbar");
+if (topbarEl) {
+  syncStackTop();
+  new ResizeObserver(syncStackTop).observe(topbarEl);
+}
 
 function startWorldTicks() {
   setInterval(spawnRandomWildernessNode, 3500);

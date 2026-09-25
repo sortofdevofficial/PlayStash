@@ -53,7 +53,10 @@
   #topbar button { padding: 4px 8px; font-size: 10px; }
 
   #notifContainer { top: 110px; }
-  #rightStack { top: 100px; right: 8px; width: min(220px, 80vw); max-height: calc(100vh - 200px); }
+  /* top and max-height come from --stackTop, which index.js keeps synced to the
+     topbar's measured bottom edge - hard-coding them here landed panels on top
+     of the buttons that toggle them. */
+  #rightStack { right: 8px; width: min(220px, 80vw); }
 
   #sideMenu {
     position: fixed;
