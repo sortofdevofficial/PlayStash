@@ -15,6 +15,7 @@ const NPC_THOUGHTS = {
   FARM: ["Crops take time to grow.", "Good food for the village."],
   TRADE: ["Off to the market to trade resources!", "Stocking up supplies."],
   CLIMB: ["Heading up to watch the village!", "Keeping watch."],
+  MILLING: ["Saw's sharp, timber's stacked.", "Waiting on the next sprout."],
   WATCH: ["All clear from up here!", "Looking out for everyone."],
   IDLE: ["Nice day for a walk.", "Taking a breather."],
   DYING: ["This is not good...", "I need help..."]
@@ -96,13 +97,29 @@ export function findAdjacentFreeTile(rootX, rootZ, size, occupiedGrid, npcPos = 
 
 export function findPath(start, goal, occupiedGrid) {
   if (start.x < BOUND_MIN || start.x > BOUND_MAX || goal.x < BOUND_MIN || goal.x > BOUND_MAX) return null;
-  const queue = [{ x: start.x, z: start.z, path: [] }];
-  const visited = new Set([tileKey(start.x, start.z)]);
+  if (start.x === goal.x && start.z === goal.z) return [];
+
+  const startKey = tileKey(start.x, start.z);
+  // Parent pointers instead of a path array per node: the old version copied
+  // every node's whole path when queueing it, which made a single failed search
+  // allocate more objects than the rest of the frame put together.
+  const parent = new Map([[startKey, null]]);
+  const queue = [start];
   const dirs = [{ x: 0, z: 1 }, { x: 0, z: -1 }, { x: 1, z: 0 }, { x: -1, z: 0 }];
 
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (current.x === goal.x && current.z === goal.z) return current.path;
+  for (let head = 0; head < queue.length; head++) {
+    const current = queue[head];
+    if (current.x === goal.x && current.z === goal.z) {
+      const path = [];
+      let key = tileKey(current.x, current.z);
+      while (key !== startKey) {
+        const [x, z] = key.slice(3).split(",").map(Number);
+        path.push({ x, z });
+        key = parent.get(key);
+      }
+      path.reverse();
+      return path;
+    }
 
     for (const dir of dirs) {
       const nx = current.x + dir.x;
@@ -110,13 +127,34 @@ export function findPath(start, goal, occupiedGrid) {
       const key = tileKey(nx, nz);
 
       if (nx >= BOUND_MIN && nx <= BOUND_MAX && nz >= BOUND_MIN && nz <= BOUND_MAX &&
-        !visited.has(key) && (!occupiedGrid.has(key) || (nx === goal.x && nz === goal.z))) {
-        visited.add(key);
-        queue.push({ x: nx, z: nz, path: [...current.path, { x: nx, z: nz }] });
+        !parent.has(key) && (!occupiedGrid.has(key) || (nx === goal.x && nz === goal.z))) {
+        parent.set(key, tileKey(current.x, current.z));
+        queue.push({ x: nx, z: nz });
       }
     }
   }
   return null;
+}
+
+// Every placed object registers under its type so per-frame systems can
+// iterate just the farms, towers or mills instead of the whole world.
+const typeIndex = new Map();
+const NO_OBJECTS = new Set();
+
+export function objectsOfType(type) { return typeIndex.get(type) || NO_OBJECTS; }
+
+// Types an unassigned villager may seek out to work on.
+const WORKABLE_TYPES = ["tree", "stone", "farm", "well", "market"];
+
+export function indexObject(entry) {
+  let set = typeIndex.get(entry.type);
+  if (!set) { set = new Set(); typeIndex.set(entry.type, set); }
+  set.add(entry);
+}
+
+export function unindexObject(entry) {
+  const set = typeIndex.get(entry.type);
+  if (set) set.delete(entry);
 }
 
 export function getMaxNPCCapacity(placedObjects) {
@@ -242,27 +280,85 @@ function respawnExactNPC(npc, scene, camera, engine, placedObjects) {
   }, 3000);
 }
 
+// ============================================================
+// LUMBERMILL CREW
+// The player decides how many villagers staff a mill, so a hired one works
+// only its lot and skips the random roll every other job goes through. That is
+// what makes "assign more workers" mean "timber arrives faster": N crew fell N
+// trees at the same time instead of one villager cycling the whole map.
+// ============================================================
+function walkToJob(npc, objId, targetG, currentG, occupiedGrid, action) {
+  const rawPath = findPath(currentG, targetG, occupiedGrid);
+  if (rawPath === null) return false;
+
+  npc.targetObjId = objId;
+  npc.pendingAction = action;
+  setThought(npc, action);
+
+  if (rawPath.length > 0) {
+    npc.path = rawPath.map((pt) => gridToWorldCenter(pt.x, pt.z, 1));
+  } else {
+    npc.path = [];
+    npc.a = action;
+    npc.actionTimer = 3.5;
+  }
+  return true;
+}
+
+function nearestLotTree(npc, mill, currentG, activeNPCs, placedObjects, occupiedGrid) {
+  if (!mill.lot) return null;
+  let best = null;
+  let minDist = Infinity;
+
+  for (const tree of mill.lot) {
+    if (!placedObjects.has(tree.id)) {
+      mill.lot.delete(tree);
+      continue;
+    }
+    const taken = activeNPCs.some((o) => o !== npc && o.targetObjId === tree.id);
+    if (taken) continue;
+
+    const freeTile = findAdjacentFreeTile(tree.rootX, tree.rootZ, tree.size, occupiedGrid, currentG);
+    if (!freeTile) continue;
+    const dist = Math.abs(freeTile.x - currentG.x) + Math.abs(freeTile.z - currentG.z);
+    if (dist < minDist) {
+      minDist = dist;
+      best = { treeId: tree.id, targetG: freeTile };
+    }
+  }
+  return best;
+}
+
+function standByMill(npc, mill, currentG, occupiedGrid) {
+  const tile = findAdjacentFreeTile(mill.rootX, mill.rootZ, mill.size, occupiedGrid, currentG);
+  if (tile) walkToJob(npc, mill.id, tile, currentG, occupiedGrid, "MILLING");
+}
+
+function hireableMill() {
+  for (const mill of objectsOfType("lumbermill")) {
+    if (!mill.crew) mill.crew = new Set();
+    if (mill.crew.size < (mill.workers || 0)) return mill;
+  }
+  return null;
+}
+
 export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, scene, camera, engine, removeObjectById) {
   updateWatchtowerHover(scene, placedObjects, gridToWorldCenter);
 
-  placedObjects.forEach((obj) => {
-    if (obj.type === "farm") {
-      if (obj.growthTimer > 0) {
-        obj.growthTimer -= deltaTime;
-        if (obj.growthTimer <= 0) { obj.growthTimer = 0; obj.isReady = true; }
-      } else if (obj.isReady === undefined) {
-        obj.isReady = true;
-        obj.growthTimer = 0;
-      }
+  for (const obj of objectsOfType("farm")) {
+    if (obj.growthTimer > 0) {
+      obj.growthTimer -= deltaTime;
+      if (obj.growthTimer <= 0) { obj.growthTimer = 0; obj.isReady = true; }
+    } else if (obj.isReady === undefined) {
+      obj.isReady = true;
+      obj.growthTimer = 0;
     }
-  });
+  }
 
   const activeTowers = [];
-  placedObjects.forEach((obj) => {
-    if (obj.type === "tower" && obj.isManned) {
-      activeTowers.push({ center: gridToWorldCenter(obj.rootX, obj.rootZ, obj.size) });
-    }
-  });
+  for (const obj of objectsOfType("tower")) {
+    if (obj.isManned) activeTowers.push({ center: gridToWorldCenter(obj.rootX, obj.rootZ, obj.size) });
+  }
 
   // Natural disasters are now driven by environment.js's scheduler (started
   // once from index.js), which calls into the nd/*.js trigger() functions -
@@ -377,6 +473,10 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
               const gained = addResourceClamped("wh", 4, placedObjects);
               playSound("chop");
               showFloatingText(gained > 0 ? "+4 Wood 🪵" : "Storage Full!", pos, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
+              if (objData.lotId) {
+                const owner = placedObjects.get(objData.lotId);
+                if (owner) owner.chopped = (owner.chopped || 0) + 1;
+              }
               objData.health = (objData.health || 3) - 1;
               if (objData.health <= 0) removeObjectById(npc.targetObjId);
             } else if (objData.type === "stone") {
@@ -443,14 +543,40 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
 
     if (npc.a === "IDLE" && (!npc.path || npc.path.length === 0)) {
       const currentG = worldToGrid(npc.root.position);
-      
-      let targetTower = null;
-      placedObjects.forEach((obj, id) => {
-        if (obj.type === "tower" && !obj.isManned && !targetTower) {
-          let beingManned = activeNPCs.some((other) => other.targetObjId === id);
-          if (!beingManned) targetTower = { id, obj };
+
+      if (npc.employer) {
+        const mill = placedObjects.get(npc.employer);
+        if (!mill || mill.type !== "lumbermill" || !mill.crew.has(npc.id)) {
+          npc.employer = null;
+        } else {
+          const job = nearestLotTree(npc, mill, currentG, activeNPCs, placedObjects, occupiedGrid);
+          if (job && walkToJob(npc, job.treeId, job.targetG, currentG, occupiedGrid, "CHOP")) return;
+          // Unreachable or bare lot: throttle, or every blocked crew member
+          // would search the whole field every frame looking for work.
+          const now = performance.now() / 1000;
+          if (now >= (npc.jobRetryAt || 0)) {
+            npc.jobRetryAt = now + 0.5;
+            standByMill(npc, mill, currentG, occupiedGrid);
+          }
+          return;
         }
-      });
+      } else {
+        const opening = hireableMill();
+        if (opening) {
+          opening.crew.add(npc.id);
+          npc.employer = opening.id;
+          return;
+        }
+      }
+
+      let targetTower = null;
+      for (const obj of objectsOfType("tower")) {
+        if (obj.isManned) continue;
+        if (!activeNPCs.some((other) => other.targetObjId === obj.id)) {
+          targetTower = { id: obj.id, obj };
+          break;
+        }
+      }
 
       if (targetTower) {
         const freeTile = findAdjacentFreeTile(targetTower.obj.rootX, targetTower.obj.rootZ, targetTower.obj.size, occupiedGrid, currentG);
@@ -477,26 +603,27 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
         let minDist = Infinity;
         const reserved = new Set(activeNPCs.map((o) => o.targetObjId).filter(Boolean));
 
-        placedObjects.forEach((obj, id) => {
-          const workable = obj.type === "tree" || obj.type === "stone" || obj.type === "farm" || obj.type === "well" || obj.type === "market";
-          if (!workable) return;
-          if (reserved.has(id)) return;
-          if (obj.type === "farm" && (!obj.isReady || obj.growthTimer > 0)) return;
+        for (const type of WORKABLE_TYPES) {
+          for (const obj of objectsOfType(type)) {
+            if (obj.lotId) continue; // the mill's crew harvests its own lot
+            if (reserved.has(obj.id)) continue;
+            if (type === "farm" && (!obj.isReady || obj.growthTimer > 0)) continue;
 
-          if (obj.type === "market") {
-            const canTrade = state.resources.wh >= 5 || state.resources.stone >= 5 || state.resources.food >= 15 || state.resources.water >= 15;
-            if (!canTrade) return;
-          }
+            if (type === "market") {
+              const canTrade = state.resources.wh >= 5 || state.resources.stone >= 5 || state.resources.food >= 15 || state.resources.water >= 15;
+              if (!canTrade) continue;
+            }
 
-          const freeTile = findAdjacentFreeTile(obj.rootX, obj.rootZ, obj.size, occupiedGrid, currentG);
-          if (freeTile) {
-            const dist = Math.abs(freeTile.x - currentG.x) + Math.abs(freeTile.z - currentG.z);
-            if (dist < minDist) {
-              minDist = dist;
-              bestCandidate = { id, obj, targetG: freeTile };
+            const freeTile = findAdjacentFreeTile(obj.rootX, obj.rootZ, obj.size, occupiedGrid, currentG);
+            if (freeTile) {
+              const dist = Math.abs(freeTile.x - currentG.x) + Math.abs(freeTile.z - currentG.z);
+              if (dist < minDist) {
+                minDist = dist;
+                bestCandidate = { id: obj.id, obj, targetG: freeTile };
+              }
             }
           }
-        });
+        }
 
         if (bestCandidate) {
           const rawPath = findPath(currentG, bestCandidate.targetG, occupiedGrid);

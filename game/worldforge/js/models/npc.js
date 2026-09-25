@@ -1,54 +1,54 @@
+import { sharedMat } from "./materials.js";
+
+// Cozy tunic colors: terracotta, forest green, warm mustard, cozy wool beige, dusky teal
+const SHIRT_COLORS = [
+  [0.85, 0.42, 0.28], // terracotta
+  [0.28, 0.55, 0.38], // sage green
+  [0.88, 0.68, 0.22], // mustard yellow
+  [0.72, 0.64, 0.52], // wool oatmeal
+  [0.28, 0.52, 0.65], // dusky blue
+  [0.68, 0.35, 0.42]  // dusty rose
+];
+
+const PANTS_COLORS = [
+  [0.25, 0.22, 0.18], // brown cords
+  [0.20, 0.24, 0.30], // soft navy
+  [0.32, 0.28, 0.24]  // earthy tan
+];
+
+// Randomized natural hair color per NPC
+const HAIR_COLORS = [
+  [0.24, 0.16, 0.10], // dark chocolate
+  [0.42, 0.26, 0.14], // warm chestnut
+  [0.12, 0.10, 0.10], // soft black
+  [0.68, 0.50, 0.25], // warm honey blonde
+  [0.55, 0.28, 0.15]  // ginger auburn
+];
+
+function mat(scene, key, rgb, zeroSpecular) {
+  return sharedMat(scene, key, () => {
+    const m = new BABYLON.StandardMaterial(key, scene);
+    m.diffuseColor = new BABYLON.Color3(rgb[0], rgb[1], rgb[2]);
+    if (zeroSpecular) m.specularColor = new BABYLON.Color3(0, 0, 0);
+    return m;
+  });
+}
+
+function variantMat(scene, prefix, palette) {
+  const i = Math.floor(Math.random() * palette.length);
+  return mat(scene, `${prefix}_${i}`, palette[i], true);
+}
+
 export function createLowPolyNPC(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
-  const skinMat = new BABYLON.StandardMaterial(id + "_skinMat", scene);
-  skinMat.diffuseColor = new BABYLON.Color3(0.92, 0.74, 0.62);
-  skinMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  // Cozy tunic colors: terracotta, forest green, warm mustard, cozy wool beige, dusky teal
-  const shirtColors = [
-    new BABYLON.Color3(0.85, 0.42, 0.28), // terracotta
-    new BABYLON.Color3(0.28, 0.55, 0.38), // sage green
-    new BABYLON.Color3(0.88, 0.68, 0.22), // mustard yellow
-    new BABYLON.Color3(0.72, 0.64, 0.52), // wool oatmeal
-    new BABYLON.Color3(0.28, 0.52, 0.65), // dusky blue
-    new BABYLON.Color3(0.68, 0.35, 0.42)  // dusty rose
-  ];
-  const shirtMat = new BABYLON.StandardMaterial(id + "_shirtMat", scene);
-  shirtMat.diffuseColor = shirtColors[Math.floor(Math.random() * shirtColors.length)];
-  shirtMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const pantsColors = [
-    new BABYLON.Color3(0.25, 0.22, 0.18), // brown cords
-    new BABYLON.Color3(0.20, 0.24, 0.30), // soft navy
-    new BABYLON.Color3(0.32, 0.28, 0.24)  // earthy tan
-  ];
-  const pantsMat = new BABYLON.StandardMaterial(id + "_pantsMat", scene);
-  pantsMat.diffuseColor = pantsColors[Math.floor(Math.random() * pantsColors.length)];
-  pantsMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const detailMat = new BABYLON.StandardMaterial(id + "_detailMat", scene);
-  detailMat.diffuseColor = new BABYLON.Color3(0.35, 0.22, 0.12);
-  detailMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const eyeMat = new BABYLON.StandardMaterial(id + "_eyeMat", scene);
-  eyeMat.diffuseColor = new BABYLON.Color3(0.12, 0.12, 0.14);
-
-  const blushMat = new BABYLON.StandardMaterial(id + "_blushMat", scene);
-  blushMat.diffuseColor = new BABYLON.Color3(0.95, 0.55, 0.55); // adorable rosy cheeks
-  blushMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  // Randomized natural hair color per NPC
-  const hairPalette = [
-    new BABYLON.Color3(0.24, 0.16, 0.10),  // dark chocolate
-    new BABYLON.Color3(0.42, 0.26, 0.14),  // warm chestnut
-    new BABYLON.Color3(0.12, 0.10, 0.10),  // soft black
-    new BABYLON.Color3(0.68, 0.50, 0.25),  // warm honey blonde
-    new BABYLON.Color3(0.55, 0.28, 0.15)   // ginger auburn
-  ];
-  const hairMat = new BABYLON.StandardMaterial(id + "_hairMat", scene);
-  hairMat.diffuseColor = hairPalette[Math.floor(Math.random() * hairPalette.length)];
-  hairMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  const skinMat = mat(scene, "npc_skin", [0.92, 0.74, 0.62], true);
+  const shirtMat = variantMat(scene, "npc_shirt", SHIRT_COLORS);
+  const pantsMat = variantMat(scene, "npc_pants", PANTS_COLORS);
+  const detailMat = mat(scene, "npc_detail", [0.35, 0.22, 0.12], true);
+  const eyeMat = mat(scene, "npc_eye", [0.12, 0.12, 0.14], false);
+  const blushMat = mat(scene, "npc_blush", [0.95, 0.55, 0.55], true); // adorable rosy cheeks
+  const hairMat = variantMat(scene, "npc_hair", HAIR_COLORS);
 
   const torso = BABYLON.MeshBuilder.CreateBox(id + "_torso", { width: 0.45, height: 0.55, depth: 0.3 }, scene);
   torso.position.y = 0.65;
@@ -139,6 +139,9 @@ export function createLowPolyNPC(id, scene) {
   rightArm.parent = rightArmRoot;
 
   root.metadata = { leftLegRoot, rightLegRoot, leftArmRoot, rightArmRoot };
+  // Lets a click resolve a villager with one predicated pick instead of
+  // ray-testing every mesh in the scene.
+  root.getChildMeshes().forEach((m) => { m.metadata = { npcId: id }; });
   return root;
 }
 

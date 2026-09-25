@@ -47,6 +47,9 @@ sunLight.position = new BABYLON.Vector3(40, 70, 20);
 
 export const shadowGen = new BABYLON.ShadowGenerator(1024, sunLight);
 shadowGen.usePoissonSampling = true;
+// The sun is fixed and the village is static, so the map only needs a refresh
+// every other frame - it halves the per-frame shadow cost for free.
+shadowGen.getShadowMap().refreshRate = BABYLON.RenderTargetTexture.REFRESHRATE_RENDER_ONEVERYTWOFRAMES;
 
 export function setEnvironmentLighting(isNight) {
   if (!isNight) {
@@ -149,9 +152,8 @@ grid.freezeWorldMatrix();
 // Pebbles. One thin-instanced mesh, so a few hundred stones cost a single draw
 // call and add nothing to scene.meshes the way regular instances would.
 //
-// isPickable has to stay false: inputHandlers runs an unfiltered scene.pick()
-// to find a clicked villager, and a pickable pebble in front of an NPC's feet
-// would swallow the click.
+// isPickable has to stay false: pebbles are ground decoration, and a pick that
+// lands on one should never eat the click meant for a villager or a building.
 const SCATTER_EDGE = HALF_BUILD - 1.5;
 
 // Buildings claim the ground they stand on so nothing sits on a floor. Claimed
@@ -161,12 +163,42 @@ const SCATTER_EDGE = HALF_BUILD - 1.5;
 const SCATTER_MARGIN = 0.45;
 const scatterGroups = [];
 const scatterBlocks = new Map(); // key -> { x0, x1, z0, z1 }
+const blocksByTile = new Map();  // "tx,tz" -> Set<rect> of every claim touching that tile
 
 // Visiting renders a second world onto the same ground, so claims are keyed by
 // object rather than counted - the host's buildings and the player's own have
 // to be releasable independently.
+//
+// Rectangles stay exact rather than tile-granular, but they are indexed by the
+// tiles they span so a lookup tests the few claims over that tile instead of
+// every building in the world.
+function eachTile(rect, fn) {
+  for (let tx = Math.floor(rect.x0); tx <= Math.floor(rect.x1); tx++) {
+    for (let tz = Math.floor(rect.z0); tz <= Math.floor(rect.z1); tz++) fn(tx + "," + tz);
+  }
+}
+
+function bucketRect(rect) {
+  eachTile(rect, (k) => {
+    let set = blocksByTile.get(k);
+    if (!set) { set = new Set(); blocksByTile.set(k, set); }
+    set.add(rect);
+  });
+}
+
+function unbucketRect(rect) {
+  eachTile(rect, (k) => {
+    const set = blocksByTile.get(k);
+    if (!set) return;
+    set.delete(rect);
+    if (!set.size) blocksByTile.delete(k);
+  });
+}
+
 function isBlocked(x, z) {
-  for (const b of scatterBlocks.values()) {
+  const set = blocksByTile.get(Math.floor(x) + "," + Math.floor(z));
+  if (!set) return false;
+  for (const b of set) {
     if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) return true;
   }
   return false;
@@ -230,19 +262,38 @@ function refreshScatter(group) {
   group.mesh.thinInstanceBufferUpdated("matrix");
 }
 
+let scatterRefreshQueued = false;
+
+// Restoring a saved world claims one rectangle per building in a single
+// synchronous burst; refreshing per claim would re-pack and re-upload the
+// instance buffers a hundred times for one visible change.
+function scheduleScatterRefresh() {
+  if (scatterRefreshQueued) return;
+  scatterRefreshQueued = true;
+  queueMicrotask(() => {
+    scatterRefreshQueued = false;
+    scatterGroups.forEach(refreshScatter);
+  });
+}
+
 export function claimScatter(key, rootX, rootZ, size) {
-  scatterBlocks.set(key, {
+  const rect = {
     x0: rootX - SCATTER_MARGIN,
     x1: rootX + size + SCATTER_MARGIN,
     z0: rootZ - SCATTER_MARGIN,
     z1: rootZ + size + SCATTER_MARGIN
-  });
-  scatterGroups.forEach(refreshScatter);
+  };
+  scatterBlocks.set(key, rect);
+  bucketRect(rect);
+  scheduleScatterRefresh();
 }
 
 export function releaseScatter(key) {
-  if (!scatterBlocks.delete(key)) return;
-  scatterGroups.forEach(refreshScatter);
+  const rect = scatterBlocks.get(key);
+  if (!rect) return;
+  scatterBlocks.delete(key);
+  unbucketRect(rect);
+  scheduleScatterRefresh();
 }
 
 function buildPebble(name) {

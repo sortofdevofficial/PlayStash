@@ -4,13 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#030712" />
-  <meta name="description" content="PlayStash - your free browser game hub. Play WorldForge 3D, see who is online and compare progress with other players." />
-  <meta property="og:title" content="PlayStash - Gaming Hub" />
-  <meta property="og:description" content="Free browser games with cloud saves and a live player network." />
-  <title>PlayStash - Gaming Hub</title>
+  <title>PlayStash - Free Browser Games &amp; Game Hub</title>
+  <meta name="description" content="PlayStash is a free browser game hub. Play WorldForge, a 3D village builder, instantly in your browser - no download, no account - with cloud saves and a live player network." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="author" content="PlayStash" />
+  <link rel="canonical" href="https://sortofdevofficial.github.io/PlayStash/" />
 
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="PlayStash" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:url" content="https://sortofdevofficial.github.io/PlayStash/" />
+  <meta property="og:title" content="PlayStash - Free Browser Games &amp; Game Hub" />
+  <meta property="og:description" content="Free browser games with cloud saves and a live player network. Play WorldForge, a cosy 3D village builder, right now." />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="PlayStash - Free Browser Games &amp; Game Hub" />
+  <meta name="twitter:description" content="Free browser games with cloud saves and a live player network. Play WorldForge right now." />
+
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" />
+  <link rel="preconnect" href="https://www.gstatic.com" />
+  <link rel="preconnect" href="https://playstash0-default-rtdb.asia-southeast1.firebasedatabase.app" />
+  <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="favicon.png" />
-  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <script src="https://cdn.tailwindcss.com"></script>
 
   <style>
@@ -232,6 +248,44 @@
     });
   })();
   </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://sortofdevofficial.github.io/PlayStash/#org",
+        "name": "PlayStash",
+        "url": "https://sortofdevofficial.github.io/PlayStash/",
+        "logo": "https://sortofdevofficial.github.io/PlayStash/icons/icon-512.png"
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://sortofdevofficial.github.io/PlayStash/#website",
+        "url": "https://sortofdevofficial.github.io/PlayStash/",
+        "name": "PlayStash",
+        "alternateName": "PlayStash Game Hub",
+        "description": "PlayStash is a hub of free browser games with cloud saves and a live player network.",
+        "inLanguage": "en",
+        "publisher": { "@id": "https://sortofdevofficial.github.io/PlayStash/#org" }
+      },
+      {
+        "@type": "ItemList",
+        "@id": "https://sortofdevofficial.github.io/PlayStash/#games",
+        "name": "Games on PlayStash",
+        "itemListOrder": "https://schema.org/ItemListUnordered",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "item": { "@id": "https://sortofdevofficial.github.io/PlayStash/game/worldforge/#game" }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
 </head>
 <body oncontextmenu="return false" class="bg-[#030712] text-slate-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden">
 
@@ -242,7 +296,7 @@
   <header id="main-header" class="glass-box sticky top-0 z-50 px-4 sm:px-10 py-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-slate-800/80">
     <div class="flex items-center gap-3 group cursor-pointer" onclick="window.scrollTo({top:0,behavior:'smooth'})">
       <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 via-blue-500 to-indigo-400 flex items-center justify-center p-0.5 shadow-lg shadow-sky-500/25 group-hover:scale-105 group-hover:rotate-3 transition duration-300">
-        <img src="favicon.png" alt="PlayStash logo" class="w-full h-full rounded-lg object-cover" />
+        <img src="icons/icon-192.png" alt="PlayStash logo" class="w-full h-full rounded-lg object-cover" />
       </div>
       <div class="flex flex-col">
         <span class="text-lg font-black tracking-wider text-white uppercase leading-none">PLAY<span class="text-sky-400">STASH</span></span>
@@ -394,7 +448,7 @@
           </div>
 
           <div class="pt-2 flex items-center gap-3 flex-wrap">
-            <a href="game/worldforge/index.html" id="play-worldforge-hero-btn" class="btn-main text-white font-black px-8 py-4 rounded-full text-xs uppercase tracking-wider active:scale-95 flex items-center gap-3">
+            <a href="game/worldforge/" id="play-worldforge-hero-btn" class="btn-main text-white font-black px-8 py-4 rounded-full text-xs uppercase tracking-wider active:scale-95 flex items-center gap-3">
               <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
               <span>Play Now</span>
             </a>
@@ -413,7 +467,7 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger" id="game-grid">
-          <a href="game/worldforge/index.html" class="game-launch-card card-box card-box-active rounded-3xl overflow-hidden group block hover:-translate-y-1.5">
+          <a href="game/worldforge/" class="game-launch-card card-box card-box-active rounded-3xl overflow-hidden group block hover:-translate-y-1.5">
             <div class="h-48 bg-gradient-to-br from-slate-900 to-sky-950/60 flex items-center justify-center p-6 relative overflow-hidden">
               <div class="absolute inset-0 bg-gradient-to-t from-[#030712] via-transparent to-transparent z-10"></div>
               <div class="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-sky-500/20 blur-2xl"></div>
@@ -457,7 +511,7 @@
             <div>
               <span class="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#5865f2]/20 text-indigo-300 border border-[#5865f2]/40 inline-block mb-1.5">Official Server</span>
               <div class="flex items-center gap-2 flex-wrap">
-                <h1 id="discord-server-name-full" class="text-2xl sm:text-4xl font-black text-white tracking-tight">Discord Community</h1>
+                <h2 id="discord-server-name-full" class="text-2xl sm:text-4xl font-black text-white tracking-tight">Discord Community</h2>
                 <span id="discord-member-badge-full" class="px-2.5 py-1 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30 dot-online">0 online</span>
               </div>
               <p class="text-sm text-slate-400 mt-1 max-w-md">Hang out with players and devs, get build help, and hear about updates first.</p>
@@ -752,7 +806,7 @@
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
           <div class="flex items-center gap-5">
             <div class="relative">
-              <img id="profile-card-avatar" class="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-sky-400 object-cover shadow-2xl shadow-sky-500/30" src="favicon.png" alt="Player avatar" />
+              <img id="profile-card-avatar" class="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-sky-400 object-cover shadow-2xl shadow-sky-500/30" src="icons/icon-192.png" alt="Player avatar" />
               <span id="profile-card-status-dot" class="absolute bottom-1 right-1 w-5 h-5 bg-slate-600 border-2 border-[#030712] rounded-full"></span>
             </div>
             <div class="space-y-1">
@@ -836,7 +890,7 @@
       <button id="close-modal-btn" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition flex items-center justify-center" aria-label="Close"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.3 19.7 2.88 18.3 9.17 12 2.88 5.71 4.3 4.29l6.29 6.3 6.29-6.3Z"/></svg></button>
 
       <div class="flex items-center gap-4 pr-8">
-        <img id="modal-avatar" class="w-16 h-16 rounded-full border-2 border-sky-400 object-cover shadow-lg shadow-sky-500/30" src="favicon.png" alt="Avatar" />
+        <img id="modal-avatar" class="w-16 h-16 rounded-full border-2 border-sky-400 object-cover shadow-lg shadow-sky-500/30" src="icons/icon-192.png" alt="Avatar" />
         <div class="min-w-0">
           <h3 id="modal-name" class="text-xl font-black text-white truncate">Player</h3>
           <p id="modal-email" class="text-xs text-slate-400 truncate">PlayStash Member</p>

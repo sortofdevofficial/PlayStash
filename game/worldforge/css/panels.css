@@ -214,3 +214,102 @@
   background: rgba(96, 165, 250, 0.45);
   border-color: rgba(96, 165, 250, 0.6);
 }
+
+/* ============================================================
+   LUMBERMILL STAFFING POPOVER
+   Anchored at the point the mill was clicked. Width is fixed because
+   millPanel.js clamps the left offset against it.
+   ============================================================ */
+.mill-panel {
+  position: fixed;
+  z-index: 2600;
+  width: 244px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 11px 11px;
+  background: rgba(15, 20, 28, 0.82);
+  border: 1px solid rgba(255, 200, 140, 0.28);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  color: #e2e8f0;
+}
+
+.mill-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 6px;
+}
+.mill-panel-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #fbbf24;
+}
+.mill-panel-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 4px;
+  box-shadow: none;
+}
+.mill-panel-close:hover { background: none; color: #fff; transform: none; }
+
+.mill-crew-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mill-crew-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #94a3b8;
+}
+.mill-crew-count {
+  font-size: 13px;
+  font-weight: 800;
+  color: #f8fafc;
+  min-width: 44px;
+  text-align: center;
+}
+.mill-step {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  line-height: 1;
+  font-size: 15px;
+  font-weight: 800;
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.mill-step:hover { background: rgba(251, 191, 36, 0.24); border-color: rgba(251, 191, 36, 0.5); }
+
+.mill-crew-names {
+  font-size: 11px;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+.mill-stat {
+  font-size: 10px;
+  color: #94a3b8;
+}
+.mill-hint {
+  font-size: 9px;
+  color: #64748b;
+  line-height: 1.45;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 6px;
+}

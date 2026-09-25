@@ -1,32 +1,41 @@
 import { flatShade } from "../flatShade.js";
+import { sharedMat, solidMat } from "./materials.js";
 
 export function createMarket(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
   // Materials
-  const woodMat = new BABYLON.StandardMaterial(id + "_wMat", scene);
-  woodMat.diffuseColor = new BABYLON.Color3(0.48, 0.32, 0.18); // warm timber
-  woodMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  const woodMat = solidMat(scene, "market_wood", [0.48, 0.32, 0.18]); // warm timber
 
-  const clothMat = new BABYLON.StandardMaterial(id + "_cMat", scene);
-  clothMat.diffuseColor = new BABYLON.Color3(0.88, 0.35, 0.28); // cozy cranberry red
-  clothMat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+  const clothMat = sharedMat(scene, "market_cloth", () => {
+    const m = new BABYLON.StandardMaterial("market_cloth", scene);
+    m.diffuseColor = new BABYLON.Color3(0.88, 0.35, 0.28); // cozy cranberry red
+    m.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+    return m;
+  });
 
-  const clothWhiteMat = new BABYLON.StandardMaterial(id + "_cwMat", scene);
-  clothWhiteMat.diffuseColor = new BABYLON.Color3(0.96, 0.94, 0.88); // warm cream
-  clothWhiteMat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+  const clothWhiteMat = sharedMat(scene, "market_clothWhite", () => {
+    const m = new BABYLON.StandardMaterial("market_clothWhite", scene);
+    m.diffuseColor = new BABYLON.Color3(0.96, 0.94, 0.88); // warm cream
+    m.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+    return m;
+  });
 
-  const goldMat = new BABYLON.StandardMaterial(id + "_gMat", scene);
-  goldMat.diffuseColor = new BABYLON.Color3(0.98, 0.82, 0.25); // golden coins
-  goldMat.emissiveColor = new BABYLON.Color3(0.25, 0.18, 0.02);
-  goldMat.specularColor = new BABYLON.Color3(0.4, 0.4, 0.1);
+  const goldMat = sharedMat(scene, "market_gold", () => {
+    const m = new BABYLON.StandardMaterial("market_gold", scene);
+    m.diffuseColor = new BABYLON.Color3(0.98, 0.82, 0.25); // golden coins
+    m.emissiveColor = new BABYLON.Color3(0.25, 0.18, 0.02);
+    m.specularColor = new BABYLON.Color3(0.4, 0.4, 0.1);
+    return m;
+  });
 
-  const sackMat = new BABYLON.StandardMaterial(id + "_sMat", scene);
-  sackMat.diffuseColor = new BABYLON.Color3(0.74, 0.62, 0.44); // warm burlap
-  sackMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  const sackMat = solidMat(scene, "market_sack", [0.74, 0.62, 0.44]); // warm burlap
 
-  const fruitMat = new BABYLON.StandardMaterial(id + "_fMat", scene);
-  fruitMat.diffuseColor = new BABYLON.Color3(0.92, 0.28, 0.22); // ripe red apples
+  const fruitMat = sharedMat(scene, "market_fruit", () => {
+    const m = new BABYLON.StandardMaterial("market_fruit", scene);
+    m.diffuseColor = new BABYLON.Color3(0.92, 0.28, 0.22); // ripe red apples
+    return m;
+  });
 
   // Market Counter / Floor Platform
   const platform = BABYLON.MeshBuilder.CreateBox(id + "_plat", { width: 1.8, height: 0.1, depth: 1.4 }, scene);

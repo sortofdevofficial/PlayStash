@@ -1,14 +1,17 @@
 ﻿import { flatShade } from "../flatShade.js";
+import { sharedMat } from "./materials.js";
 
 export function createWell(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
   // --- Materials ---
   function mat(suffix, r, g, b, specR=0, specG=0, specB=0) {
-    const m = new BABYLON.StandardMaterial(id + suffix, scene);
-    m.diffuseColor = new BABYLON.Color3(r, g, b);
-    m.specularColor = new BABYLON.Color3(specR, specG, specB);
-    return m;
+    return sharedMat(scene, "well" + suffix, () => {
+      const m = new BABYLON.StandardMaterial("well" + suffix, scene);
+      m.diffuseColor = new BABYLON.Color3(r, g, b);
+      m.specularColor = new BABYLON.Color3(specR, specG, specB);
+      return m;
+    });
   }
 
   const stoneMat   = mat("_s1",  0.58, 0.54, 0.48); // warm sandstone
@@ -20,9 +23,14 @@ export function createWell(id, scene) {
   const ropeMat    = mat("_rp",  0.72, 0.58, 0.32); // hemp rope
   const bucketMat  = mat("_bk",  0.40, 0.26, 0.12); // dark wood bucket
   const bucketBand = mat("_bb",  0.28, 0.26, 0.24); // iron hoop on bucket
-  const waterMat   = mat("_wt",  0.28, 0.62, 0.82, 0.3, 0.4, 0.5);
-  waterMat.alpha = 0.88;
-  waterMat.emissiveColor = new BABYLON.Color3(0.08, 0.22, 0.32);
+  const waterMat = sharedMat(scene, "well_water", () => {
+    const m = new BABYLON.StandardMaterial("well_water", scene);
+    m.diffuseColor = new BABYLON.Color3(0.28, 0.62, 0.82);
+    m.specularColor = new BABYLON.Color3(0.3, 0.4, 0.5);
+    m.alpha = 0.88;
+    m.emissiveColor = new BABYLON.Color3(0.08, 0.22, 0.32);
+    return m;
+  });
 
   // --- Chunky cobblestone ring wall ---
   // 8 large uneven stones arranged in a ring for a hand-built feel

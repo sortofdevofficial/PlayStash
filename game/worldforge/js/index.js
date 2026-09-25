@@ -5,6 +5,7 @@ import { createWatchtower } from "./models/watchtower.js";
 import { createWell } from "./models/well.js";
 import { createStorage } from "./models/storage.js";
 import { createMarket } from "./models/market.js";
+import { createLumbermill, updateLumbermill } from "./models/lumbermill.js";
 import { updateGusts, initAmbientAudio } from "./audio.js";
 import {
   engine, scene, camera, updateCameraControls,
@@ -12,14 +13,14 @@ import {
   startDisasterSystem
 } from "./environment.js";
 import {
-  getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs
+  getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs, objectsOfType
 } from "./npcBrain.js";
 import { state, updateResourceUI, showNotif } from "./ui.js";
 import {
   authReady, loadSave, loadWorldByUid, initAutosave, markDirty,
   getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser, getJoinTimes, initPresence
 } from "./db.js";
-import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById } from "./world.js";
+import { initWorld, restoreWorld, instantiateObject, spawnRandomWildernessNode, removeObjectById, tickWoodlots, MAX_WORKERS } from "./world.js";
 import { initInputHandlers, getTargetGhostPos } from "./inputHandlers.js";
 import { initNpcPanel, tickNpcPanel, getTrackedNpcId, clearTrackedNpc } from "./npcPanel.js";
 import { isTouchDevice, initMobileControls, applyMobileHeightHold } from "./mobileControls.js";
@@ -144,7 +145,7 @@ function initPlayStashHandler() {
   const playStashBtn = document.getElementById("menuPlayStashBtn");
   if (playStashBtn) {
     playStashBtn.addEventListener("click", () => {
-      window.location.href = playStashBtn.dataset.href || "https://playstash.vercel.app";
+      window.location.href = playStashBtn.dataset.href || "../../";
     });
   }
 }
@@ -201,19 +202,24 @@ const ghosts = {
   tower: createWatchtower("ghostTower", scene),
   well: createWell("ghostWell", scene),
   storage: createStorage("ghostStorage", scene),
-  market: createMarket("ghostMarket", scene)
+  market: createMarket("ghostMarket", scene),
+  lumbermill: createLumbermill("ghostLumbermill", scene)
 };
+
+// One material for every ghost child: they are all the same translucent green,
+// and a StandardMaterial per mesh meant 286 duplicate materials in a scene whose
+// actual village only needed ~90.
+const ghostMat = new BABYLON.StandardMaterial("ghostMat", scene);
+ghostMat.diffuseColor = new BABYLON.Color3(0.2, 0.95, 0.4);
+ghostMat.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.2);
+ghostMat.alpha = 0.5;
+ghostMat.zOffset = -5;
 
 Object.values(ghosts).forEach((g) => {
   g.setEnabled(false);
   g.getChildMeshes().forEach((m) => {
     m.isPickable = false;
-    const mat = new BABYLON.StandardMaterial("ghostMat_" + m.name, scene);
-    mat.diffuseColor = new BABYLON.Color3(0.2, 0.95, 0.4);
-    mat.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.2);
-    mat.alpha = 0.5;
-    mat.zOffset = -5;
-    m.material = mat;
+    m.material = ghostMat;
   });
 });
 
@@ -248,11 +254,64 @@ function updateCameraControlsWithMobile(delta) {
   applyMobileHeightHold(delta);
 }
 
+let rotateBtnEl = null;
+let rotateBtnShown = null;
+
+function updateRotateButton() {
+  const show = state.mode === "plant";
+  if (show === rotateBtnShown) return;
+  rotateBtnShown = show;
+  rotateBtnEl = rotateBtnEl || document.getElementById("mobileRotateBtn");
+  if (rotateBtnEl) rotateBtnEl.style.display = show ? "flex" : "none";
+}
+
+// Integrated GPUs and phones cannot hold 60fps at native resolution once a
+// village grows, so trade sharpness for frame rate instead of stuttering.
+const SCALING_MIN = 1;
+const SCALING_MAX = 1.75;
+const SCALING_STEP = 0.25;
+const FPS_FLOOR = 42;
+const FPS_HEADROOM = 57;
+
+let scalingFrames = 0;
+let scalingSeconds = 0;
+let scalingWarmup = 2;  // boot stalls on shader compile - not a real frame rate
+let slowStreak = 0;
+let fastStreak = 0;
+let scalingCooldown = 0;
+
+function adaptResolution(delta) {
+  scalingFrames++;
+  scalingSeconds += delta;
+  if (scalingSeconds < 0.5) return;
+  const fps = scalingFrames / scalingSeconds;
+  scalingFrames = 0;
+  scalingSeconds = 0;
+
+  if (scalingWarmup > 0) { scalingWarmup--; return; }
+  if (scalingCooldown > 0) { scalingCooldown--; return; }
+
+  slowStreak = fps < FPS_FLOOR ? slowStreak + 1 : 0;
+  fastStreak = fps > FPS_HEADROOM ? fastStreak + 1 : 0;
+
+  const level = engine.getHardwareScalingLevel();
+  let next = level;
+  if (slowStreak >= 3 && level < SCALING_MAX) next = Math.min(SCALING_MAX, level + SCALING_STEP);
+  else if (fastStreak >= 6 && level > SCALING_MIN) next = Math.max(SCALING_MIN, level - SCALING_STEP);
+  if (next === level) return;
+
+  slowStreak = 0;
+  fastStreak = 0;
+  scalingCooldown = 4; // wait several windows before nudging again
+  engine.setHardwareScalingLevel(next);
+}
+
 function startRenderLoop() {
   engine.runRenderLoop(() => {
     const delta = engine.getDeltaTime() / 1000;
     elapsedTime += delta;
     updateGusts();
+    adaptResolution(delta);
 
     const trackedNpcId = getTrackedNpcId();
     if (trackedNpcId) {
@@ -266,8 +325,7 @@ function startRenderLoop() {
       updateCameraControlsWithMobile(delta);
     }
 
-    const rotateBtn = document.getElementById("mobileRotateBtn");
-    if (rotateBtn) rotateBtn.style.display = state.mode === "plant" ? "flex" : "none";
+    updateRotateButton();
 
     if (state.mode === "plant") {
       const activeGhost = ghosts[state.buildType];
@@ -279,10 +337,16 @@ function startRenderLoop() {
 
     tickNpcPanel(activeNPCs);
 
-    placedObjects.forEach((obj) => {
-      if (obj.type === "farm" && obj.root) updateFarmWiggle(obj.root, elapsedTime);
-    });
+    for (const farm of objectsOfType("farm")) {
+      if (farm.root) updateFarmWiggle(farm.root, elapsedTime);
+    }
     if (ghosts.farm) updateFarmWiggle(ghosts.farm, elapsedTime);
+
+    for (const mill of objectsOfType("lumbermill")) {
+      if (mill.root?.metadata) mill.root.metadata.crewSpeed = mill.workers / MAX_WORKERS;
+      if (mill.root) updateLumbermill(mill.root, delta);
+    }
+    tickWoodlots(delta);
 
     updateNPCs(delta, activeNPCs, placedObjects, occupiedGrid, scene, camera, engine, (id) => removeObjectById(id));
     scene.render();

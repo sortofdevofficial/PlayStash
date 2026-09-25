@@ -1,33 +1,16 @@
 import { flatShade } from "../flatShade.js";
+import { solidMat } from "./materials.js";
 
 export function createCampfire(id, scene, isGhost = false) {
   const root = new BABYLON.TransformNode(id, scene);
   const scale = 0.85; // Smaller, more grounded campfire
 
-  const rockMat = new BABYLON.StandardMaterial(id + "_rockMat", scene);
-  rockMat.diffuseColor = new BABYLON.Color3(0.54, 0.52, 0.48); // warm river stones
-  rockMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const rockMatDark = new BABYLON.StandardMaterial(id + "_rockMatD", scene);
-  rockMatDark.diffuseColor = new BABYLON.Color3(0.40, 0.38, 0.35);
-  rockMatDark.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const logMat = new BABYLON.StandardMaterial(id + "_logMat", scene);
-  logMat.diffuseColor = new BABYLON.Color3(0.48, 0.30, 0.16); // warm cedar firewood
-  logMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const charMat = new BABYLON.StandardMaterial(id + "_charMat", scene);
-  charMat.diffuseColor = new BABYLON.Color3(0.18, 0.15, 0.14);
-  charMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const ashMat = new BABYLON.StandardMaterial(id + "_ashMat", scene);
-  ashMat.diffuseColor = new BABYLON.Color3(0.42, 0.4, 0.36);
-  ashMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const emberMat = new BABYLON.StandardMaterial(id + "_emberMat", scene);
-  emberMat.diffuseColor = new BABYLON.Color3(0.6, 0.2, 0.05);
-  emberMat.emissiveColor = new BABYLON.Color3(0.9, 0.35, 0.05);
-  emberMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  const rockMat = solidMat(scene, "camp_rock", [0.54, 0.52, 0.48]); // warm river stones
+  const rockMatDark = solidMat(scene, "camp_rockDark", [0.40, 0.38, 0.35]);
+  const logMat = solidMat(scene, "camp_log", [0.48, 0.30, 0.16]); // warm cedar firewood
+  const charMat = solidMat(scene, "camp_char", [0.18, 0.15, 0.14]);
+  const ashMat = solidMat(scene, "camp_ash", [0.42, 0.4, 0.36]);
+  const emberMat = solidMat(scene, "camp_ember", [0.6, 0.2, 0.05], [0.9, 0.35, 0.05]);
 
   // Ash bed
   const ashBed = BABYLON.MeshBuilder.CreateCylinder(id + "_ashBed", { diameterTop: 0.5 * scale, diameterBottom: 0.6 * scale, height: 0.05, tessellation: 8 }, scene);

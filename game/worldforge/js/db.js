@@ -8,7 +8,7 @@ const RESOURCE_KEY_BY_SHORT = Object.fromEntries(
 
 const BUILD_CODE = {
   tree: "t", stone: "s", hut: "h", campfire: "c", farm: "f", market: "m", gate: "g",
-  tower: "tw", well: "w", wall: "wl", storage: "st"
+  tower: "tw", well: "w", wall: "wl", storage: "st", lumbermill: "lm"
 };
 
 const TYPE_BY_CODE = Object.fromEntries(
@@ -202,6 +202,7 @@ export function serializeWorld(placedObjects, activeNPCs, gameState) {
       const health = obj.health ?? 3;
       if (health < 3) node.hl = health;
     }
+    if (obj.workers) node.wk = obj.workers;
     b[obj.key] = node;
   });
 

@@ -1,24 +1,21 @@
 import { flatShade } from "../flatShade.js";
+import { solidMat } from "./materials.js";
 
-function createFlatHutMat(id, suffix, scene, color) {
-  const mat = new BABYLON.StandardMaterial(id + suffix, scene);
-  mat.diffuseColor = color;
-  mat.specularColor = new BABYLON.Color3(0, 0, 0);
-  return mat;
+function hutMat(scene, suffix, rgb, emissive) {
+  return solidMat(scene, "hut" + suffix, rgb, emissive);
 }
 
 export function createLowPolyHut(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
   // Cozy storybook cottage materials — warm timbers, golden honey thatch
-  const logMat = createFlatHutMat(id, "_logMat", scene, new BABYLON.Color3(0.48, 0.32, 0.18)); // warm timber
-  const logMatDark = createFlatHutMat(id, "_logMatD", scene, new BABYLON.Color3(0.36, 0.22, 0.12));
-  const thatchMat = createFlatHutMat(id, "_thatchMat", scene, new BABYLON.Color3(0.78, 0.62, 0.28)); // golden honey thatch
-  const thatchMatDark = createFlatHutMat(id, "_thatchMatD", scene, new BABYLON.Color3(0.65, 0.48, 0.20));
-  const mudMat = createFlatHutMat(id, "_mudMat", scene, new BABYLON.Color3(0.42, 0.35, 0.26)); // warm plaster/stone
-  const ropeMat = createFlatHutMat(id, "_ropeMat", scene, new BABYLON.Color3(0.68, 0.54, 0.30));
-  const glowMat = createFlatHutMat(id, "_glowMat", scene, new BABYLON.Color3(1.0, 0.85, 0.35));
-  glowMat.emissiveColor = new BABYLON.Color3(0.95, 0.75, 0.25);
+  const logMat = hutMat(scene, "_logMat", [0.48, 0.32, 0.18]); // warm timber
+  const logMatDark = hutMat(scene, "_logMatD", [0.36, 0.22, 0.12]);
+  const thatchMat = hutMat(scene, "_thatchMat", [0.78, 0.62, 0.28]); // golden honey thatch
+  const thatchMatDark = hutMat(scene, "_thatchMatD", [0.65, 0.48, 0.20]);
+  const mudMat = hutMat(scene, "_mudMat", [0.42, 0.35, 0.26]); // warm plaster/stone
+  const ropeMat = hutMat(scene, "_ropeMat", [0.68, 0.54, 0.30]);
+  const glowMat = hutMat(scene, "_glowMat", [1.0, 0.85, 0.35], [0.95, 0.75, 0.25]);
 
   // Low earthen mound base (not a clean stone foundation — just packed dirt)
   const base = BABYLON.MeshBuilder.CreateCylinder(id + "_base", { diameterTop: 1.9, diameterBottom: 2.05, height: 0.14, tessellation: 8 }, scene);
@@ -86,14 +83,13 @@ export function createLowPolyHut(id, scene) {
   // Low doorway — just a dark gap with a crude hide/cloth flap, no frame or knob
   const doorGap = BABYLON.MeshBuilder.CreateBox(id + "_doorGap", { width: 0.4, height: 0.5, depth: 0.1 }, scene);
   doorGap.position.set(0, 0.12 + 0.26, 0.76);
-  const doorMat = createFlatHutMat(id, "_doorMat", scene, new BABYLON.Color3(0.08, 0.06, 0.05));
-  doorGap.material = doorMat;
+  doorGap.material = hutMat(scene, "_doorMat", [0.08, 0.06, 0.05]);
   doorGap.parent = root;
 
   const doorFlap = BABYLON.MeshBuilder.CreateBox(id + "_doorFlap", { width: 0.38, height: 0.46, depth: 0.03 }, scene);
   doorFlap.position.set(0.05, 0.12 + 0.24, 0.78);
   doorFlap.rotation.y = -0.15;
-  doorFlap.material = createFlatHutMat(id, "_doorFlapMat", scene, new BABYLON.Color3(0.42, 0.32, 0.2));
+  doorFlap.material = hutMat(scene, "_doorFlapMat", [0.42, 0.32, 0.2]);
   doorFlap.parent = root;
 
   // Binding rope wraps at a couple of post junctions for a hand-built feel

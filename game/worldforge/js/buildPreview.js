@@ -6,6 +6,7 @@ import { createWatchtower } from "./models/watchtower.js";
 import { createWell } from "./models/well.js";
 import { createStorage } from "./models/storage.js";
 import { createMarket } from "./models/market.js";
+import { createLumbermill } from "./models/lumbermill.js";
 
 const creators = {
   hut:      createLowPolyHut,
@@ -15,16 +16,28 @@ const creators = {
   well:     createWell,
   storage:  createStorage,
   market:   createMarket,
+  lumbermill: createLumbermill,
 };
 
-// Every preview shares one rAF loop. A separate engine.runRenderLoop per card
-// meant seven extra render pipelines on top of the game's own, all still
-// spinning while the tab was backgrounded.
+// Every preview shares one rAF loop, and each card only spins for a fixed
+// intro: eight scenes rendering forever is eight extra WebGL passes per frame
+// on a menu the player mostly reads rather than watches.
+const PREVIEW_SPIN_FRAMES = 150;
+
 const previews = [];
 let lastTick = 0;
 let ticking = false;
 
+function anyPending() {
+  return previews.some((p) => p.framesLeft > 0);
+}
+
 function tick(now) {
+  if (!anyPending()) {
+    ticking = false;
+    lastTick = 0;
+    return; // loop stops on the last drawn frame
+  }
   requestAnimationFrame(tick);
   if (document.hidden) return;
 
@@ -33,6 +46,8 @@ function tick(now) {
   lastTick = now;
 
   for (const p of previews) {
+    if (p.framesLeft <= 0) continue;
+    p.framesLeft--;
     p.root.rotation.y += delta * 0.5;
     p.scene.render();
   }
@@ -42,7 +57,14 @@ function startTicking() {
   if (ticking) return;
   ticking = true;
   requestAnimationFrame(tick);
-  window.addEventListener("resize", () => previews.forEach((p) => p.engine.resize()));
+}
+
+// A resized canvas loses its backbuffer, so each preview redraws once and stops.
+function redrawOnce() {
+  previews.forEach((p) => {
+    p.engine.resize();
+    p.scene.render();
+  });
 }
 
 function initPreview(canvas, modelKey) {
@@ -81,7 +103,7 @@ function initPreview(canvas, modelKey) {
     camera.target = new BABYLON.Vector3(0, size.y * 0.3, 0);
   });
 
-  previews.push({ engine, scene, root });
+  previews.push({ engine, scene, root, framesLeft: PREVIEW_SPIN_FRAMES });
   startTicking();
 }
 
@@ -90,6 +112,7 @@ function initPreview(canvas, modelKey) {
 // take the game's context with it. So a card is only built once it has
 // actually scrolled into view; cards never looked at never cost an engine.
 function initAllPreviews() {
+  window.addEventListener("resize", redrawOnce);
   const observer = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       if (!entry.isIntersecting) return;

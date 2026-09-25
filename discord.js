@@ -173,8 +173,8 @@ export function renderDiscordWidget(data) {
         const name = escapeHtml(channelNameById[cid] || 'Voice Channel');
         const groupMembers = voiceGroups[cid];
         const avatars = groupMembers.slice(0, 6).map((m) => {
-          const avatarUrl = m.avatar_url || 'favicon.png';
-          return `<img src="${avatarUrl}" class="w-7 h-7 rounded-full object-cover border-2 border-slate-900 -ml-2 first:ml-0" alt="${escapeHtml(m.username)}" title="${escapeHtml(m.username)}" onerror="this.src='favicon.png'" />`;
+          const avatarUrl = m.avatar_url || 'icons/icon-192.png';
+          return `<img src="${avatarUrl}" class="w-7 h-7 rounded-full object-cover border-2 border-slate-900 -ml-2 first:ml-0" alt="${escapeHtml(m.username)}" title="${escapeHtml(m.username)}" onerror="this.src='icons/icon-192.png'" />`;
         }).join('');
         const overflow = groupMembers.length > 6 ? `<span class="w-7 h-7 rounded-full bg-slate-800 border-2 border-slate-900 -ml-2 flex items-center justify-center text-[9px] font-bold text-slate-300">+${groupMembers.length - 6}</span>` : '';
 
@@ -216,7 +216,7 @@ export function renderDiscordWidget(data) {
       const statusDot = STATUS_DOT[m.status] || 'bg-slate-500';
       const statusLabel = STATUS_LABEL[m.status] || 'Offline';
       const activity = describeActivity(m);
-      const avatarUrl = m.avatar_url || 'favicon.png';
+      const avatarUrl = m.avatar_url || 'icons/icon-192.png';
       const inVoice = !!m.channel_id;
       const voiceChannelName = inVoice ? escapeHtml(channelNameById[m.channel_id] || 'Voice') : null;
       const username = escapeHtml(m.username);
@@ -230,7 +230,7 @@ export function renderDiscordWidget(data) {
       return `
         <div class="flex items-center gap-3 p-3 rounded-2xl bg-slate-900/80 border border-slate-800/90 hover:border-indigo-500/40 transition">
           <div class="relative shrink-0">
-            <img src="${avatarUrl}" class="w-10 h-10 rounded-full object-cover border border-slate-700/80" alt="${username}" onerror="this.src='favicon.png'" />
+            <img src="${avatarUrl}" class="w-10 h-10 rounded-full object-cover border border-slate-700/80" alt="${username}" onerror="this.src='icons/icon-192.png'" />
             <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#030712] ${statusDot}" title="${statusLabel}"></span>
             ${inVoice ? `<span class="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-violet-500 border-2 border-[#030712] flex items-center justify-center"><svg class="w-2 h-2 fill-white" viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3z"/></svg></span>` : ''}
           </div>

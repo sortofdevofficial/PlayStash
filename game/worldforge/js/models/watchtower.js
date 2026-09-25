@@ -1,36 +1,35 @@
 import { flatShade } from "../flatShade.js";
+import { sharedMat, solidMat } from "./materials.js";
 
 export function createWatchtower(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
   // --- MATERIALS ---
-  const woodMat = new BABYLON.StandardMaterial(id + "_wMat", scene);
-  woodMat.diffuseColor = new BABYLON.Color3(0.52, 0.35, 0.20); // Warm cedar
-  woodMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  const woodMat = solidMat(scene, "tower_wood", [0.52, 0.35, 0.20]); // Warm cedar
+  const darkWoodMat = solidMat(scene, "tower_darkWood", [0.38, 0.24, 0.14]); // Warm mahogany/treated wood
+  const thatchMat = solidMat(scene, "tower_thatch", [0.78, 0.64, 0.28]); // Warm golden straw
+  const ropeMat = solidMat(scene, "tower_rope", [0.7, 0.6, 0.4]);
 
-  const darkWoodMat = new BABYLON.StandardMaterial(id + "_dwMat", scene);
-  darkWoodMat.diffuseColor = new BABYLON.Color3(0.38, 0.24, 0.14); // Warm mahogany/treated wood
-  darkWoodMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  const stoneMat = sharedMat(scene, "tower_stone", () => {
+    const m = new BABYLON.StandardMaterial("tower_stone", scene);
+    m.diffuseColor = new BABYLON.Color3(0.52, 0.51, 0.48); // Warm slate grey
+    m.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+    return m;
+  });
 
-  const stoneMat = new BABYLON.StandardMaterial(id + "_sMat", scene);
-  stoneMat.diffuseColor = new BABYLON.Color3(0.52, 0.51, 0.48); // Warm slate grey
-  stoneMat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+  const metalMat = sharedMat(scene, "tower_metal", () => {
+    const m = new BABYLON.StandardMaterial("tower_metal", scene);
+    m.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+    m.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+    return m;
+  });
 
-  const thatchMat = new BABYLON.StandardMaterial(id + "_thMat", scene);
-  thatchMat.diffuseColor = new BABYLON.Color3(0.78, 0.64, 0.28); // Warm golden straw
-  thatchMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const ropeMat = new BABYLON.StandardMaterial(id + "_rMat", scene);
-  ropeMat.diffuseColor = new BABYLON.Color3(0.7, 0.6, 0.4); 
-  ropeMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const metalMat = new BABYLON.StandardMaterial(id + "_mMat", scene);
-  metalMat.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-  metalMat.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
-
-  const lanternMat = new BABYLON.StandardMaterial(id + "_lMat", scene);
-  lanternMat.emissiveColor = new BABYLON.Color3(1, 0.8, 0.3); // Glowing yellow
-  lanternMat.diffuseColor = new BABYLON.Color3(1, 0.8, 0.3);
+  const lanternMat = sharedMat(scene, "tower_lantern", () => {
+    const m = new BABYLON.StandardMaterial("tower_lantern", scene);
+    m.emissiveColor = new BABYLON.Color3(1, 0.8, 0.3); // Glowing yellow
+    m.diffuseColor = new BABYLON.Color3(1, 0.8, 0.3);
+    return m;
+  });
 
   const legPositions = [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]];
 
@@ -186,6 +185,7 @@ export function createWatchtower(id, scene) {
 // --------------------------------------------------------------------------
 
 let watchtowerRangeRing = null;
+let lastHoverPick = { x: null, y: null };
 
 export function updateWatchtowerHover(scene, placedObjects, gridToWorldCenter) {
   if (!watchtowerRangeRing) {
@@ -203,22 +203,16 @@ export function updateWatchtowerHover(scene, placedObjects, gridToWorldCenter) {
     watchtowerRangeRing.isVisible = false;
   }
 
-  const pickInfo = scene.pick(scene.pointerX, scene.pointerY);
-  let hoveredTower = null;
+  // Called every frame. A pick only buys anything when the pointer moved, and
+  // if the ring is already hidden there is nothing to clear.
+  const moved = scene.pointerX !== lastHoverPick.x || scene.pointerY !== lastHoverPick.y;
+  lastHoverPick = { x: scene.pointerX, y: scene.pointerY };
+  if (!moved && !watchtowerRangeRing.isVisible) return;
 
-  if (pickInfo && pickInfo.hit && pickInfo.pickedMesh) {
-    let curr = pickInfo.pickedMesh;
-    while (curr) {
-      for (const obj of placedObjects.values()) {
-        if (obj.type === "tower" && (obj.mesh === curr || obj.root === curr)) {
-          hoveredTower = obj;
-          break;
-        }
-      }
-      if (hoveredTower) break;
-      curr = curr.parent;
-    }
-  }
+  const pickInfo = scene.pick(scene.pointerX, scene.pointerY, (m) => m.metadata && m.metadata.objId);
+  const objId = pickInfo && pickInfo.hit && pickInfo.pickedMesh ? pickInfo.pickedMesh.metadata.objId : null;
+  const obj = objId ? placedObjects.get(objId) : null;
+  const hoveredTower = obj && obj.type === "tower" ? obj : null;
 
   if (hoveredTower) {
     const center = gridToWorldCenter(hoveredTower.rootX, hoveredTower.rootZ, hoveredTower.size);

@@ -277,12 +277,12 @@ function formatDateDetailed(timestamp) {
 }
 
 function safeAvatarUrl(url) {
-  if (typeof url !== 'string' || !url) return 'favicon.png';
+  if (typeof url !== 'string' || !url) return 'icons/icon-192.png';
   try {
     const parsed = new URL(url, window.location.href);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : 'favicon.png';
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : 'icons/icon-192.png';
   } catch {
-    return 'favicon.png';
+    return 'icons/icon-192.png';
   }
 }
 
@@ -595,7 +595,7 @@ onAuthStateChanged(auth, async (user) => {
       await update(ref(db, `u/${user.uid}/i`), {
         e: user.email || '',
         dn: displayName,
-        pe: user.photoURL || 'favicon.png',
+        pe: user.photoURL || 'icons/icon-192.png',
         jt: creationTime
       });
     } catch (err) {}
@@ -620,7 +620,7 @@ onAuthStateChanged(auth, async (user) => {
     if (userAvatar) userAvatar.src = '';
     if (memberSince) memberSince.textContent = '';
 
-    if (profileCardAvatar) profileCardAvatar.src = 'favicon.png';
+    if (profileCardAvatar) profileCardAvatar.src = 'icons/icon-192.png';
     if (profileCardName) profileCardName.textContent = 'Guest Player';
     if (profileCardEmail) profileCardEmail.textContent = 'Sign in to view profile details';
     if (profileCardJoinedPs) profileCardJoinedPs.textContent = 'Joined PlayStash: -';
@@ -843,9 +843,9 @@ function fmtUptime(ms) {
 }
 
 function communityAvatarImg(user, size = 'w-8 h-8') {
-  const src = user.avatar || 'favicon.png';
+  const src = user.avatar || 'icons/icon-192.png';
   const name = escapeHtmlJs(user.username || 'User');
-  return `<img src="${src}" class="${size} rounded-full object-cover border border-slate-700/80 shrink-0" alt="${name}" onerror="this.src='favicon.png'" />`;
+  return `<img src="${src}" class="${size} rounded-full object-cover border border-slate-700/80 shrink-0" alt="${name}" onerror="this.src='icons/icon-192.png'" />`;
 }
 
 function renderGiveawayCard(g) {

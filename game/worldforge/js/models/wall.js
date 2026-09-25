@@ -1,4 +1,5 @@
 import { flatShade } from "../flatShade.js";
+import { solidMat } from "./materials.js";
 
 // Shared with the hut, storage shed and market stall so a palisade reads as
 // part of the same settlement instead of a different art pass.
@@ -8,20 +9,17 @@ const HEMP = [0.72, 0.58, 0.32];
 const MOSS = [0.42, 0.65, 0.28];
 const CRANBERRY = [0.88, 0.35, 0.28];
 
-function mat(id, suffix, scene, [r, g, b]) {
-  const m = new BABYLON.StandardMaterial(id + suffix, scene);
-  m.diffuseColor = new BABYLON.Color3(r, g, b);
-  m.specularColor = new BABYLON.Color3(0, 0, 0);
-  return m;
+function mat(suffix, scene, rgb) {
+  return solidMat(scene, "wall" + suffix, rgb);
 }
 
 export function createWallSegment(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
-  const woodMat = mat(id, "_wMat", scene, CEDAR);
-  const woodMatDark = mat(id, "_wMatD", scene, CEDAR_DARK);
-  const ropeMat = mat(id, "_ropeMat", scene, HEMP);
-  const mossMat = mat(id, "_mossMat", scene, MOSS);
+  const woodMat = mat("_wMat", scene, CEDAR);
+  const woodMatDark = mat("_wMatD", scene, CEDAR_DARK);
+  const ropeMat = mat("_ropeMat", scene, HEMP);
+  const mossMat = mat("_mossMat", scene, MOSS);
 
   // Vertical palisade stakes spanning the tile
   const stakeCount = 5;
@@ -71,16 +69,13 @@ export function createWallSegment(id, scene) {
 export function createGate(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
-  const woodMat = mat(id, "_wMat", scene, CEDAR);
-  const woodMatDark = mat(id, "_wMatD", scene, CEDAR_DARK);
-  const ropeMat = mat(id, "_ropeMat", scene, HEMP);
-  const mossMat = mat(id, "_mossMat", scene, MOSS);
-  const clothMat = mat(id, "_clothMat", scene, CRANBERRY);
+  const woodMat = mat("_wMat", scene, CEDAR);
+  const woodMatDark = mat("_wMatD", scene, CEDAR_DARK);
+  const ropeMat = mat("_ropeMat", scene, HEMP);
+  const mossMat = mat("_mossMat", scene, MOSS);
+  const clothMat = mat("_clothMat", scene, CRANBERRY);
 
-  const lanternMat = new BABYLON.StandardMaterial(id + "_lanternMat", scene);
-  lanternMat.diffuseColor = new BABYLON.Color3(1, 0.82, 0.36);
-  lanternMat.emissiveColor = new BABYLON.Color3(1, 0.78, 0.30);
-  lanternMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  const lanternMat = solidMat(scene, "wall_lanternMat", [1, 0.82, 0.36], [1, 0.78, 0.30]);
 
   // Two side posts framing a passable gap (no stakes in the middle)
   [-0.42, 0.42].forEach((x, i) => {

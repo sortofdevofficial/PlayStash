@@ -1,27 +1,14 @@
 import { flatShade } from "../flatShade.js";
+import { solidMat } from "./materials.js";
 
 export function createStorage(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
-  const woodMat = new BABYLON.StandardMaterial(id + "_wMat", scene);
-  woodMat.diffuseColor = new BABYLON.Color3(0.50, 0.34, 0.20); // warm cedar posts
-  woodMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const woodMatDark = new BABYLON.StandardMaterial(id + "_wMatD", scene);
-  woodMatDark.diffuseColor = new BABYLON.Color3(0.38, 0.24, 0.14);
-  woodMatDark.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const roofMat = new BABYLON.StandardMaterial(id + "_rMat", scene);
-  roofMat.diffuseColor = new BABYLON.Color3(0.75, 0.60, 0.28); // golden thatch roof
-  roofMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const crateMat = new BABYLON.StandardMaterial(id + "_cMat", scene);
-  crateMat.diffuseColor = new BABYLON.Color3(0.62, 0.44, 0.24); // warm oak crates
-  crateMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const sackMat = new BABYLON.StandardMaterial(id + "_sackMat", scene);
-  sackMat.diffuseColor = new BABYLON.Color3(0.78, 0.70, 0.52); // warm linen burlap
-  sackMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  const woodMat = solidMat(scene, "storage_wood", [0.50, 0.34, 0.20]); // warm cedar posts
+  const woodMatDark = solidMat(scene, "storage_woodDark", [0.38, 0.24, 0.14]);
+  const roofMat = solidMat(scene, "storage_roof", [0.75, 0.60, 0.28]); // golden thatch roof
+  const crateMat = solidMat(scene, "storage_crate", [0.62, 0.44, 0.24]); // warm oak crates
+  const sackMat = solidMat(scene, "storage_sack", [0.78, 0.70, 0.52]); // warm linen burlap
 
   // Open-sided raised platform shed
   const postPositions = [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]];

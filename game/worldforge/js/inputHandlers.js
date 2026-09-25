@@ -5,6 +5,7 @@ import { playSound } from "./audio.js";
 import { markDirty } from "./db.js";
 import { getFootprintSize, placeObject, removeObjectById, clearWorld } from "./world.js";
 import { toggleTrackNpc } from "./npcPanel.js";
+import { openMillPanel } from "./millPanel.js";
 
 let placedObjects, occupiedGrid, activeNPCs, ghosts, removeGhostBox;
 let hoveredObjId = null;
@@ -47,51 +48,86 @@ function handleRemoveClick(objId) {
   onSyncNPCs();
 }
 
+const GHOST_VALID = new BABYLON.Color3(0.2, 0.95, 0.4);
+const GHOST_VALID_GLOW = new BABYLON.Color3(0.1, 0.4, 0.2);
+const GHOST_INVALID = new BABYLON.Color3(0.95, 0.2, 0.2);
+const GHOST_INVALID_GLOW = new BABYLON.Color3(0.4, 0.1, 0.1);
+
+let ghostKey = null;      // mode + buildType, so the ghost sweep runs on changes only
+let ghostValid = null;    // last tint applied to the visible ghost
+let pointerMoved = false;
+
+function showOnlyActiveGhost() {
+  const key = `${state.mode}:${state.buildType}`;
+  if (key === ghostKey) return false;
+  ghostKey = key;
+  ghostValid = null;
+  Object.keys(ghosts).forEach((k) => ghosts[k].setEnabled(state.mode === "plant" && k === state.buildType));
+  return true;
+}
+
+function tintGhost(isValid) {
+  if (isValid === ghostValid) return;
+  ghostValid = isValid;
+  const ghost = ghosts[state.buildType];
+  if (!ghost) return;
+  ghost.getChildMeshes().forEach((m) => {
+    if (!m.material) return;
+    m.material.diffuseColor = isValid ? GHOST_VALID : GHOST_INVALID;
+    m.material.emissiveColor = isValid ? GHOST_VALID_GLOW : GHOST_INVALID_GLOW;
+  });
+}
+
+function updateGhostFromPointer() {
+  if (state.isSpectating) return;
+  if (state.mode !== "plant" && state.mode !== "remove") {
+    showOnlyActiveGhost(); // makes sure switching to a non-build mode clears them
+    return;
+  }
+
+  const pick = scene.pick(scene.pointerX, scene.pointerY, (m) => m === playableGround || m.metadata?.objId);
+  if (!pick.hit || !pick.pickedPoint) return;
+
+  if (state.mode === "plant") {
+    removeGhostBox.isVisible = false;
+    showOnlyActiveGhost();
+
+    const size = getFootprintSize();
+    const g = worldToGrid(pick.pickedPoint);
+    targetGhostPos = gridToWorldCenter(g.x, g.z, size);
+    tintGhost(isFootprintValid(g.x, g.z, size, occupiedGrid));
+  } else {
+    showOnlyActiveGhost();
+    const targetId = pick.pickedMesh?.metadata?.objId;
+
+    if (targetId && placedObjects.has(targetId)) {
+      const data = placedObjects.get(targetId);
+      const center = gridToWorldCenter(data.rootX, data.rootZ, data.size);
+      removeGhostBox.position.set(center.x, 1.5, center.z);
+      removeGhostBox.scaling.set(data.size, 1, data.size);
+      removeGhostBox.isVisible = true;
+      hoveredObjId = targetId;
+    } else {
+      removeGhostBox.isVisible = false;
+      hoveredObjId = null;
+    }
+  }
+}
+
 function bindPointerEvents() {
+  const groundPickFilter = (m) => m === playableGround || m.metadata?.objId;
+  const npcPickFilter = (m) => Boolean(m.metadata?.npcId);
+
+  // Babylon would otherwise ray-cast the whole scene on every pointermove to
+  // fill info.pickInfo, which nothing below reads.
+  scene.skipPointerMovePicking = true;
+
   scene.onPointerObservable.add((info) => {
-    const groundPickFilter = (m) => m === playableGround || m.metadata?.objId;
-
     if (info.type === BABYLON.PointerEventTypes.POINTERMOVE) {
-      if (state.isSpectating) return;
-      const pick = scene.pick(scene.pointerX, scene.pointerY, groundPickFilter);
-
-      if (pick.hit && pick.pickedPoint) {
-        if (state.mode === "plant") {
-          removeGhostBox.isVisible = false;
-          const size = getFootprintSize();
-          const g = worldToGrid(pick.pickedPoint);
-          targetGhostPos = gridToWorldCenter(g.x, g.z, size);
-          const isValid = isFootprintValid(g.x, g.z, size, occupiedGrid);
-
-          Object.keys(ghosts).forEach((k) => {
-            const isCurrent = k === state.buildType;
-            ghosts[k].setEnabled(isCurrent);
-            if (isCurrent) {
-              ghosts[k].getChildMeshes().forEach((m) => {
-                if (m.material) {
-                  m.material.diffuseColor = isValid ? new BABYLON.Color3(0.2, 0.95, 0.4) : new BABYLON.Color3(0.95, 0.2, 0.2);
-                  m.material.emissiveColor = isValid ? new BABYLON.Color3(0.1, 0.4, 0.2) : new BABYLON.Color3(0.4, 0.1, 0.1);
-                }
-              });
-            }
-          });
-        } else if (state.mode === "remove") {
-          Object.values(ghosts).forEach((g) => g.setEnabled(false));
-          const targetId = pick.pickedMesh?.metadata?.objId;
-
-          if (targetId && placedObjects.has(targetId)) {
-            const data = placedObjects.get(targetId);
-            const center = gridToWorldCenter(data.rootX, data.rootZ, data.size);
-            removeGhostBox.position.set(center.x, 1.5, center.z);
-            removeGhostBox.scaling.set(data.size, 1, data.size);
-            removeGhostBox.isVisible = true;
-            hoveredObjId = targetId;
-          } else {
-            removeGhostBox.isVisible = false;
-            hoveredObjId = null;
-          }
-        }
-      }
+      // pointermove fires far faster than the scene renders, and outside build
+      // modes nothing used the result. Coalesce to one pick per frame.
+      pointerMoved = true;
+      return;
     }
 
     if (info.type === BABYLON.PointerEventTypes.POINTERDOWN) pointerDownPos = { x: scene.pointerX, y: scene.pointerY };
@@ -106,7 +142,7 @@ function bindPointerEvents() {
       const pick = scene.pick(scene.pointerX, scene.pointerY, groundPickFilter);
 
       if (evt.button === 0 && state.mode === "none") {
-        const npcPick = scene.pick(scene.pointerX, scene.pointerY);
+        const npcPick = scene.pick(scene.pointerX, scene.pointerY, npcPickFilter);
         if (npcPick.hit && npcPick.pickedMesh) {
           const npcRoot = findNpcRootFromMesh(npcPick.pickedMesh);
           if (npcRoot) {
@@ -125,6 +161,10 @@ function bindPointerEvents() {
         const targetMesh = pick.pickedMesh;
         if (targetMesh && targetMesh.metadata?.objId) {
           const objData = placedObjects.get(targetMesh.metadata.objId);
+          if (objData && objData.type === "lumbermill") {
+            openMillPanel(objData, scene.pointerX, scene.pointerY, placedObjects, activeNPCs);
+            return;
+          }
           if (objData && (objData.type === "tree" || objData.type === "stone")) {
             if (objData.type === "tree") {
               const gained = addResourceClamped("wh", 4, placedObjects);
@@ -169,6 +209,12 @@ function bindPointerEvents() {
     }
   });
 
+  scene.onBeforeRenderObservable.add(() => {
+    if (!pointerMoved) return;
+    pointerMoved = false;
+    updateGhostFromPointer();
+  });
+
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
@@ -199,11 +245,12 @@ function setBuildType(type) {
     document.getElementById("removeBtn").classList.remove("danger");
     removeGhostBox.isVisible = false;
     updateCardHighlights();
+    pointerMoved = true;
   }
 }
 
 function bindBuildMenu() {
-  const types = ["hut", "campfire", "farm", "tower", "well", "storage", "market"];
+  const types = ["hut", "campfire", "farm", "tower", "well", "storage", "market", "lumbermill"];
   types.forEach((type) => {
     const id = "card" + type.charAt(0).toUpperCase() + type.slice(1);
     const el = document.getElementById(id);
@@ -220,6 +267,7 @@ function bindTopbarButtons() {
       document.getElementById("removeBtn").classList.add("danger");
       Object.values(ghosts).forEach((g) => g.setEnabled(false));
       updateCardHighlights();
+      pointerMoved = true;
     }
   };
 

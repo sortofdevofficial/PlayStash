@@ -24,7 +24,8 @@ export const state = {
     tower: { wh: 30, stone: 25, food: 10, water: 0 },
     well: { wh: 15, stone: 15, food: 0, water: 0 },
     storage: { wh: 25, stone: 10, food: 0, water: 0 },
-    market: { wh: 20, stone: 20, food: 0, water: 0 }
+    market: { wh: 20, stone: 20, food: 0, water: 0 },
+    lumbermill: { wh: 25, stone: 20, food: 0, water: 0 }
   }
 };
 
@@ -131,10 +132,16 @@ export function showFloatingText(text, worldPos, color = "#81C784", scene, camer
     camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight())
   );
 
+  // The render loop can downscale the backbuffer, so render pixels are not CSS
+  // pixels and the overlay has to be converted back.
+  const cssScale = engine.getHardwareScalingLevel();
+  const px = projected.x * cssScale;
+  const py = projected.y * cssScale;
+
   const popup = document.createElement("div");
   popup.textContent = text;
   popup.style.cssText = `
-    position: absolute; left: ${projected.x}px; top: ${projected.y}px;
+    position: absolute; left: ${px}px; top: ${py}px;
     color: ${color}; font-weight: bold; font-size: 15px; font-family: sans-serif;
     pointer-events: none; transition: transform 0.8s ease-out, opacity 0.8s ease-out;
     transform: translate(-50%, -100%); z-index: 1000; text-shadow: 0px 2px 4px rgba(0,0,0,0.8);
@@ -152,7 +159,7 @@ export function showFloatingText(text, worldPos, color = "#81C784", scene, camer
  * Highlight card elements based on the current building mode.
  */
 export function updateCardHighlights() {
-  ["hut", "campfire", "farm", "tower", "well", "storage", "market"].forEach((type) => {
+  ["hut", "campfire", "farm", "tower", "well", "storage", "market", "lumbermill"].forEach((type) => {
     const el = document.getElementById(`card${type.charAt(0).toUpperCase() + type.slice(1)}`);
     if (el) el.classList.toggle("active", state.mode === "plant" && state.buildType === type);
   });

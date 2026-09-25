@@ -11,8 +11,10 @@ import { createWatchtower } from "./models/watchtower.js";
 import { createWell } from "./models/well.js";
 import { createStorage } from "./models/storage.js";
 import { createMarket } from "./models/market.js";
+import { createLumbermill } from "./models/lumbermill.js";
 import { createWallSegment, createGate } from "./models/wall.js";
 import { gridToWorldCenter } from "./npcBrain.js";
+import { disposeRoot } from "./world.js";
 import { TYPE_BY_CODE, loadWorldByUid } from "./db.js";
 import { showNotif, state } from "./ui.js";
 import { clearTrackedNpc } from "./npcPanel.js";
@@ -27,6 +29,7 @@ const BUILDERS = {
   well: (id, s) => createWell(id, s),
   storage: (id, s) => createStorage(id, s),
   market: (id, s) => createMarket(id, s),
+  lumbermill: (id, s) => createLumbermill(id, s),
   wall: (id, s) => createWallSegment(id, s),
   gate: (id, s) => createGate(id, s)
 };
@@ -53,6 +56,17 @@ export function isVisiting() { return visitRoot !== null; }
 function releaseVisitScatter() {
   visitScatter.forEach((key) => releaseScatter(key));
   visitScatter = [];
+}
+
+// Visited buildings are the same models the live world uses, so they share its
+// per-scene materials: tear down node-by-node through disposeRoot (which also
+// stops campfire particles and their flicker observer) and never dispose
+// materials here, or the player's own village would lose its colours on leave.
+function teardownVisitRoot() {
+  if (!visitRoot) return;
+  visitRoot.getChildren().forEach((child) => disposeRoot(child));
+  visitRoot.dispose(false, false);
+  visitRoot = null;
 }
 
 function buildVisitScene(worldData) {
@@ -129,7 +143,7 @@ export async function startVisit(uid, hostName, placedObjects, activeNPCs) {
     // created until the end of this function, so a bare throw here would leave
     // them with an invisible village and no way back short of a reload.
     console.warn("[visit] Failed to render world:", err);
-    if (visitRoot) { visitRoot.dispose(false, true); visitRoot = null; }
+    teardownVisitRoot();
     releaseVisitScatter();
     setOwnWorldVisible(true, placedObjects, activeNPCs);
     state.isSpectating = previousSpectating;
@@ -160,8 +174,7 @@ export async function startVisit(uid, hostName, placedObjects, activeNPCs) {
 
 export function endVisit(placedObjects = livePlacedObjects, activeNPCs = liveActiveNPCs) {
   if (!isVisiting()) return;
-  visitRoot.dispose(false, true);
-  visitRoot = null;
+  teardownVisitRoot();
   releaseVisitScatter();
   hideBanner();
   setOwnWorldVisible(true, placedObjects, activeNPCs);

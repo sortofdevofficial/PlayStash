@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, follow" />
+  <title>404 - Page not found | PlayStash</title>
+  <meta name="description" content="That PlayStash page does not exist. Head back to the hub or play WorldForge." />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <style>
+    :root { --bg: #030712; --sky: #38bdf8; --line: rgba(255, 255, 255, 0.08); }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 24px; background: radial-gradient(1200px 600px at 50% -10%, #0f1b3d 0%, var(--bg) 60%);
+      color: #e2e8f0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; text-align: center;
+    }
+    .card { max-width: 520px; }
+    .code {
+      font-size: clamp(64px, 18vw, 104px); font-weight: 900; letter-spacing: -0.04em; line-height: 0.9;
+      background: linear-gradient(135deg, #fff 0%, var(--sky) 60%, #818cf8 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    h1 { font-size: clamp(20px, 4.5vw, 28px); margin: 18px 0 8px; }
+    p { color: #94a3b8; font-size: 15px; line-height: 1.6; margin: 0 0 28px; }
+    nav { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    a.btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 12px;
+      font-weight: 700; font-size: 14px; text-decoration: none; color: #fff;
+      border: 1px solid var(--line); transition: transform 0.15s ease, background 0.2s ease;
+    }
+    a.btn:hover { transform: translateY(-2px); }
+    a.primary { background: linear-gradient(135deg, #0284c7, #4f46e5); }
+    a.ghost { background: rgba(255, 255, 255, 0.05); }
+    img.logo { width: 56px; height: 56px; border-radius: 14px; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <img class="logo" src="icons/icon-192.png" alt="PlayStash logo" width="56" height="56" />
+    <div class="code">404</div>
+    <h1>This page wandered off into the wilderness</h1>
+    <p>The address you followed does not exist on PlayStash. Everything we publish is reachable from the hub.</p>
+    <nav aria-label="Destination links">
+      <a class="btn primary" href="./">🎮 PlayStash hub</a>
+      <a class="btn ghost" href="./game/worldforge/">🌲 Play WorldForge</a>
+    </nav>
+  </main>
+</body>
+</html>

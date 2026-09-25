@@ -2,10 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
   <!-- Basic hardening: blocks plugin embeds and <base> tag injection. (Kept loose on purpose so Monetag ads still load.) -->
   <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'">
+
+  <!-- Handshakes paid for up front: Babylon is a blocking script and Firebase is
+       contacted as soon as the module graph finishes loading. -->
+  <link rel="preconnect" href="https://cdn.babylonjs.com" />
+  <link rel="dns-prefetch" href="https://cdn.babylonjs.com" />
+  <link rel="preload" as="script" href="https://cdn.babylonjs.com/babylon.js" />
+  <link rel="modulepreload" href="./js/index.js" />
+  <link rel="modulepreload" href="./js/buildPreview.js" />
+  <link rel="preconnect" href="https://www.gstatic.com" />
+  <link rel="preconnect" href="https://playstash0-default-rtdb.asia-southeast1.firebasedatabase.app" />
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
 
   <script>
   // ---------------------------------------------------------------------------
@@ -42,7 +53,32 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>WorldForge</title>
+  <meta name="theme-color" content="#090b0e" />
+
+  <title>WorldForge - Free 3D Village Builder Browser Game</title>
+  <meta name="description" content="WorldForge is a free 3D village builder that runs in your browser. Place huts, farms, wells and a lumbermill, staff it with villagers, and grow your world. No download, no account needed." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="author" content="PlayStash" />
+  <link rel="canonical" href="https://sortofdevofficial.github.io/PlayStash/game/worldforge/" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="PlayStash" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:url" content="https://sortofdevofficial.github.io/PlayStash/game/worldforge/" />
+  <meta property="og:title" content="WorldForge - Free 3D Village Builder Browser Game" />
+  <meta property="og:description" content="Build a cosy low-poly village in your browser. Hire villagers, run a lumbermill, and watch your settlement grow. Free to play, no install." />
+  <meta property="og:image" content="https://sortofdevofficial.github.io/PlayStash/game/worldforge/og-image.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A cosy low-poly village at golden hour: thatched cottages, a lumbermill with a saw wheel, a stone well, a wheat farm and a campfire." />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="WorldForge - Free 3D Village Builder Browser Game" />
+  <meta name="twitter:description" content="Build a cosy low-poly village in your browser. Hire villagers, run a lumbermill, and watch your settlement grow." />
+  <meta name="twitter:image" content="https://sortofdevofficial.github.io/PlayStash/game/worldforge/og-image.jpg" />
+  <meta name="twitter:image:alt" content="Low-poly village key art: cottages, lumbermill, well, wheat farm and campfire at golden hour." />
+
+  <link rel="manifest" href="../../manifest.json" />
   <link rel="icon" type="image/png" href="./favicon.png" />
   <link rel="apple-touch-icon" href="./favicon.png" />
   <link rel="stylesheet" href="./css/base.css" />
@@ -102,6 +138,14 @@
     }
     #joinedPlayStashBadge, #psOnlineBadge { color: #3f6f95; background: #eaf2f8; border: 1px solid #cfe0ee; }
     #joinedWorldForgeBadge, #wfOnlineBadge { color: #467a3f; background: #edf5e6; border: 1px solid #d3e5c8; }
+
+    /* Clip-hidden, not display:none - the heading and description below have to
+       stay in the accessibility tree and the rendered DOM for crawlers. */
+    .seo-only {
+      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+      overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+      white-space: nowrap; border: 0;
+    }
   </style>
 
   <script>
@@ -171,8 +215,89 @@
     }, 1000);
   })();
   </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": ["VideoGame", "WebApplication"],
+        "@id": "https://sortofdevofficial.github.io/PlayStash/game/worldforge/#game",
+        "name": "WorldForge",
+        "alternateName": "WorldForge 3D Village Builder",
+        "description": "WorldForge is a free low-poly 3D village builder that runs in the browser. Place huts, farms, wells, storage, watchtowers and a lumbermill, then assign your villagers to work them. Progress saves to the cloud and other players can visit the world you build.",
+        "url": "https://sortofdevofficial.github.io/PlayStash/game/worldforge/",
+        "image": "https://sortofdevofficial.github.io/PlayStash/game/worldforge/og-image.jpg",
+        "genre": ["City Builder", "Simulation", "Sandbox", "Casual"],
+        "gamePlatform": ["Web Browser", "HTML5"],
+        "playMode": "SinglePlayer",
+        "applicationCategory": "Game",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires a WebGL-capable browser",
+        "inLanguage": "en",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/Online"
+        },
+        "publisher": { "@id": "https://sortofdevofficial.github.io/PlayStash/#website" },
+        "isPartOf": { "@id": "https://sortofdevofficial.github.io/PlayStash/#website" }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https://sortofdevofficial.github.io/PlayStash/game/worldforge/#breadcrumb",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "PlayStash",
+            "item": "https://sortofdevofficial.github.io/PlayStash/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "WorldForge",
+            "item": "https://sortofdevofficial.github.io/PlayStash/game/worldforge/"
+          }
+        ]
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
+  <h1 class="seo-only">WorldForge - free 3D village builder browser game</h1>
+
+  <section class="seo-only" aria-label="About WorldForge">
+    <h2>What is WorldForge?</h2>
+    <p>WorldForge is a cosy low-poly village builder that runs entirely in your web browser. There is nothing
+      to download and no account required - you land on an empty meadow, place a campfire, and villagers start
+      wandering in to help you build.</p>
+    <h2>How to play WorldForge</h2>
+    <p>Pan the camera with WASD, rotate it with the right mouse button, and zoom with the mouse wheel. Open the
+      build menu to place buildings, press R to rotate a building before you drop it, and press Escape to cancel.</p>
+    <p>Click trees to harvest wood and click boulders to quarry stone. Your villagers harvest those resources on
+      their own too, and they get hungry, so keep a farm and a well running.</p>
+    <h2>Buildings</h2>
+    <ul>
+      <li>Campfire - the heart of the settlement; it attracts new villagers to your world.</li>
+      <li>Hut - raises your population cap so more villagers can live and work.</li>
+      <li>Farm - grows wheat into food for your villagers.</li>
+      <li>Well - draws the water your villagers need to stay happy.</li>
+      <li>Storage - raises the maximum stockpile for every resource.</li>
+      <li>Market - trades food and water for wood and stone.</li>
+      <li>Watchtower - a stationed villager speeds up everyone working nearby.</li>
+      <li>Lumbermill - a working saw pit. Assign up to four villagers to it: the more staff the mill has, the
+        faster it cuts, and the faster its woodlot regrows. Once you own a lumbermill, new trees grow inside its
+        woodlot instead of scattered across the wilderness.</li>
+    </ul>
+    <h2>Saves and visiting</h2>
+    <p>Sign in to sync your world to the cloud, keep several worlds side by side, and browse the worlds other
+      players have published so you can walk through them.</p>
+    <p>WorldForge is part of PlayStash, a hub of free browser games.</p>
+  </section>
+
   <div id="mainMenu">
     <div id="menuEmbers"></div>
     <div id="menuCard">
@@ -284,7 +409,7 @@
 
       <!-- Back to PlayStash Button -->
       <div class="menu-btn-row">
-        <button id="menuPlayStashBtn" class="menu-sec-btn" type="button" data-href="https://playstash.vercel.app">🎮 Back to PlayStash</button>
+        <button id="menuPlayStashBtn" class="menu-sec-btn" type="button" data-href="../../">🎮 Back to PlayStash</button>
       </div>
 
     </div>
@@ -323,6 +448,7 @@
             • <b>Farm</b>: Produces Food (🌽) so your NPCs don't starve.<br/>
             • <b>Well</b>: Provides fresh Water (💧).<br/>
             • <b>Storage</b>: Increases max resource stockpiles (+150 cap).<br/>
+            • <b>Lumbermill</b>: Grows and chops timber. Click it after placing to assign up to 4 workers - the bigger the crew, the faster the wood. Once you own one, new trees grow in its woodlot instead of the wild.<br/>
             • <b>Watchtower</b>: NPCs climb up to scout, boosting nearby work speed!
           </div>
         </div>
@@ -338,7 +464,9 @@
     </div>
   </div>
 
-  <canvas id="renderCanvas"></canvas>
+  <canvas id="renderCanvas" role="img" aria-label="WorldForge game view: a 3D low-poly village you build and explore">
+    WorldForge needs WebGL and could not start. Please open it in a recent version of Chrome, Edge, Firefox or Safari.
+  </canvas>
 
   <script>
     (function spawnEmbers() {
@@ -431,12 +559,12 @@
           <div class="build-category-title">Housing</div>
           <div class="cards-row">
             <div id="cardHut" class="build-card" title="20 Wood, 10 Stone (+2 Pop)">
-              <canvas class="build-preview" data-model="hut" width="56" height="56"></canvas>
+              <canvas class="build-preview" data-model="hut" width="56" height="56" role="img" aria-label="3D preview of a thatched hut"></canvas>
               <div class="card-header"><span class="card-title">Hut</span></div>
               <div class="card-cost">🪵20 🪨10</div>
             </div>
             <div id="cardCampfire" class="build-card" title="10 Wood, 10 Stone (Attracts NPCs)">
-              <canvas class="build-preview" data-model="campfire" width="56" height="56"></canvas>
+              <canvas class="build-preview" data-model="campfire" width="56" height="56" role="img" aria-label="3D preview of a campfire"></canvas>
               <div class="card-header"><span class="card-title">Campfire</span></div>
               <div class="card-cost">🪵10 🪨10</div>
             </div>
@@ -446,12 +574,12 @@
           <div class="build-category-title">Resources</div>
           <div class="cards-row">
             <div id="cardFarm" class="build-card" title="15 Wood, 5 Stone, 5 Water">
-              <canvas class="build-preview" data-model="farm" width="56" height="56"></canvas>
+              <canvas class="build-preview" data-model="farm" width="56" height="56" role="img" aria-label="3D preview of a wheat farm"></canvas>
               <div class="card-header"><span class="card-title">Farm</span></div>
               <div class="card-cost">🪵15 🪨5 💧5</div>
             </div>
             <div id="cardWell" class="build-card" title="15 Wood, 15 Stone">
-              <canvas class="build-preview" data-model="well" width="56" height="56"></canvas>
+              <canvas class="build-preview" data-model="well" width="56" height="56" role="img" aria-label="3D preview of a stone well"></canvas>
               <div class="card-header"><span class="card-title">Well</span></div>
               <div class="card-cost">🪵15 🪨15</div>
             </div>
@@ -461,19 +589,24 @@
           <div class="build-category-title">Structures</div>
           <div class="cards-row">
             <div id="cardTower" class="build-card" title="30 Wood, 25 Stone, 10 Food">
-              <canvas class="build-preview" data-model="tower" width="56" height="56"></canvas>
+              <canvas class="build-preview" data-model="tower" width="56" height="56" role="img" aria-label="3D preview of a wooden watchtower"></canvas>
               <div class="card-header"><span class="card-title">Tower</span></div>
               <div class="card-cost">🪵30 🪨25 🌽10</div>
             </div>
             <div id="cardStorage" class="build-card" title="25 Wood, 10 Stone (+150 Cap)">
-              <canvas class="build-preview" data-model="storage" width="56" height="56"></canvas>
+              <canvas class="build-preview" data-model="storage" width="56" height="56" role="img" aria-label="3D preview of a storage shed"></canvas>
               <div class="card-header"><span class="card-title">Storage</span></div>
               <div class="card-cost">🪵25 🪨10</div>
             </div>
             <div id="cardMarket" class="build-card" title="20 Wood, 20 Stone">
-              <canvas class="build-preview" data-model="market" width="56" height="56"></canvas>
+              <canvas class="build-preview" data-model="market" width="56" height="56" role="img" aria-label="3D preview of a market stall"></canvas>
               <div class="card-header"><span class="card-title">Market</span></div>
               <div class="card-cost">🪵20 🪨20</div>
+            </div>
+            <div id="cardLumbermill" class="build-card" title="25 Wood, 20 Stone - grows and chops timber. Click it after placing to assign workers.">
+              <canvas class="build-preview" data-model="lumbermill" width="56" height="56" role="img" aria-label="3D preview of a lumbermill with a saw wheel"></canvas>
+              <div class="card-header"><span class="card-title">Lumbermill</span></div>
+              <div class="card-cost">🪵25 🪨20</div>
             </div>
           </div>
         </div>

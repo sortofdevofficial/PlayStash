@@ -17,6 +17,7 @@ const ACTIVITY_LABELS = {
   DRAW_WATER: "Drawing water",
   TRADE: "Trading",
   CLIMB: "Climbing tower",
+  MILLING: "On mill duty",
   MANNING_WATCHTOWER: "On watch"
 };
 

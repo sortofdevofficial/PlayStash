@@ -1,31 +1,15 @@
 import { flatShade } from "../flatShade.js";
+import { solidMat } from "./materials.js";
 
 export function createFarm(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
-  const soilMat = new BABYLON.StandardMaterial(id + "_soilMat", scene);
-  soilMat.diffuseColor = new BABYLON.Color3(0.38, 0.25, 0.15); // rich warm earth
-  soilMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const soilMatDark = new BABYLON.StandardMaterial(id + "_soilMatD", scene);
-  soilMatDark.diffuseColor = new BABYLON.Color3(0.28, 0.18, 0.10);
-  soilMatDark.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const borderMat = new BABYLON.StandardMaterial(id + "_borderMat", scene);
-  borderMat.diffuseColor = new BABYLON.Color3(0.46, 0.32, 0.18); // rustic cedar fence
-  borderMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const stalkMat = new BABYLON.StandardMaterial(id + "_stalkMat", scene);
-  stalkMat.diffuseColor = new BABYLON.Color3(0.52, 0.65, 0.22); // healthy green shoots
-  stalkMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const wheatMat = new BABYLON.StandardMaterial(id + "_wheatMat", scene);
-  wheatMat.diffuseColor = new BABYLON.Color3(0.96, 0.78, 0.26); // warm golden ripe wheat
-  wheatMat.specularColor = new BABYLON.Color3(0, 0, 0);
-
-  const wheatLightMat = new BABYLON.StandardMaterial(id + "_wheatMatL", scene);
-  wheatLightMat.diffuseColor = new BABYLON.Color3(0.99, 0.87, 0.45); // sun-bleached ears
-  wheatLightMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  const soilMat = solidMat(scene, "farm_soil", [0.38, 0.25, 0.15]); // rich warm earth
+  const soilMatDark = solidMat(scene, "farm_soilDark", [0.28, 0.18, 0.10]);
+  const borderMat = solidMat(scene, "farm_border", [0.46, 0.32, 0.18]); // rustic cedar fence
+  const stalkMat = solidMat(scene, "farm_stalk", [0.52, 0.65, 0.22]); // healthy green shoots
+  const wheatMat = solidMat(scene, "farm_wheat", [0.96, 0.78, 0.26]); // warm golden ripe wheat
+  const wheatLightMat = solidMat(scene, "farm_wheatLight", [0.99, 0.87, 0.45]); // sun-bleached ears
 
   // Base soil plot, sized for a 2x2 footprint
   const soil = BABYLON.MeshBuilder.CreateBox(id + "_soil", { width: 1.9, height: 0.1, depth: 1.9 }, scene);
