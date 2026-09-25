@@ -2,7 +2,7 @@
   "name": "PlayStash - Free Browser Games",
   "short_name": "PlayStash",
   "description": "PlayStash is a hub of free browser games. Play WorldForge, a cosy 3D village builder, with no download and no account required.",
-  "id": "https://sortofdevofficial.github.io/PlayStash/",
+  "id": ".",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
