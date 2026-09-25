@@ -540,6 +540,11 @@ function syncPresenceIdentity(user) {
 }
 
 function startAuthDatabaseListeners() {
+  // These paths require auth != null. onAuthStateChanged fires once with
+  // user === null before anonymous sign-in resolves, so skip attaching
+  // here until we actually have a signed-in user (anonymous or not).
+  if (!auth.currentUser) return;
+
   onValue(ref(db, 'u'), (snapshot) => {
     rawUsersData = snapshot.val() || {};
     renderDirectory();
@@ -563,6 +568,9 @@ function stopAuthDatabaseListeners() {
 
 onAuthStateChanged(auth, async (user) => {
   syncPresenceIdentity(user);
+  // syncPresenceIdentity triggers anonymous sign-in when user is null,
+  // which re-fires this callback with a real (anonymous) user — that
+  // second pass is when startAuthDatabaseListeners actually attaches.
   startAuthDatabaseListeners();
 
   if (user && !user.isAnonymous) {
