@@ -5,7 +5,7 @@ import { createWatchtower } from "./models/watchtower.js";
 import { createWell } from "./models/well.js";
 import { createStorage } from "./models/storage.js";
 import { createMarket } from "./models/market.js";
-import { createLumbermill, updateLumbermill } from "./models/lumbermill.js";
+import { createLumbermill } from "./models/lumbermill.js";
 import { updateGusts, initAmbientAudio } from "./audio.js";
 import {
   engine, scene, camera, updateCameraControls,
@@ -302,9 +302,6 @@ function startRenderLoop() {
     }
     if (ghosts.farm) updateFarmWiggle(ghosts.farm, elapsedTime);
 
-    for (const mill of objectsOfType("lumbermill")) {
-      if (mill.root) updateLumbermill(mill.root);
-    }
     tickWoodlots(delta);
 
     updateNPCs(delta, activeNPCs, placedObjects, occupiedGrid, scene, camera, engine, (id) => removeObjectById(id));

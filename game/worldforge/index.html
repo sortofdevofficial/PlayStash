@@ -482,35 +482,81 @@
     })();
   </script>
 
+  <!-- Resource icon set. Inlined rather than pulled from a CDN so the game
+       still renders its HUD with no network: these are the only icons the
+       interface needs, and <use href="#id"> resolves against this document.
+       Width/height 0 (not display:none) keeps the symbols referenceable. -->
+  <svg id="iconSprite" aria-hidden="true" focusable="false"
+       style="position:absolute; width:0; height:0; overflow:hidden;">
+    <defs>
+      <symbol id="ic-wood" viewBox="0 0 24 24">
+        <path d="M8 4.6h5.6a5.4 7.4 0 0 1 0 14.8H8z" fill="#7c4f28"/>
+        <path d="M8 4.6h2.1a5.4 7.4 0 0 1 0 14.8H8z" fill="#8f5d31" opacity=".55"/>
+        <ellipse cx="8" cy="12" rx="4" ry="7.4" fill="#c98a4b"/>
+        <ellipse cx="8" cy="12" rx="2.3" ry="4.3" fill="#e2b280"/>
+        <ellipse cx="8" cy="12" rx=".9" ry="1.7" fill="#a9713a"/>
+      </symbol>
+      <symbol id="ic-stone" viewBox="0 0 24 24">
+        <path d="M3.4 16.8 7.6 8.2l6.6-2.6 6.4 4.7-1.7 6.9-8 2z" fill="#8b9099"/>
+        <path d="M7.6 8.2l6.6-2.6 6.4 4.7-5.6 1.4z" fill="#c2c8d0"/>
+        <path d="M15 11.7 19.7 7 20.6 13l-5.7 5.6z" fill="#6e747d"/>
+      </symbol>
+      <symbol id="ic-food" viewBox="0 0 24 24">
+        <path d="M12 22V6.6" stroke="#9c7526" stroke-width="1.7" stroke-linecap="round" fill="none"/>
+        <g fill="#e8b93c">
+          <ellipse cx="12" cy="4.2" rx="1.8" ry="3"/>
+          <ellipse cx="8.5" cy="9" rx="1.6" ry="2.7" transform="rotate(-34 8.5 9)"/>
+          <ellipse cx="15.5" cy="9" rx="1.6" ry="2.7" transform="rotate(34 15.5 9)"/>
+          <ellipse cx="8.5" cy="13.6" rx="1.6" ry="2.7" transform="rotate(-34 8.5 13.6)"/>
+          <ellipse cx="15.5" cy="13.6" rx="1.6" ry="2.7" transform="rotate(34 15.5 13.6)"/>
+        </g>
+      </symbol>
+      <symbol id="ic-water" viewBox="0 0 24 24">
+        <path d="M12 2.6c3.7 4 6.1 6.9 6.1 10.1A6.1 6.1 0 0 1 5.9 12.7C5.9 9.5 8.3 6.6 12 2.6z" fill="#4fb3e0"/>
+        <path d="M8.9 13.6a3.2 3.2 0 0 0 2.5 3.1" stroke="#cbeeff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+      </symbol>
+      <symbol id="ic-cap" viewBox="0 0 24 24">
+        <rect x="3.4" y="5.6" width="17.2" height="14.2" rx="2.2" fill="#b07a3f"/>
+        <path d="M3.4 10.1h17.2M12 5.6v14.2" stroke="#7c4f22" stroke-width="1.7"/>
+        <path d="M5.6 5.6h12.8v2.2H5.6z" fill="#d29a58"/>
+      </symbol>
+      <symbol id="ic-pop" viewBox="0 0 24 24">
+        <path d="M12 2.8 2.9 11.4h2.4v9.4h13.4v-9.4h2.4z" fill="#d99a52"/>
+        <path d="M12 2.8 6.6 8.5h10.8z" fill="#f0b978"/>
+        <rect x="10" y="13.6" width="4" height="7.2" rx="1.2" fill="#7c4f22"/>
+      </symbol>
+    </defs>
+  </svg>
+
   <div id="hud">
     <div id="resourcefsBar">
       <div class="resourcefs-item" title="Wood Storage (Current/Max)">
-        <span>🪵</span>
+        <svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>
         <span class="resourcefs-label">Wood</span>
         <span id="whCount" class="resourcefs-value" style="color:#81C784;">100/200</span>
       </div>
       <div class="resourcefs-item" title="Stone Storage (Current/Max)">
-        <span>🪨</span>
+        <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>
         <span class="resourcefs-label">Stone</span>
         <span id="stoneCount" class="resourcefs-value" style="color:#E0E0E0;">80/200</span>
       </div>
       <div class="resourcefs-item" title="Food Storage (Current/Max)">
-        <span>🌽</span>
+        <svg class="ic" aria-hidden="true"><use href="#ic-food"></use></svg>
         <span class="resourcefs-label">Food</span>
         <span id="foodCount" class="resourcefs-value" style="color:#FFD54F;">30/200</span>
       </div>
       <div class="resourcefs-item" title="Water Storage (Current/Max)">
-        <span>💧</span>
+        <svg class="ic" aria-hidden="true"><use href="#ic-water"></use></svg>
         <span class="resourcefs-label">Water</span>
         <span id="waterCount" class="resourcefs-value" style="color:#5CC7E6;">20/200</span>
       </div>
       <div class="resourcefs-item" title="Max Storage Limit">
-        <span>📦</span>
+        <svg class="ic" aria-hidden="true"><use href="#ic-cap"></use></svg>
         <span class="resourcefs-label">Cap</span>
         <span id="storageCap" class="resourcefs-value" style="color:#FFB74D;">200</span>
       </div>
       <div class="resourcefs-item" title="NPCs / Max Population Capacity">
-        <span>🛖</span>
+        <svg class="ic" aria-hidden="true"><use href="#ic-pop"></use></svg>
         <span class="resourcefs-label">Pop</span>
         <span id="popCount" class="resourcefs-value" style="color:#64B5F6;">0/0</span>
       </div>
@@ -528,18 +574,19 @@
         <div id="npcListRows" class="stack-panel-content"></div>
       </div>
 
-      <div id="otherWorldsPanel" class="panel" style="display: none; width: 240px; padding: 12px 14px; max-height: 320px; overflow-y: auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <b style="font-size:12px; color:#fff;">Other Players' Worlds</b>
-          <button id="closeOtherWorldsBtn" title="Close">✕</button>
+      <div id="otherWorldsPanel" class="stack-panel hidden">
+        <div class="stack-panel-header">
+          <span>Other Worlds</span>
+          <button id="closeOtherWorldsBtn" class="stack-panel-close" title="Close">✕</button>
         </div>
-        <!-- Live Player Counts inside Panel -->
-        <div style="display:flex; gap:10px; margin-bottom:8px; font-size:10px; color:#94a3b8; font-weight:700;">
-          <span>🔥 WorldForge: <span id="panelWfOnlineCount" style="color:#4ade80;">0</span></span>
-          <span>🎮 PlayStash: <span id="panelPsOnlineCount" style="color:#38bdf8;">0</span></span>
-        </div>
-        <div id="otherWorldsList" style="font-size:11px; color:#e5e5e5; display:flex; flex-direction:column; gap:6px;">
-          Loading…
+        <div class="stack-panel-content">
+          <div style="display:flex; gap:10px; margin-bottom:8px; font-size:10px; color:#94a3b8; font-weight:700;">
+            <span>🔥 WorldForge: <span id="panelWfOnlineCount" style="color:#4ade80;">0</span></span>
+            <span>🎮 PlayStash: <span id="panelPsOnlineCount" style="color:#38bdf8;">0</span></span>
+          </div>
+          <div id="otherWorldsList" style="font-size:11px; color:#e5e5e5; display:flex; flex-direction:column; gap:6px;">
+            Loading…
+          </div>
         </div>
       </div>
 
@@ -554,12 +601,12 @@
             <div id="cardHut" class="build-card" title="20 Wood, 10 Stone (+2 Pop)">
               <canvas class="build-preview" data-model="hut" width="56" height="56" role="img" aria-label="3D preview of a thatched hut"></canvas>
               <div class="card-header"><span class="card-title">Hut</span></div>
-              <div class="card-cost">🪵20 🪨10</div>
+              <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>20 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>10</div>
             </div>
             <div id="cardCampfire" class="build-card" title="10 Wood, 10 Stone (Attracts NPCs)">
               <canvas class="build-preview" data-model="campfire" width="56" height="56" role="img" aria-label="3D preview of a campfire"></canvas>
               <div class="card-header"><span class="card-title">Campfire</span></div>
-              <div class="card-cost">🪵10 🪨10</div>
+              <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>10 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>10</div>
             </div>
           </div>
         </div>
@@ -569,12 +616,12 @@
             <div id="cardFarm" class="build-card" title="15 Wood, 5 Stone, 5 Water">
               <canvas class="build-preview" data-model="farm" width="56" height="56" role="img" aria-label="3D preview of a wheat farm"></canvas>
               <div class="card-header"><span class="card-title">Farm</span></div>
-              <div class="card-cost">🪵15 🪨5 💧5</div>
+              <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>15 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>5 <svg class="ic" aria-hidden="true"><use href="#ic-water"></use></svg>5</div>
             </div>
             <div id="cardWell" class="build-card" title="15 Wood, 15 Stone">
               <canvas class="build-preview" data-model="well" width="56" height="56" role="img" aria-label="3D preview of a stone well"></canvas>
               <div class="card-header"><span class="card-title">Well</span></div>
-              <div class="card-cost">🪵15 🪨15</div>
+              <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>15 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>15</div>
             </div>
           </div>
         </div>
@@ -584,22 +631,22 @@
             <div id="cardTower" class="build-card" title="30 Wood, 25 Stone, 10 Food">
               <canvas class="build-preview" data-model="tower" width="56" height="56" role="img" aria-label="3D preview of a wooden watchtower"></canvas>
               <div class="card-header"><span class="card-title">Tower</span></div>
-              <div class="card-cost">🪵30 🪨25 🌽10</div>
+              <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>30 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>25 <svg class="ic" aria-hidden="true"><use href="#ic-food"></use></svg>10</div>
             </div>
             <div id="cardStorage" class="build-card" title="25 Wood, 10 Stone (+150 Cap)">
               <canvas class="build-preview" data-model="storage" width="56" height="56" role="img" aria-label="3D preview of a storage shed"></canvas>
               <div class="card-header"><span class="card-title">Storage</span></div>
-              <div class="card-cost">🪵25 🪨10</div>
+              <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>25 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>10</div>
             </div>
             <div id="cardMarket" class="build-card" title="20 Wood, 20 Stone">
               <canvas class="build-preview" data-model="market" width="56" height="56" role="img" aria-label="3D preview of a market stall"></canvas>
               <div class="card-header"><span class="card-title">Market</span></div>
-              <div class="card-cost">🪵20 🪨20</div>
+              <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>20 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>20</div>
             </div>
             <div id="cardLumbermill" class="build-card" title="25 Wood, 20 Stone - fenced woodlot that regrows timber. Click it after placing to assign workers.">
-              <canvas class="build-preview" data-model="lumbermill" width="56" height="56" role="img" aria-label="3D preview of a lumbermill shed with a spinning saw blade"></canvas>
+              <canvas class="build-preview" data-model="lumbermill" width="56" height="56" role="img" aria-label="3D preview of a lumbermill shed beside a fenced woodlot"></canvas>
               <div class="card-header"><span class="card-title">Lumbermill</span></div>
-              <div class="card-cost">🪵25 🪨20</div>
+              <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>25 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>20</div>
             </div>
           </div>
         </div>

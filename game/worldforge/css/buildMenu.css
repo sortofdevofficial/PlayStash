@@ -142,6 +142,13 @@
   margin-top: 1px;
 }
 
+/* At 7.5px the shared 1.2em icon is too small to read its detail. */
+.card-cost .ic {
+  width: 1.6em;
+  height: 1.6em;
+  vertical-align: -0.34em;
+}
+
 /* ─── 3-D preview canvas ──────────────────────────────────────────── */
 canvas.build-preview {
   width: 52px;

@@ -299,16 +299,6 @@ export function createLumbermill(id, scene, withYard = true) {
   add(BABYLON.MeshBuilder.CreateCylinder(id + "_lampCap", { height: 0.08, diameterTop: 0.02, diameterBottom: 0.16, tessellation: 6 }, scene), m.iron)
     .position.set(0.46, 1.63, 1.1);
 
-  root.metadata = { lamp };
   return flatShade(root);
 }
 
-/**
- * The lantern breathes; that is all. The mill has no turning parts - the crew
- * working the lot is what says the building is running.
- */
-export function updateLumbermill(millRoot) {
-  const meta = millRoot.metadata;
-  if (!meta || !meta.lamp) return;
-  meta.lamp.scaling.y = 1 + Math.sin(performance.now() * 0.0012) * 0.04;
-}

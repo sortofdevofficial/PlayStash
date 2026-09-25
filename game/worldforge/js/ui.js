@@ -113,9 +113,16 @@ export function showNotif(msg, type = "success", duration = 1600) {
   setTimeout(() => notif.remove(), duration);
 }
 
+const ICON_KEYS = new Set(["wood", "stone", "food", "water", "cap", "pop"]);
+
 /**
  * Display floating text at a world position.
  * Requires BABYLON to be available.
+ *
+ * "[wood]"-style tokens render as real icons from #iconSprite. Everything else
+ * becomes a text node: these strings can carry an NPC name restored from a cloud
+ * save, so nothing is ever parsed as markup, and a bracketed word that is not a
+ * known resource stays literal.
  */
 export function showFloatingText(text, worldPos, color = "#81C784", scene, camera, engine) {
   if (!window.BABYLON) {
@@ -133,7 +140,18 @@ export function showFloatingText(text, worldPos, color = "#81C784", scene, camer
   );
 
   const popup = document.createElement("div");
-  popup.textContent = text;
+  text.split(/\[(\w+)\]/g).forEach((part, i) => {
+    if (i % 2 === 1 && ICON_KEYS.has(part)) {
+      const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      use.setAttribute("href", `#ic-${part}`);
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "ic");
+      svg.appendChild(use);
+      popup.appendChild(svg);
+    } else if (part) {
+      popup.appendChild(document.createTextNode(part));
+    }
+  });
   popup.style.cssText = `
     position: absolute; left: ${projected.x}px; top: ${projected.y}px;
     color: ${color}; font-weight: bold; font-size: 15px; font-family: sans-serif;

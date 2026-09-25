@@ -66,6 +66,47 @@ export function createWallSegment(id, scene) {
   return flatShade(root);
 }
 
+// Half-gap in tile units: the posts stand at x = ±0.42 and a leaf reaches from
+// its own post to the centre line, so the pair meets in the middle when shut.
+const LEAF_REACH = 0.4;
+const LEAF_TOP = 1.02;
+const GATE_SWING = 1.7;      // radians each leaf folds back
+const GATE_SPEED = 2.0;      // eased 0..1 per second, so both leaves share it
+
+// How close a villager has to get before the gate starts swinging for them.
+export const GATE_TRIGGER = 1.6;
+
+// Boards, rails and brace are authored in the leaf's own space (the hinge is at
+// the origin, the boards run out along dir * x) and merged into one mesh, so the
+// hinge node can rotate the whole leaf as a unit.
+function createLeaf(id, scene, woodMat, darkMat, dir) {
+  const hinge = new BABYLON.TransformNode(id + "_hinge", scene);
+  hinge.position.set(-0.42 * dir, 0, 0);
+
+  const parts = [];
+  const box = (w, h, d, x, y, z, mat, rotZ) => {
+    const mesh = BABYLON.MeshBuilder.CreateBox(id + "_p" + parts.length, { width: w, height: h, depth: d }, scene);
+    mesh.position.set(x, y, z);
+    if (rotZ) mesh.rotation.z = rotZ;
+    mesh.material = mat;
+    parts.push(mesh);
+  };
+
+  for (let i = 0; i < 5; i++) {
+    box(0.08, LEAF_TOP, 0.05, dir * (0.04 + i * 0.08), LEAF_TOP / 2, 0, i % 2 ? darkMat : woodMat);
+  }
+  box(LEAF_REACH, 0.07, 0.04, dir * (LEAF_REACH / 2), 0.16, 0.035, darkMat);
+  box(LEAF_REACH, 0.07, 0.04, dir * (LEAF_REACH / 2), 0.88, 0.035, darkMat);
+  box(0.71, 0.06, 0.04, dir * 0.2, 0.52, 0.05, darkMat, dir * 1.07);
+
+  const merged = BABYLON.Mesh.MergeMeshes(parts, true, true, undefined, false, false);
+  if (merged) {
+    merged.name = id;
+    merged.parent = hinge;
+  }
+  return hinge;
+}
+
 export function createGate(id, scene) {
   const root = new BABYLON.TransformNode(id, scene);
 
@@ -90,6 +131,14 @@ export function createGate(id, scene) {
     moss.material = mossMat;
     moss.parent = root;
   });
+
+  // Swung on hinge nodes parented to the posts, so a leaf rotates about the
+  // post axis rather than about the gate's centre.
+  const hingeL = createLeaf(id + "_leafL", scene, woodMat, woodMatDark, 1);
+  const hingeR = createLeaf(id + "_leafR", scene, woodMat, woodMatDark, -1);
+  hingeL.parent = root;
+  hingeR.parent = root;
+  root.metadata = { hingeL, hingeR, t: 0, wantOpen: false };
 
   // Lintel beam across the top of the opening
   const lintel = BABYLON.MeshBuilder.CreateBox(id + "_lintel", { width: 0.95, height: 0.12, depth: 0.14 }, scene);
@@ -122,4 +171,25 @@ export function createGate(id, scene) {
   lantern.parent = root;
 
   return flatShade(root);
+}
+
+/**
+ * Swing the leaves toward `approaching`. Hinges turn about the post axis, and
+ * the two leaves get opposite signs so they fold to the same side of the wall.
+ */
+export function tickGate(gateRoot, approaching, deltaTime) {
+  const meta = gateRoot && gateRoot.metadata;
+  if (!meta || !meta.hingeL) return;
+
+  const target = approaching ? 1 : 0;
+  if (meta.t === target) return;
+
+  const gap = target - meta.t;
+  const step = Math.min(deltaTime * GATE_SPEED, Math.abs(gap));
+  meta.t = gap > 0 ? meta.t + step : meta.t - step;
+
+  const eased = meta.t * meta.t * (3 - 2 * meta.t);
+  const angle = eased * GATE_SWING;
+  meta.hingeL.rotation.y = angle;
+  meta.hingeR.rotation.y = -angle;
 }

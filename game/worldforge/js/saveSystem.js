@@ -38,7 +38,7 @@ export function initOtherWorldsPanel() {
     btn.textContent = "Loading…";
     try {
       if (await visitUid(btn.dataset.uid, btn.dataset.name || null)) {
-        panel.style.display = "none";
+        panel.classList.add("hidden");
         return;
       }
     } finally {
@@ -51,11 +51,11 @@ export function initOtherWorldsPanel() {
   });
 
   viewBtn.onclick = async () => {
-    const isOpen = panel.style.display !== "none";
+    const isOpen = !panel.classList.contains("hidden");
 
-    if (isOpen || isVisiting()) { panel.style.display = "none"; return; }
+    if (isOpen || isVisiting()) { panel.classList.add("hidden"); return; }
 
-    panel.style.display = "block";
+    panel.classList.remove("hidden");
     list.textContent = "Loading…";
 
     const worlds = await listOtherWorlds();
@@ -97,6 +97,6 @@ export function initOtherWorldsPanel() {
   };
 
   closeBtn.onclick = () => {
-    panel.style.display = "none";
+    panel.classList.add("hidden");
   };
 }

@@ -169,11 +169,11 @@ function bindPointerEvents() {
             if (objData.type === "tree") {
               const gained = addResourceClamped("wh", 4, placedObjects);
               playSound("chop");
-              showFloatingText(gained > 0 ? "+4 Wood 🪵" : "Storage full!", pick.pickedPoint, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
+              showFloatingText(gained > 0 ? "+4 Wood [wood]" : "Storage full!", pick.pickedPoint, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
             } else {
               const gained = addResourceClamped("stone", 4, placedObjects);
               playSound("mine");
-              showFloatingText(gained > 0 ? "+4 Stone 🪨" : "Storage full!", pick.pickedPoint, gained > 0 ? "#E0E0E0" : "#e07263", scene, camera, engine);
+              showFloatingText(gained > 0 ? "+4 Stone [stone]" : "Storage full!", pick.pickedPoint, gained > 0 ? "#E0E0E0" : "#e07263", scene, camera, engine);
             }
 
             objData.health = (objData.health || 3) - 1;

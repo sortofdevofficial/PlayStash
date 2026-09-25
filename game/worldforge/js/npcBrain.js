@@ -2,6 +2,7 @@ import { state, updateResourceUI, showNotif, showFloatingText, addResourceClampe
 import { playSound } from "./audio.js";
 import { createLowPolyNPC, updateNPCAnimation } from "./models/npc.js";
 import { updateWatchtowerHover } from "./models/watchtower.js";
+import { tickGate, GATE_TRIGGER } from "./models/wall.js";
 
 export const BUILD_SIZE = 80;
 export const HALF_SIZE = BUILD_SIZE / 2;
@@ -99,6 +100,7 @@ export function findPath(start, goal, occupiedGrid) {
   if (start.x < BOUND_MIN || start.x > BOUND_MAX || goal.x < BOUND_MIN || goal.x > BOUND_MAX) return null;
   if (start.x === goal.x && start.z === goal.z) return [];
 
+  const gates = passableGateTiles();
   const startKey = tileKey(start.x, start.z);
   // Parent pointers instead of a path array per node: the old version copied
   // every node's whole path when queueing it, which made a single failed search
@@ -127,7 +129,7 @@ export function findPath(start, goal, occupiedGrid) {
       const key = tileKey(nx, nz);
 
       if (nx >= BOUND_MIN && nx <= BOUND_MAX && nz >= BOUND_MIN && nz <= BOUND_MAX &&
-        !parent.has(key) && (!occupiedGrid.has(key) || (nx === goal.x && nz === goal.z))) {
+        !parent.has(key) && (!occupiedGrid.has(key) || gates.has(key) || (nx === goal.x && nz === goal.z))) {
         parent.set(key, tileKey(current.x, current.z));
         queue.push({ x: nx, z: nz });
       }
@@ -143,6 +145,21 @@ const NO_OBJECTS = new Set();
 
 export function objectsOfType(type) { return typeIndex.get(type) || NO_OBJECTS; }
 
+// A gate has to stop the player building on its tile but must not stop a
+// villager walking through it, and occupiedGrid is the one grid that does both.
+// Pathfinding gets this exception list instead; everything else still treats the
+// tile as taken.
+let gateTiles = new Set();
+let gateTilesDirty = true;
+
+function passableGateTiles() {
+  if (!gateTilesDirty) return gateTiles;
+  gateTilesDirty = false;
+  gateTiles.clear();
+  for (const gate of objectsOfType("gate")) gateTiles.add(tileKey(gate.rootX, gate.rootZ));
+  return gateTiles;
+}
+
 // Types an unassigned villager may seek out to work on.
 const WORKABLE_TYPES = ["tree", "stone", "farm", "well", "market"];
 
@@ -150,11 +167,13 @@ export function indexObject(entry) {
   let set = typeIndex.get(entry.type);
   if (!set) { set = new Set(); typeIndex.set(entry.type, set); }
   set.add(entry);
+  if (entry.type === "gate") gateTilesDirty = true;
 }
 
 export function unindexObject(entry) {
   const set = typeIndex.get(entry.type);
   if (set) set.delete(entry);
+  if (entry.type === "gate") gateTilesDirty = true;
 }
 
 export function getMaxNPCCapacity(placedObjects) {
@@ -342,6 +361,84 @@ function hireableMill() {
   return null;
 }
 
+// Villagers spawn on the campfire's own tile and aim at shared waypoint
+// centres, so without a nudge they pile into one another and read as a single
+// sprite. Half this each way still leaves a pair shoulder to shoulder.
+const NPC_SEPARATION = 0.55;
+
+function canNudge(npc) {
+  return npc.root && !npc.isDead && !npc.respawning
+    && npc.a !== "CLIMB" && npc.a !== "MANNING_WATCHTOWER";
+}
+
+// The stranded-tile rescue would teleport a villager shoved into a wall straight
+// out of it, which reads as a stutter - so a push that lands on blocked
+// ground is simply dropped.
+function slide(root, ox, oz, occupiedGrid) {
+  const tx = root.position.x + ox;
+  const tz = root.position.z + oz;
+  if (occupiedGrid.has(tileKey(Math.floor(tx), Math.floor(tz)))) return;
+  root.position.x = tx;
+  root.position.z = tz;
+}
+
+function separateNPCs(activeNPCs, occupiedGrid) {
+  for (let i = 0; i < activeNPCs.length; i++) {
+    const a = activeNPCs[i];
+    if (!canNudge(a)) continue;
+    for (let j = i + 1; j < activeNPCs.length; j++) {
+      const b = activeNPCs[j];
+      if (!canNudge(b)) continue;
+
+      const dx = b.root.position.x - a.root.position.x;
+      const dz = b.root.position.z - a.root.position.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 >= NPC_SEPARATION * NPC_SEPARATION) continue;
+
+      // Perfectly stacked (the usual starting position) has no direction to
+      // separate along, so give them one.
+      if (d2 < 1e-6) {
+        slide(a.root, -NPC_SEPARATION * 0.5, 0, occupiedGrid);
+        slide(b.root, NPC_SEPARATION * 0.5, 0, occupiedGrid);
+        continue;
+      }
+
+      const push = (NPC_SEPARATION - Math.sqrt(d2)) * 0.5;
+      const ox = (dx / Math.sqrt(d2)) * push;
+      const oz = (dz / Math.sqrt(d2)) * push;
+      slide(a.root, -ox, -oz, occupiedGrid);
+      slide(b.root, ox, oz, occupiedGrid);
+    }
+  }
+}
+
+// A gate only swings for someone actually crossing it, so the trigger is a
+// radius around the doorway rather than a whole tile block. The hold keeps the
+// leaves from starting shut while the last villager is still in the gap.
+const GATE_HOLD_S = 0.7;
+
+function tickGates(deltaTime, activeNPCs) {
+  const gates = objectsOfType("gate");
+  if (gates.size === 0) return;
+  const reach2 = GATE_TRIGGER * GATE_TRIGGER;
+
+  for (const gate of gates) {
+    if (!gate.root) continue;
+    const center = gridToWorldCenter(gate.rootX, gate.rootZ, gate.size);
+
+    let near = false;
+    for (const npc of activeNPCs) {
+      if (!canNudge(npc)) continue;
+      const dx = npc.root.position.x - center.x;
+      const dz = npc.root.position.z - center.z;
+      if (dx * dx + dz * dz < reach2) { near = true; break; }
+    }
+
+    gate.gateHold = near ? GATE_HOLD_S : Math.max(0, (gate.gateHold || 0) - deltaTime);
+    tickGate(gate.root, near || gate.gateHold > 0, deltaTime);
+  }
+}
+
 export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, scene, camera, engine, removeObjectById) {
   updateWatchtowerHover(scene, placedObjects, gridToWorldCenter);
 
@@ -424,7 +521,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
         npc.hunger = 100;
         npc.isStarving = false;
         npc.happiness = Math.min(100, npc.happiness + 12);
-        showFloatingText("-1 Food 🌽", npc.root.position, "#FFD54F", scene, camera, engine);
+        showFloatingText("-1 Food [food]", npc.root.position, "#FFD54F", scene, camera, engine);
         updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
       } else if (npc.hunger <= 0) {
         if (!npc.isStarving) {
@@ -472,7 +569,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
             if (objData.type === "tree") {
               const gained = addResourceClamped("wh", 4, placedObjects);
               playSound("chop");
-              showFloatingText(gained > 0 ? "+4 Wood 🪵" : "Storage Full!", pos, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
+              showFloatingText(gained > 0 ? "+4 Wood [wood]" : "Storage Full!", pos, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
               if (objData.lotId) {
                 const owner = placedObjects.get(objData.lotId);
                 if (owner) owner.chopped = (owner.chopped || 0) + 1;
@@ -482,7 +579,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
             } else if (objData.type === "stone") {
               const gained = addResourceClamped("stone", 4, placedObjects);
               playSound("mine");
-              showFloatingText(gained > 0 ? "+4 Stone 🪨" : "Storage Full!", pos, gained > 0 ? "#E0E0E0" : "#e07263", scene, camera, engine);
+              showFloatingText(gained > 0 ? "+4 Stone [stone]" : "Storage Full!", pos, gained > 0 ? "#E0E0E0" : "#e07263", scene, camera, engine);
               objData.health = (objData.health || 3) - 1;
               if (objData.health <= 0) removeObjectById(npc.targetObjId);
             } else if (objData.type === "farm") {
@@ -490,30 +587,30 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
               objData.isReady = false;
               objData.growthTimer = 45.0;
               playSound("place");
-              showFloatingText(gained > 0 ? "+20 Food 🌽" : "Storage Full!", pos, gained > 0 ? "#FFE082" : "#e07263", scene, camera, engine);
+              showFloatingText(gained > 0 ? "+20 Food [food]" : "Storage Full!", pos, gained > 0 ? "#FFE082" : "#e07263", scene, camera, engine);
             } else if (objData.type === "well") {
               const gained = addResourceClamped("water", 15, placedObjects);
               playSound("place");
-              showFloatingText(gained > 0 ? "+15 Water 💧" : "Storage Full!", pos, gained > 0 ? "#5CC7E6" : "#e07263", scene, camera, engine);
+              showFloatingText(gained > 0 ? "+15 Water [water]" : "Storage Full!", pos, gained > 0 ? "#5CC7E6" : "#e07263", scene, camera, engine);
             } else if (objData.type === "market") {
               if (state.resources.wh >= 5 || state.resources.stone >= 5) {
                 if (state.resources.wh >= 5) {
                   state.resources.wh -= 5;
                   if (state.resources.food <= state.resources.water) {
                     addResourceClamped("food", 12, placedObjects);
-                    showFloatingText("+12 Food 🌽 (Traded Wood)", pos, "#B0BEC5", scene, camera, engine);
+                    showFloatingText("+12 Food [food] (Traded Wood)", pos, "#B0BEC5", scene, camera, engine);
                   } else {
                     addResourceClamped("water", 12, placedObjects);
-                    showFloatingText("+12 Water 💧 (Traded Wood)", pos, "#B0BEC5", scene, camera, engine);
+                    showFloatingText("+12 Water [water] (Traded Wood)", pos, "#B0BEC5", scene, camera, engine);
                   }
                 } else {
                   state.resources.stone -= 5;
                   if (state.resources.food <= state.resources.water) {
                     addResourceClamped("food", 12, placedObjects);
-                    showFloatingText("+12 Food 🌽 (Traded Stone)", pos, "#B0BEC5", scene, camera, engine);
+                    showFloatingText("+12 Food [food] (Traded Stone)", pos, "#B0BEC5", scene, camera, engine);
                   } else {
                     addResourceClamped("water", 12, placedObjects);
-                    showFloatingText("+12 Water 💧 (Traded Stone)", pos, "#B0BEC5", scene, camera, engine);
+                    showFloatingText("+12 Water [water] (Traded Stone)", pos, "#B0BEC5", scene, camera, engine);
                   }
                 }
                 playSound("place");
@@ -521,12 +618,12 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
                 state.resources.food -= 10;
                 addResourceClamped("wh", 8, placedObjects);
                 playSound("place");
-                showFloatingText("+8 Wood 🪵 (Traded Food)", pos, "#B0BEC5", scene, camera, engine);
+                showFloatingText("+8 Wood [wood] (Traded Food)", pos, "#B0BEC5", scene, camera, engine);
               } else if (state.resources.water >= 15) {
                 state.resources.water -= 10;
                 addResourceClamped("stone", 8, placedObjects);
                 playSound("place");
-                showFloatingText("+8 Stone 🪨 (Traded Water)", pos, "#B0BEC5", scene, camera, engine);
+                showFloatingText("+8 Stone [stone] (Traded Water)", pos, "#B0BEC5", scene, camera, engine);
               } else {
                 showFloatingText("No goods to trade! 🛒", pos, "#e07263", scene, camera, engine);
               }
@@ -672,7 +769,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
 
     const curTile = worldToGrid(npc.root.position);
     const curKey = tileKey(curTile.x, curTile.z);
-    if (occupiedGrid.has(curKey)) {
+    if (occupiedGrid.has(curKey) && !passableGateTiles().has(curKey)) {
       const freeTile = findAdjacentFreeTile(curTile.x, curTile.z, 1, occupiedGrid);
       if (freeTile) {
         const center = gridToWorldCenter(freeTile.x, freeTile.z, 1);
@@ -723,4 +820,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
 
     updateNPCAnimation(npc, deltaTime);
   });
+
+  separateNPCs(activeNPCs, occupiedGrid);
+  tickGates(deltaTime, activeNPCs);
 }
