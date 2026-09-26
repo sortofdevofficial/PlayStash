@@ -134,18 +134,10 @@
 }
 .build-card:hover::after { color: #e2e8f0; }
 
-/* Unaffordable: dim the card and redden the cost so a short stack reads
-   before placement fails, and drop the hover lift that promises a click. */
-.build-card.poor { opacity: 0.5; filter: saturate(0.35); }
+/* Unaffordable: redden the cost so a short stack reads before placement fails.
+   The card itself stays fully lit - fading the whole card out made the menu
+   look broken the moment a resource ran dry. */
 .build-card.poor .card-cost { color: #fca5a5; border-color: rgba(248, 113, 113, 0.4); }
-.build-card.poor:hover {
-  background: rgba(30, 41, 59, 0.45);
-  border-color: rgba(255, 255, 255, 0.12);
-  transform: none;
-  box-shadow: none;
-  cursor: not-allowed;
-}
-.build-card.poor.active { opacity: 1; filter: none; cursor: pointer; }
 
 @keyframes buildCardPulse {
   0%,100% { box-shadow: 0 4px 16px rgba(59,130,246,0.3); }

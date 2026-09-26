@@ -203,9 +203,10 @@ const ghosts = {
   well: createWell("ghostWell", scene),
   storage: createStorage("ghostStorage", scene),
   market: createMarket("ghostMarket", scene),
-  // No yard on the ghost: the translucent outline reads as the footprint, and a
-  // 7x7 fence would imply the placement blocks tiles the validity check ignores.
-  lumbermill: createLumbermill("ghostLumbermill", scene, false)
+  // The ghost carries the woodlot fence too: those tiles really are reserved
+  // the moment the mill lands (the validity check tints the ghost red over
+  // them), so the preview should show the ground the player is about to commit.
+  lumbermill: createLumbermill("ghostLumbermill", scene)
 };
 
 // One material for every ghost child: they are all the same translucent green,
