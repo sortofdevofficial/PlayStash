@@ -16,7 +16,7 @@ import { createWallSegment, createGate } from "./models/wall.js";
 import { gridToWorldCenter } from "./npcBrain.js";
 import { disposeRoot } from "./world.js";
 import { TYPE_BY_CODE, loadWorldByUid } from "./db.js";
-import { showNotif, state } from "./ui.js";
+import { showNotif, state, iconEl } from "./ui.js";
 import { clearTrackedNpc } from "./npcPanel.js";
 
 const BUILDERS = {
@@ -218,7 +218,7 @@ function showBanner(hostName, buildingCount) {
   const label = document.createElement("span");
   const who = document.createElement("b");
   who.textContent = `${hostName || "a player"}'s`;
-  label.append("🌍 Visiting ", who, ` world · ${buildingCount} builds`);
+  label.append(iconEl("ic-globe"), " Visiting ", who, ` world · ${buildingCount} builds`);
 
   const leave = document.createElement("button");
   leave.id = "leaveVisitBtn";

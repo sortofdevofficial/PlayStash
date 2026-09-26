@@ -15,7 +15,7 @@ import {
 import {
   getMaxNPCCapacity, checkCampfireNPCSymmetry, updateNPCs, objectsOfType
 } from "./npcBrain.js";
-import { state, updateResourceUI, showNotif } from "./ui.js";
+import { state, updateResourceUI, showNotif, iconEl } from "./ui.js";
 import {
   authReady, loadSave, loadWorldByUid, initAutosave, markDirty,
   getPlayerId, serializeWorld, BUILD_CODE, signInWithGoogle, signOutUser, getCurrentUser, getJoinTimes, initPresence
@@ -120,7 +120,7 @@ function initAuthHandlers() {
     signInBtn.addEventListener("click", async () => {
       try {
         await signInWithGoogle();
-        showNotif("Signed in successfully! HALO 😇", "info");
+        showNotif("Signed in successfully! HALO", "info");
         window.location.reload();
       } catch (err) {
         showNotif("Sign in failed", "warn");
@@ -131,7 +131,7 @@ function initAuthHandlers() {
   if (signOutBtn) {
     signOutBtn.addEventListener("click", async () => {
       try {
-        showNotif("Why? 😭", "warn");
+        showNotif("Why?", "warn");
         await signOutUser();
         window.location.reload();
       } catch (err) {
@@ -162,7 +162,7 @@ function initMenuHandler() {
 function showSpectateBanner(uid) {
   const banner = document.createElement("div");
   banner.id = "spectateBanner";
-  banner.textContent = `👁️ Viewing another player's world (read-only)`;
+  banner.replaceChildren(iconEl("ic-eye"), " Viewing another player's world (read-only)");
   banner.style.cssText = `
     position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
     z-index: 5000; background: rgba(37, 99, 235, 0.9); color: #fff;

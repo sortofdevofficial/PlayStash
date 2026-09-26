@@ -2,6 +2,8 @@
 // NPC showing name, hunger/happiness bars, current activity, and their
 // latest thought about the world. Hidden by default - toggled open/closed
 // rather than always visible.
+import { iconEl } from "./ui.js";
+
 let trackedNpcId = null;
 let panelEl = null;
 let rowsEl = null;
@@ -35,7 +37,7 @@ export function setThought(npc, text) {
 }
 
 function moodFor(happiness) {
-  return happiness < 40 ? "😞" : happiness < 75 ? "🙂" : "😊";
+  return happiness < 40 ? "ic-mood-sad" : happiness < 75 ? "ic-mood-ok" : "ic-mood-happy";
 }
 
 function statRow(label, value, fillClass) {
@@ -78,13 +80,14 @@ function buildRow(npc) {
   // only ever assigned as text - never interpolated into markup.
   const name = document.createElement("span");
   name.className = "npc-row-name";
-  name.textContent = `${npc.name} ${moodFor(happiness)}`;
+  name.textContent = `${npc.name} `;
+  name.appendChild(iconEl(moodFor(happiness)));
 
   const track = document.createElement("button");
   track.className = "npc-row-track";
   track.dataset.trackId = npc.id;
   track.title = "Follow with camera";
-  track.textContent = isTracked ? "🎥 Following" : "🎥";
+  track.replaceChildren(iconEl("ic-camera"), ...(isTracked ? [" Following"] : []));
 
   top.append(name, track);
 

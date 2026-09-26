@@ -1,7 +1,6 @@
-import { canvas, scene, camera, engine, playableGround, setEnvironmentLighting } from "./environment.js";
+import { canvas, scene, playableGround, setEnvironmentLighting } from "./environment.js";
 import { worldToGrid, gridToWorldCenter, isFootprintValid, getMaxNPCCapacity } from "./npcBrain.js";
-import { state, showNotif, showFloatingText, updateCardHighlights, deselectAllModes, addResourceClamped, updateResourceUI } from "./ui.js";
-import { playSound } from "./audio.js";
+import { state, showNotif, updateCardHighlights, deselectAllModes, updateResourceUI, iconEl } from "./ui.js";
 import { markDirty } from "./db.js";
 import { getFootprintSize, placeObject, removeObjectById, clearWorld, isYardReserved } from "./world.js";
 import { toggleTrackNpc } from "./npcPanel.js";
@@ -165,23 +164,6 @@ function bindPointerEvents() {
             openMillPanel(objData, scene.pointerX, scene.pointerY, placedObjects, activeNPCs);
             return;
           }
-          if (objData && (objData.type === "tree" || objData.type === "stone")) {
-            if (objData.type === "tree") {
-              const gained = addResourceClamped("wh", 4, placedObjects);
-              playSound("chop");
-              showFloatingText(gained > 0 ? "+4 Wood [wood]" : "Storage full!", pick.pickedPoint, gained > 0 ? "#81C784" : "#e07263", scene, camera, engine);
-            } else {
-              const gained = addResourceClamped("stone", 4, placedObjects);
-              playSound("mine");
-              showFloatingText(gained > 0 ? "+4 Stone [stone]" : "Storage full!", pick.pickedPoint, gained > 0 ? "#E0E0E0" : "#e07263", scene, camera, engine);
-            }
-
-            objData.health = (objData.health || 3) - 1;
-            if (objData.health <= 0) handleRemoveClick(targetMesh.metadata.objId);
-            markDirty();
-            updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
-            return;
-          }
         }
       }
 
@@ -276,7 +258,7 @@ function bindTopbarButtons() {
     setEnvironmentLighting(state.isNight);
     const dayBtn = document.getElementById("dayBtn");
     if (dayBtn) {
-      dayBtn.textContent = state.isNight ? "☀️" : "🌙";
+      dayBtn.replaceChildren(iconEl(state.isNight ? "ic-sun" : "ic-moon"));
       dayBtn.title = state.isNight ? "Switch to Day" : "Switch to Night";
     }
 

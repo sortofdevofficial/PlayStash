@@ -194,6 +194,7 @@ function createNpc(id, scene, pos, overrides = {}) {
   return {
     id, root, path: [], speed: WALK_SPEED, a: "IDLE", actionTimer: 0,
     targetObjId: null, stuckTimer: 0, climbProgress: 0, lastPos: root.position.clone(),
+    progressAt: 0, progressPos: root.position.clone(),
     name: overrides.name || NPC_NAMES[Math.floor(Math.random() * NPC_NAMES.length)],
     hunger: 100, happiness: 100, health: 100, isStarving: false, isDead: false,
     respawning: false,
@@ -258,10 +259,20 @@ export function checkCampfireNPCSymmetry(activeNPCs, placedObjects, scene, shado
   if (typeof updateStats === "function") updateStats();
 }
 
-function respawnExactNPC(npc, scene, camera, engine, placedObjects) {
+// How long a villager may keep trying to walk without covering any ground before
+// it is sent back to camp. A couple of seconds of not moving is a normal shove
+// from the crowd and only costs it the path; six means it is genuinely wedged.
+const STUCK_RESPAWN_S = 6;
+
+function respawnExactNPC(npc, scene, camera, engine, placedObjects, cause = "died") {
   npc.respawning = true;
   setThought(npc, "DYING");
-  showNotif(`${npc.name} died! Respawning in 3 seconds...`, "warn");
+  showNotif(
+    cause === "stuck"
+      ? `${npc.name} got stuck! Returning to camp...`
+      : `${npc.name} died! Respawning in 3 seconds...`,
+    "warn"
+  );
 
   setTimeout(() => {
     if (!npc.respawning) return;
@@ -292,9 +303,12 @@ function respawnExactNPC(npc, scene, camera, engine, placedObjects) {
     npc.targetObjId = null;
     npc.actionTimer = 0;
     npc.climbProgress = 0;
+    npc.stuckTimer = 0;
     npc.lastPos = newRoot.position.clone();
+    npc.progressAt = 0;
+    npc.progressPos = newRoot.position.clone();
 
-    showFloatingText(`${npc.name} Respawned! ✨`, newRoot.position, "#00FF7F", scene, camera, engine);
+    showFloatingText(`${npc.name} Respawned!`, newRoot.position, "#00FF7F", scene, camera, engine);
     showNotif(`${npc.name} has respawned!`, "info");
   }, 3000);
 }
@@ -625,7 +639,7 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
                 playSound("place");
                 showFloatingText("+8 Stone [stone] (Traded Water)", pos, "#B0BEC5", scene, camera, engine);
               } else {
-                showFloatingText("No goods to trade! 🛒", pos, "#e07263", scene, camera, engine);
+                showFloatingText("No goods to trade!", pos, "#e07263", scene, camera, engine);
               }
             }
             updateResourceUI(activeNPCs.length, getMaxNPCCapacity(placedObjects), placedObjects);
@@ -797,6 +811,23 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
       } else {
         npc.stuckTimer = 0;
         npc.lastPos = npc.root.position.clone();
+      }
+
+      // Dropping the path only helps a villager that can still walk. One wedged
+      // against a wall just picks a new goal and freezes again, so compare it with
+      // where it was a few seconds ago and send it home if nothing changed.
+      const nowS = performance.now() / 1000;
+      if (!npc.progressAt) {
+        npc.progressAt = nowS;
+        npc.progressPos = npc.root.position.clone();
+      } else if (Math.hypot(npc.root.position.x - npc.progressPos.x, npc.root.position.z - npc.progressPos.z) > 1.2) {
+        npc.progressAt = nowS;
+        npc.progressPos = npc.root.position.clone();
+      } else if (nowS - npc.progressAt > STUCK_RESPAWN_S) {
+        npc.progressAt = nowS;
+        npc.progressPos = npc.root.position.clone();
+        respawnExactNPC(npc, scene, camera, engine, placedObjects, "stuck");
+        return;
       }
 
       if (dist < 0.15) {

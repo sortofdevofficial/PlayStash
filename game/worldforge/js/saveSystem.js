@@ -5,6 +5,7 @@
 // index.js still honours ?view={uid} on boot for hand-shared deep links.
 import { listOtherWorlds } from "./db.js";
 import { visitUid, isVisiting } from "./visitWorld.js";
+import { iconEl } from "./ui.js";
 
 export function setSaveStatus(status) {
   const pill = document.getElementById("saveStatus");
@@ -80,7 +81,11 @@ export function initOtherWorldsPanel() {
 
       const stats = document.createElement("span");
       stats.style.cssText = "font-size:10px; color:#94a3b8;";
-      stats.textContent = `🏘️ ${w.buildingCount} builds · 👤 ${w.npcCount} NPCs`;
+      stats.replaceChildren(
+        iconEl("ic-builds"), ` ${w.buildingCount} builds`,
+        " · ",
+        iconEl("ic-villager"), ` ${w.npcCount} NPCs`
+      );
 
       info.append(name, document.createElement("br"), stats);
 

@@ -1,5 +1,5 @@
 import { audioCtx, isAudioMuted, setAudioMuted } from "./audio.js";
-import { showNotif } from "./ui.js";
+import { showNotif, iconEl } from "./ui.js";
 
 let pendingPlayResolve = null;
 let isMenuInitialized = false;
@@ -79,7 +79,11 @@ export function showMainMenu(data, isMidGame = false) {
     if (audioBtn) {
       audioBtn.onclick = () => {
         setAudioMuted(!isAudioMuted());
-        audioBtn.textContent = isAudioMuted() ? "🔇 Sound: Off" : "🔊 Sound: On";
+        const muted = isAudioMuted();
+        audioBtn.replaceChildren(
+          iconEl(muted ? "ic-mute" : "ic-sound"),
+          muted ? "Sound: Off" : "Sound: On"
+        );
       };
     }
   }
@@ -126,12 +130,12 @@ export function initWelcomeBack() {
       if (document.getElementById("menuWelcome")) return;
       const box = document.createElement("div");
       box.id = "menuWelcome";
-      box.textContent = "👋 Welcome back! Ready when you are.";
+      box.textContent = "Welcome back! Ready when you are.";
       playBtn.parentNode.insertBefore(box, playBtn);
       playBtn.classList.add("pulse");
       setTimeout(() => { box.remove(); playBtn.classList.remove("pulse"); }, 9000);
     } else {
-      showNotif("Welcome back to WorldForge 👋", "info", 4000);
+      showNotif("Welcome back to WorldForge", "info", 4000);
     }
   }
 

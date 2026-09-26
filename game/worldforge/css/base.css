@@ -56,6 +56,11 @@ html, body {
   flex: none;
 }
 
+/* An emoji carried its own side bearing; a sprite icon does not. */
+#worldStats .ic, #playerStatsHud .ic { margin-right: 3px; }
+.menu-sec-btn .ic, #menuBtn .ic, #mobileRotateBtn .ic { margin-right: 5px; }
+.guide-h .ic, .guide-list .ic, #guideModal h2 .ic { margin-right: 4px; }
+
 button {
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: #f8fafc;

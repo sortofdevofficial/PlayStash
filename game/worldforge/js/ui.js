@@ -21,7 +21,7 @@ export const state = {
     hut: { wh: 20, stone: 10, food: 0, water: 0 },
     campfire: { wh: 10, stone: 10, food: 0, water: 0 },
     farm: { wh: 15, stone: 5, food: 0, water: 5 },
-    tower: { wh: 30, stone: 25, food: 10, water: 0 },
+    tower: { wh: 30, stone: 25, food: 0, water: 0 },
     well: { wh: 15, stone: 15, food: 0, water: 0 },
     storage: { wh: 25, stone: 10, food: 0, water: 0 },
     market: { wh: 20, stone: 20, food: 0, water: 0 },
@@ -115,6 +115,17 @@ export function showNotif(msg, type = "success", duration = 1600) {
 
 const ICON_KEYS = new Set(["wood", "stone", "food", "water", "cap", "pop"]);
 
+/** Build one of the #iconSprite symbols as a standalone element. */
+export function iconEl(id) {
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  use.setAttribute("href", `#${id}`);
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "ic");
+  svg.setAttribute("aria-hidden", "true");
+  svg.appendChild(use);
+  return svg;
+}
+
 /**
  * Display floating text at a world position.
  * Requires BABYLON to be available.
@@ -142,12 +153,7 @@ export function showFloatingText(text, worldPos, color = "#81C784", scene, camer
   const popup = document.createElement("div");
   text.split(/\[(\w+)\]/g).forEach((part, i) => {
     if (i % 2 === 1 && ICON_KEYS.has(part)) {
-      const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
-      use.setAttribute("href", `#ic-${part}`);
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("class", "ic");
-      svg.appendChild(use);
-      popup.appendChild(svg);
+      popup.appendChild(iconEl(`ic-${part}`));
     } else if (part) {
       popup.appendChild(document.createTextNode(part));
     }

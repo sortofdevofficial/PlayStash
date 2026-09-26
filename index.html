@@ -292,6 +292,131 @@
   <div class="bg-aurora"></div>
   <div class="bg-grid"></div>
 
+  <!-- Low-poly icon set shared with WorldForge's HUD. Each symbol paints itself
+       in currentColor and shades its facets with white/dark overlays, so the
+       accent classes on the use-site (text-sky-400, fill-amber-400, a dimmed
+       nav tab) still decide the colour. width/height 0, not display:none, keeps
+       the symbols referenceable. -->
+  <svg id="lpSprite" aria-hidden="true" focusable="false"
+       style="position:absolute; width:0; height:0; overflow:hidden;">
+    <symbol id="lp-gamepad" viewBox="0 0 24 24">
+      <path d="M7.6 6.8h8.8c3.1 0 5.6 2.7 5.6 5.8 0 2.7-1.5 4.6-3.4 4.6-1.5 0-2.3-1.1-3.4-1.8H8.8c-1.1.7-1.9 1.8-3.4 1.8-1.9 0-3.4-1.9-3.4-4.6 0-3.1 2.5-5.8 5.6-5.8z" fill="currentColor"/>
+      <path d="M12 6.8h4.4c3.1 0 5.6 2.7 5.6 5.8 0 2.7-1.5 4.6-3.4 4.6-1.5 0-2.3-1.1-3.4-1.8H12z" fill="#0b1220" opacity=".25"/>
+      <path d="M6.4 10.2h1.6v1.8H10v1.6H8v1.8H6.4v-1.8H4.6V12h1.8z" fill="#fff" opacity=".8"/>
+      <circle cx="15.6" cy="11" r="1.3" fill="#fff" opacity=".55"/>
+      <circle cx="18.2" cy="13.6" r="1.3" fill="#fff" opacity=".35"/>
+    </symbol>
+    <symbol id="lp-folk" viewBox="0 0 24 24">
+      <path d="M15.4 6.2a3 3 0 1 1-.1 6 3 3 0 0 1 .1-6z" fill="currentColor"/>
+      <path d="M11.6 20.4v-2.8a3.8 3.8 0 0 1 3.8-3.8h3.6a3.8 3.8 0 0 1 3.8 3.8v2.8z" fill="currentColor"/>
+      <path d="M11.6 20.4v-2.8a3.8 3.8 0 0 1 3.8-3.8h3.6a3.8 3.8 0 0 1 3.8 3.8v2.8z" fill="#0b1220" opacity=".25"/>
+      <path d="M8.6 3.6a3.6 3.6 0 1 1-.1 7.2 3.6 3.6 0 0 1 .1-7.2z" fill="currentColor"/>
+      <path d="M1.6 20.4v-3.2a4.4 4.4 0 0 1 4.4-4.4h5a4.4 4.4 0 0 1 4.4 4.4v3.2z" fill="currentColor"/>
+      <path d="M8.6 3.6 12.2 7.2 8.6 10.8 5 7.2z" fill="#fff" opacity=".22"/>
+    </symbol>
+    <symbol id="lp-villager" viewBox="0 0 24 24">
+      <path d="M12 3.2a3.7 3.7 0 1 1-.1 7.4 3.7 3.7 0 0 1 .1-7.4z" fill="currentColor"/>
+      <path d="M12 3.2 15.7 7 12 10.6 8.3 7z" fill="#fff" opacity=".22"/>
+      <path d="M4.8 20.6v-3a4.6 4.6 0 0 1 4.6-4.6h5.2a4.6 4.6 0 0 1 4.6 4.6v3z" fill="currentColor"/>
+      <path d="M12 13h2.6a4.6 4.6 0 0 1 4.6 4.6v3H12z" fill="#0b1220" opacity=".22"/>
+    </symbol>
+    <symbol id="lp-hub" viewBox="0 0 24 24">
+      <path d="M12 2.8 2.9 11.4h2.4v9.4h13.4v-9.4h2.4z" fill="currentColor"/>
+      <path d="M12 2.8 6.6 8.5h10.8z" fill="#fff" opacity=".26"/>
+      <path d="M14.4 11.4H18.7v9.4H14.4z" fill="#0b1220" opacity=".2"/>
+      <rect x="10" y="13.6" width="4" height="7.2" rx="1.2" fill="#0b1220" opacity=".35"/>
+    </symbol>
+    <symbol id="lp-cloud" viewBox="0 0 24 24">
+      <path d="M6.4 18.6c-2.4 0-4.4-1.9-4.4-4.3 0-2 1.4-3.8 3.4-4.2C6 7 8.2 5 10.8 5c2.4 0 4.4 1.6 5 3.8.4-.2.9-.2 1.4-.2 2.4 0 4.4 2 4.4 4.4s-2 4.4-4.4 4.4z" fill="currentColor"/>
+      <path d="M10.8 5c2.4 0 4.4 1.6 5 3.8.4-.2.9-.2 1.4-.2 2.4 0 4.4 2 4.4 4.4s-2 4.4-4.4 4.4h-4z" fill="#0b1220" opacity=".22"/>
+      <path d="M7.6 12.8h8.2" stroke="#fff" stroke-width="1.6" opacity=".5" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="lp-keyboard" viewBox="0 0 24 24">
+      <rect x="2" y="5.4" width="20" height="13.2" rx="2.2" fill="currentColor"/>
+      <path d="M12 5.4h10v13.2H12z" fill="#0b1220" opacity=".2"/>
+      <g fill="#fff" opacity=".75">
+        <rect x="4.4" y="8" width="2.4" height="2.2" rx=".6"/><rect x="8.2" y="8" width="2.4" height="2.2" rx=".6"/><rect x="12" y="8" width="2.4" height="2.2" rx=".6"/><rect x="15.8" y="8" width="2.4" height="2.2" rx=".6"/>
+        <rect x="4.4" y="11.6" width="2.4" height="2.2" rx=".6"/><rect x="8.2" y="11.6" width="2.4" height="2.2" rx=".6"/><rect x="12" y="11.6" width="2.4" height="2.2" rx=".6"/><rect x="15.8" y="11.6" width="2.4" height="2.2" rx=".6"/>
+        <rect x="7.4" y="15.2" width="9.2" height="2.2" rx=".8"/>
+      </g>
+    </symbol>
+    <symbol id="lp-flame" viewBox="0 0 24 24">
+      <path d="M12 2.2C9.4 7 6.2 9.2 6.2 14a5.8 5.8 0 0 0 11.6 0c0-4.8-3.2-7-5.8-11.8z" fill="currentColor"/>
+      <path d="M12 2.2c2.6 4.8 5.8 7 5.8 11.8A5.8 5.8 0 0 1 12 19.8z" fill="#fff" opacity=".22"/>
+      <path d="M12 10.6c-1.4 2.6-3 3.6-3 5.8a3 3 0 0 0 6 0c0-2.2-1.6-3.2-3-5.8z" fill="#0b1220" opacity=".22"/>
+    </symbol>
+    <symbol id="lp-bolt" viewBox="0 0 24 24">
+      <path d="M13.4 2 4.6 13.6h5.2L8.4 22l9.4-12.2h-5.6z" fill="currentColor"/>
+      <path d="M13.4 2 8.6 8.6h4.4L12 2zM13.8 9.8 8.4 22l1.4-8.4z" fill="#fff" opacity=".24"/>
+    </symbol>
+    <symbol id="lp-medal" viewBox="0 0 24 24">
+      <path d="M8.2 2h7.6l-1.7 6.4h-4.2z" fill="currentColor" opacity=".55"/>
+      <circle cx="12" cy="15.2" r="6.6" fill="currentColor"/>
+      <path d="M12 8.6 18.6 15.2 12 21.8 5.4 15.2z" fill="#0b1220" opacity=".22"/>
+      <circle cx="12" cy="15.2" r="2.6" fill="#fff" opacity=".8"/>
+    </symbol>
+    <symbol id="lp-alert" viewBox="0 0 24 24">
+      <path d="M12 2.4 22.6 21.2H1.4z" fill="currentColor"/>
+      <path d="M12 2.4 22.6 21.2H12z" fill="#0b1220" opacity=".22"/>
+      <path d="M12 8.2h2l-.4 6.2h-1.2z" fill="#0b1220" opacity=".72"/>
+      <circle cx="12" cy="17.6" r="1.4" fill="#0b1220" opacity=".72"/>
+    </symbol>
+    <symbol id="lp-ring" viewBox="0 0 24 24">
+      <path fill-rule="evenodd" d="M12 1.8 20.4 6.6v10.8L12 22.2 3.6 17.4V6.6zm0 4.4L16.2 9v5.9L12 17.8 7.8 14.9V9z" fill="currentColor"/>
+      <path d="M12 1.8 20.4 6.6 16.2 9 12 6.2z" fill="#fff" opacity=".28"/>
+      <path d="M12 22.2 20.4 17.4 16.2 14.9 12 17.8z" fill="#0b1220" opacity=".26"/>
+      <circle cx="12" cy="12" r="2.1" fill="currentColor"/>
+    </symbol>
+    <symbol id="lp-cube" viewBox="0 0 24 24">
+      <path d="M12 2.6 20.8 7.5 12 12.4 3.2 7.5z" fill="currentColor"/>
+      <path d="M12 2.6 20.8 7.5 12 12.4 3.2 7.5z" fill="#fff" opacity=".28"/>
+      <path d="M3.2 7.5 12 12.4v9L3.2 16.5z" fill="currentColor"/>
+      <path d="M3.2 7.5 12 12.4v9L3.2 16.5z" fill="#0b1220" opacity=".22"/>
+      <path d="M20.8 7.5 12 12.4v9l8.8-4.9z" fill="currentColor"/>
+      <path d="M20.8 7.5 12 12.4v9l8.8-4.9z" fill="#0b1220" opacity=".45"/>
+    </symbol>
+    <symbol id="lp-note" viewBox="0 0 24 24">
+      <path d="M8.6 16.4V5.6l11-2.8v10.6" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M12.4 5.2 19.6 3.6v3.2l-7.2 1.6z" fill="#fff" opacity=".26"/>
+      <path d="M8.2 12.6 12.4 15 8.2 20.4 4 18z" fill="currentColor"/>
+      <path d="M19.4 10.6 23 12.6 19.4 17.6 15.8 15.6z" fill="currentColor"/>
+      <path d="M19.4 10.6 23 12.6 19.4 17.6 15.8 15.6z" fill="#0b1220" opacity=".25"/>
+    </symbol>
+    <symbol id="lp-clock" viewBox="0 0 24 24">
+      <path d="M12 2.2 20.4 7v10L12 21.8 3.6 17V7z" fill="currentColor"/>
+      <path d="M12 2.2 20.4 7 12 12 3.6 7z" fill="#fff" opacity=".26"/>
+      <path d="M12 21.8 20.4 17 12 12 3.6 17z" fill="#0b1220" opacity=".2"/>
+      <path d="M12 6.8v5.6h4.4" fill="none" stroke="#0b1220" stroke-width="2" stroke-linecap="round" opacity=".72"/>
+    </symbol>
+    <symbol id="lp-chat" viewBox="0 0 24 24">
+      <path d="M3.4 3.8h17.2v11.6H9.8l-6.4 4.8z" fill="currentColor"/>
+      <path d="M12 3.8h8.6v11.6H12z" fill="#0b1220" opacity=".22"/>
+      <g fill="#fff" opacity=".7">
+        <rect x="6.6" y="7.2" width="10.8" height="1.8" rx=".9"/>
+        <rect x="6.6" y="10.8" width="7" height="1.8" rx=".9"/>
+      </g>
+    </symbol>
+    <symbol id="lp-sound" viewBox="0 0 24 24">
+      <path d="M3.6 9.2h3.8L12 4.8v14.4L7.4 14.8H3.6z" fill="currentColor"/>
+      <path d="M12 4.8v14.4L7.4 14.8H3.6v-5.6h3.8z" fill="#0b1220" opacity=".22"/>
+      <path d="M15.4 8.4c2 1.2 2 6 0 7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M18.6 5.6c3.2 2.4 3.2 10.4 0 12.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
+    </symbol>
+    <symbol id="lp-check" viewBox="0 0 24 24">
+      <path d="M12 1.8 20.4 6.6v10.8L12 22.2 3.6 17.4V6.6z" fill="currentColor"/>
+      <path d="M12 1.8 20.4 6.6 12 12 3.6 6.6z" fill="#fff" opacity=".2"/>
+      <path d="M12 22.2 20.4 17.4 12 12 3.6 17.4z" fill="#0b1220" opacity=".2"/>
+      <path d="m8 12.2 3.1 3.1 5.1-5.8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
+    </symbol>
+    <symbol id="lp-info" viewBox="0 0 24 24">
+      <path d="M12 1.8 20.4 6.6v10.8L12 22.2 3.6 17.4V6.6z" fill="currentColor"/>
+      <path d="M12 1.8 20.4 6.6 12 12 3.6 6.6z" fill="#fff" opacity=".2"/>
+      <path d="M12 22.2 20.4 17.4 12 12 3.6 17.4z" fill="#0b1220" opacity=".2"/>
+      <path d="M11 10h2l-.3 7.2h-1.4z" fill="#fff" opacity=".88"/>
+      <circle cx="12" cy="7.2" r="1.4" fill="#fff" opacity=".88"/>
+    </symbol>
+  </svg>
+
   <!-- NAVIGATION -->
   <header id="main-header" class="glass-box sticky top-0 z-50 px-4 sm:px-10 py-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-slate-800/80">
     <div class="flex items-center gap-3 group cursor-pointer" onclick="window.scrollTo({top:0,behavior:'smooth'})">
@@ -306,15 +431,15 @@
 
     <nav class="order-3 sm:order-2 w-full sm:w-auto flex items-center gap-1 bg-slate-900/80 p-1 rounded-full border border-slate-800" role="tablist">
       <button id="tab-games-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-sky-500/20 border border-sky-400/40 transition cursor-pointer flex items-center justify-center gap-1.5" aria-selected="true">
-        <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24"><path d="M17.5 6.5h-11A3.5 3.5 0 0 0 3 10v4a3.5 3.5 0 0 0 3.5 3.5c.75 0 1.47-.28 2.02-.79L11 14.5h2l2.48 2.21c.55.51 1.27.79 2.02.79A3.5 3.5 0 0 0 21 14v-4a3.5 3.5 0 0 0-3.5-3.5ZM8.5 12.75h-1.25V14H6v-1.25H4.75v-1.5H6V10h1.25v1.25H8.5v1.5Zm5.75-2.25a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm2.5 3a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/></svg>
+        <svg class="w-3.5 h-3.5 shrink-0" aria-hidden="true"><use href="#lp-gamepad"></use></svg>
         <span>Games</span>
       </button>
       <button id="tab-players-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer flex items-center justify-center gap-1.5" aria-selected="false">
-        <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3Zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5Zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5Z"/></svg>
+        <svg class="w-3.5 h-3.5 shrink-0" aria-hidden="true"><use href="#lp-folk"></use></svg>
         <span>Players</span>
       </button>
       <button id="tab-profile-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer flex items-center justify-center gap-1.5" aria-selected="false">
-        <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24"><path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5Zm0 2.5c-3.34 0-10 1.68-10 5V22h20v-2.5c0-3.32-6.66-5-10-5Z"/></svg>
+        <svg class="w-3.5 h-3.5 shrink-0" aria-hidden="true"><use href="#lp-villager"></use></svg>
         <span>Profile</span>
       </button>
       <button id="tab-discord-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer flex items-center justify-center gap-1.5" aria-selected="false">
@@ -367,14 +492,14 @@
         <div class="stat-card glass-box rounded-2xl p-4" style="--accent:#38bdf8">
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">PlayStash Hub</span>
-            <svg class="w-5 h-5 fill-sky-400" viewBox="0 0 24 24"><path d="M12 3 2 11.5h2.5V21h5.5v-6h4v6h5.5v-9.5H22L12 3Z"/></svg>
+            <svg class="w-5 h-5 text-sky-400" aria-hidden="true"><use href="#lp-hub"></use></svg>
           </div>
           <span id="playstash-online-count" class="block mt-2 text-3xl font-black text-sky-400 font-mono tabular-nums">0</span>
         </div>
         <div class="stat-card glass-box rounded-2xl p-4" style="--accent:#fbbf24">
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">WorldForge</span>
-            <svg class="w-5 h-5 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2c1 3-1 4.5-2 6-1.5 2.2-1 4 .5 5-1-2 .2-3.3 1-4 .3 1.5 1.2 2.1 2 3 1.1 1.3 1 3.3-.3 4.6C11.9 17.9 10 18.5 8.7 18A5.5 5.5 0 0 1 6 12.8C6 9 9 6.5 9 4c0-.8.3-1.5.8-2C10.4 3 11.2 2.5 12 2Zm2.8 12.4c.3 1.4-.2 3-1.5 3.8-1.8 1.1-4.1.5-5.1-1.3-.6-1-.5-2.3.3-3.2.3 1 1 1.6 2 1.7-.2-.9.1-1.8.8-2.4.2.8.6 1.3 1.3 1.6.6.2 1.5-.2 2.2.8Z"/></svg>
+            <svg class="w-5 h-5 text-amber-400" aria-hidden="true"><use href="#lp-flame"></use></svg>
           </div>
           <span id="worldforge-online-count" class="block mt-2 text-3xl font-black text-amber-400 font-mono tabular-nums">0</span>
         </div>
@@ -398,7 +523,7 @@
         <div class="stat-card glass-box rounded-2xl p-4" style="--accent:#a78bfa">
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Players</span>
-            <svg class="w-5 h-5 fill-violet-400" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3Zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5Zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5Z"/></svg>
+            <svg class="w-5 h-5 text-violet-400" aria-hidden="true"><use href="#lp-folk"></use></svg>
           </div>
           <span id="user-count" class="block mt-2 text-3xl font-black text-violet-400 font-mono tabular-nums">0</span>
         </div>
@@ -415,11 +540,11 @@
         <div class="absolute -bottom-28 left-1/4 w-96 h-96 rounded-full bg-violet-500/15 blur-3xl"></div>
 
         <div class="absolute inset-0 pointer-events-none select-none overflow-hidden" aria-hidden="true">
-          <svg class="float-a absolute top-[10%] right-[8%] w-24 h-24 sm:w-36 sm:h-36 opacity-90 drop-shadow-2xl fill-sky-200" viewBox="0 0 24 24"><path d="M4 21V10.5L12 4l8 6.5V21h-5v-7h-6v7H4Z"/></svg>
-          <svg class="float-b absolute top-[36%] right-[25%] w-14 h-14 sm:w-24 sm:h-24 opacity-75 fill-emerald-400" viewBox="0 0 24 24"><path d="M13 2 8 10h3l-4 8h3l-2 4h8l-2-4h3l-4-8h3L13 2Z"/></svg>
-          <svg class="float-c absolute top-[18%] right-[35%] w-10 h-10 sm:w-16 sm:h-16 opacity-60 fill-slate-400" viewBox="0 0 24 24"><path d="M6 18c-2 0-4-1.6-4-4 0-1.9 1.3-3.4 3.1-3.9C5.6 8 7.6 6 10 6c1.4 0 2.7.6 3.6 1.6.4-.1.8-.2 1.2-.2 2.3 0 4.2 1.9 4.2 4.2 0 .3 0 .5-.1.8C20.7 12.8 22 14.3 22 16c0 2-1.8 3.6-4 3.6H6Z"/></svg>
-          <svg class="float-b absolute top-[50%] right-[6%] w-14 h-14 sm:w-24 sm:h-24 opacity-75 fill-amber-300" viewBox="0 0 24 24"><path d="M12 2c1.1 2 .3 3.4-.8 4.6C10 7.8 9 9 9 10.7c0 1.7 1.3 3.1 2.9 3.3-1-.2-1.7-1-1.7-1.9 0-1.1.9-1.7 1.8-2.7.4 1 .6 1.6 1.4 2.2.9.7 1.4 1.8 1.1 2.9C14.1 15.7 13 16.5 12 16.5c-2.5 0-4.5-2-4.5-4.5C7.5 8 12 5 12 2Zm4.5 12.5c.7 1.9 0 4-1.8 5.1-1 .6-2.2.7-3.3.4v-1.5c.9.2 1.9 0 2.6-.6.9-.8 1.1-2.1.5-3.1-.2 1-.9 1.4-1.7 1.5.5-.6.8-1.1 1-1.9.3-.9 1.1-1.3 1.7 .1Z"/></svg>
-          <svg class="float-a absolute top-[6%] right-[45%] w-8 h-8 sm:w-14 sm:h-14 opacity-55 hidden sm:block fill-orange-400" viewBox="0 0 24 24"><path d="M13 2 3 14h6l-1 8 11-13h-6l0-7Z"/></svg>
+          <svg class="float-a absolute top-[10%] right-[8%] w-24 h-24 sm:w-36 sm:h-36 opacity-90 drop-shadow-2xl text-sky-200" aria-hidden="true"><use href="#lp-hub"></use></svg>
+          <svg class="float-b absolute top-[36%] right-[25%] w-14 h-14 sm:w-24 sm:h-24 opacity-75 text-emerald-400" aria-hidden="true"><use href="#lp-bolt"></use></svg>
+          <svg class="float-c absolute top-[18%] right-[35%] w-10 h-10 sm:w-16 sm:h-16 opacity-60 text-slate-400" aria-hidden="true"><use href="#lp-cloud"></use></svg>
+          <svg class="float-b absolute top-[50%] right-[6%] w-14 h-14 sm:w-24 sm:h-24 opacity-75 text-amber-300" aria-hidden="true"><use href="#lp-flame"></use></svg>
+          <svg class="float-a absolute top-[6%] right-[45%] w-8 h-8 sm:w-14 sm:h-14 opacity-55 hidden sm:block text-orange-400" aria-hidden="true"><use href="#lp-bolt"></use></svg>
         </div>
         <div class="absolute inset-0 bg-gradient-to-t from-[#030712] via-[#030712]/55 to-transparent z-10"></div>
 
@@ -441,10 +566,10 @@
           </p>
 
           <div class="flex flex-wrap gap-2 text-[11px] font-semibold text-slate-300">
-            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 fill-slate-300 shrink-0" viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2ZM7 8h2v2H7V8Zm0 3h2v2H7v-2Zm-3-3h2v2H4V8Zm0 3h2v2H4v-2Zm3 6H5v-2h2v2Zm4 0H9v-2h2v2Zm0-3H9v-2h2v2Zm0-3H9V8h2v2Zm3 6h-2v-2h2v2Zm0-3h-2v-2h2v2Zm0-3h-2V8h2v2Zm0-3h-2V6h2v2Zm3 9h-2v-2h2v2Zm0-3h-2v-2h2v2Zm0-3h-2V8h2v2Zm0-3h-2V6h2v2Z"/></svg>Keyboard &amp; touch</span>
-            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 fill-slate-300 shrink-0" viewBox="0 0 24 24"><path d="M6.5 19a4.5 4.5 0 0 1-.65-8.95 6 6 0 0 1 11.7-1.72A4 4 0 0 1 17.5 16h-11a4.5 4.5 0 0 1 0-3v0Z"/></svg>Cloud auto-save</span>
-            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 fill-slate-300 shrink-0" viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 1 5 5c0 2-1.2 3.6-2.6 4.7 2.6.8 4.6 2.9 4.6 5.8V19a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-1.5c0-2.9 2-5 4.6-5.8C8.2 10.6 7 9 7 7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3c0 1.5 1 2.6 2 3.3.3.2.5.6.5 1v.4c0 .5-.3.9-.8 1-1.9.6-3.2 2-3.6 3.8-.1.3.1.5.4.5h9c.3 0 .5-.2.4-.5-.4-1.8-1.7-3.2-3.6-3.8-.5-.1-.8-.5-.8-1v-.4c0-.4.2-.8.5-1 1-.7 2-1.8 2-3.3a3 3 0 0 0-3-3Z"/></svg>Living villagers</span>
-            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 fill-slate-300 shrink-0" viewBox="0 0 24 24"><path d="M13 2 3 14h6l-1 8 11-13h-6l0-7Z"/></svg>Disasters</span>
+            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-slate-300 shrink-0" aria-hidden="true"><use href="#lp-keyboard"></use></svg>Keyboard &amp; touch</span>
+            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-slate-300 shrink-0" aria-hidden="true"><use href="#lp-cloud"></use></svg>Cloud auto-save</span>
+            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-slate-300 shrink-0" aria-hidden="true"><use href="#lp-villager"></use></svg>Living villagers</span>
+            <span class="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-slate-300 shrink-0" aria-hidden="true"><use href="#lp-flame"></use></svg>Disasters</span>
           </div>
 
           <div class="pt-2 flex items-center gap-3 flex-wrap">
@@ -563,7 +688,7 @@
       <section id="discord-voice-section" class="glass-box rounded-3xl p-6 sm:p-8 border border-violet-500/20 hidden">
         <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4">
           <span class="text-xs font-extrabold uppercase tracking-widest text-violet-400 flex items-center gap-2">
-            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3z"/><path d="M16.5 12c0-1.77-1-3.29-2.5-4.03v8.06c1.5-.74 2.5-2.26 2.5-4.03z"/></svg>
+            <svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#lp-sound"></use></svg>
             Active Voice Channels
           </span>
         </div>
@@ -591,29 +716,29 @@
 
       <!-- BOT-POWERED COMMUNITY DATA (giveaways, levels, voice, invites) -->
       <div id="community-offline" class="hidden glass-box rounded-2xl p-5 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2.5">
-        <svg class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>
+        <svg class="w-4 h-4 shrink-0" aria-hidden="true"><use href="#lp-alert"></use></svg>
         <span>Couldn't reach the bot's stats API right now. It may be offline or restarting — try again shortly.</span>
       </div>
 
       <!-- Top stat row -->
       <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#5865f2">
-          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15Z"/></svg></div>
+          <div class="icon-tile mb-2"><svg class="w-5 h-5" aria-hidden="true"><use href="#lp-ring"></use></svg></div>
           <span id="community-stat-ping" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
           <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Bot ping</span>
         </div>
         <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#34d399">
-          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5Zm0 2.5c-3.34 0-10 1.68-10 5V22h20v-2.5c0-3.32-6.66-5-10-5Z"/></svg></div>
+          <div class="icon-tile mb-2"><svg class="w-5 h-5" aria-hidden="true"><use href="#lp-villager"></use></svg></div>
           <span id="community-stat-members" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
           <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Members</span>
         </div>
         <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#f59e0b">
-          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2 3 6.5V17.5L12 22l9-4.5V6.5L12 2Zm0 2.24 6.3 3.15L12 10.56 5.7 7.39 12 4.24ZM5 8.85l6 3v7.3l-6-3v-7.3Zm8 10.3v-7.3l6-3v7.3l-6 3Z"/></svg></div>
+          <div class="icon-tile mb-2"><svg class="w-5 h-5" aria-hidden="true"><use href="#lp-cube"></use></svg></div>
           <span id="community-stat-giveaways" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
           <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active giveaways</span>
         </div>
         <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#f472b6">
-          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M9 3v10.55A4 4 0 1 0 11 17V7h6V3H9Z"/></svg></div>
+          <div class="icon-tile mb-2"><svg class="w-5 h-5" aria-hidden="true"><use href="#lp-note"></use></svg></div>
           <span id="community-stat-uptime" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
           <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Bot uptime</span>
         </div>
@@ -623,7 +748,7 @@
       <section class="glass-box rounded-3xl p-6 sm:p-8 border border-amber-500/20">
         <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4 flex-wrap gap-2">
           <span class="text-xs font-extrabold uppercase tracking-widest text-amber-400 flex items-center gap-2">
-            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2 3 6.5V17.5L12 22l9-4.5V6.5L12 2Z"/></svg>
+            <svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#lp-cube"></use></svg>
             Active Giveaways
           </span>
         </div>
@@ -637,7 +762,7 @@
       <section class="glass-box rounded-3xl p-6 sm:p-8 border border-slate-700/40">
         <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4 flex-wrap gap-2">
           <span class="text-xs font-extrabold uppercase tracking-widest text-slate-300 flex items-center gap-2">
-            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 11h5v2h-7V6h2v7Z"/></svg>
+            <svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#lp-clock"></use></svg>
             Recent Giveaways
           </span>
         </div>
@@ -652,7 +777,7 @@
         <section class="glass-box rounded-3xl p-6 sm:p-8 border border-sky-500/20">
           <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4">
             <span class="text-xs font-extrabold uppercase tracking-widest text-sky-400 flex items-center gap-2">
-              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3V4Z"/></svg>
+              <svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#lp-chat"></use></svg>
               Message Leaderboard
             </span>
           </div>
@@ -667,7 +792,7 @@
         <section class="glass-box rounded-3xl p-6 sm:p-8 border border-emerald-500/20">
           <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4">
             <span class="text-xs font-extrabold uppercase tracking-widest text-emerald-400 flex items-center gap-2">
-              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3z"/><path d="M16.5 12c0-1.77-1-3.29-2.5-4.03v8.06c1.5-.74 2.5-2.26 2.5-4.03z"/></svg>
+              <svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#lp-sound"></use></svg>
               Voice Time Leaderboard
             </span>
           </div>
@@ -683,7 +808,7 @@
       <section class="glass-box rounded-3xl p-6 sm:p-8 border border-violet-500/20">
         <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4">
           <span class="text-xs font-extrabold uppercase tracking-widest text-violet-400 flex items-center gap-2">
-            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2 3 6.5V17.5L12 22l9-4.5V6.5L12 2Zm0 2.24 6.3 3.15L12 10.56 5.7 7.39 12 4.24ZM5 8.85l6 3v7.3l-6-3v-7.3Zm8 10.3v-7.3l6-3v7.3l-6 3Z"/></svg>
+            <svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#lp-cube"></use></svg>
             Invite Leaderboard
           </span>
         </div>
@@ -696,28 +821,28 @@
 
       <!-- MODERATION (tickets + warns, from the moderation bot) -->
       <div id="moderation-offline" class="hidden glass-box rounded-2xl p-5 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2.5">
-        <svg class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>
+        <svg class="w-4 h-4 shrink-0" aria-hidden="true"><use href="#lp-alert"></use></svg>
         <span>Couldn't reach the moderation bot's API right now. It may be offline or restarting.</span>
       </div>
 
       <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#3498db">
-          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3V4Z"/></svg></div>
+          <div class="icon-tile mb-2"><svg class="w-5 h-5" aria-hidden="true"><use href="#lp-chat"></use></svg></div>
           <span id="moderation-stat-open" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
           <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Open tickets</span>
         </div>
         <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#95a5a6">
-          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 11h5v2h-7V6h2v7Z"/></svg></div>
+          <div class="icon-tile mb-2"><svg class="w-5 h-5" aria-hidden="true"><use href="#lp-clock"></use></svg></div>
           <span id="moderation-stat-closed" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
           <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Closed (recent)</span>
         </div>
         <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#f59e0b">
-          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg></div>
+          <div class="icon-tile mb-2"><svg class="w-5 h-5" aria-hidden="true"><use href="#lp-alert"></use></svg></div>
           <span id="moderation-stat-warns" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
           <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active warns</span>
         </div>
         <div class="stat-card glass-box rounded-2xl p-4 border border-slate-800" style="--accent:#5865f2">
-          <div class="icon-tile mb-2"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15Z"/></svg></div>
+          <div class="icon-tile mb-2"><svg class="w-5 h-5" aria-hidden="true"><use href="#lp-ring"></use></svg></div>
           <span id="moderation-stat-ping" class="block text-xl sm:text-2xl font-black text-white font-mono tabular-nums">–</span>
           <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Mod bot ping</span>
         </div>
@@ -726,7 +851,7 @@
       <section class="glass-box rounded-3xl p-6 sm:p-8 border border-sky-500/20">
         <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4">
           <span class="text-xs font-extrabold uppercase tracking-widest text-sky-400 flex items-center gap-2">
-            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3V4Z"/></svg>
+            <svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#lp-chat"></use></svg>
             Open Tickets
           </span>
         </div>
@@ -739,7 +864,7 @@
       <section class="glass-box rounded-3xl p-6 sm:p-8 border border-slate-700/40">
         <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4">
           <span class="text-xs font-extrabold uppercase tracking-widest text-slate-300 flex items-center gap-2">
-            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 11h5v2h-7V6h2v7Z"/></svg>
+            <svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#lp-clock"></use></svg>
             Recently Closed Tickets
           </span>
         </div>
@@ -752,7 +877,7 @@
       <section class="glass-box rounded-3xl p-6 sm:p-8 border border-amber-500/20">
         <div class="flex items-center justify-between mb-5 border-b border-slate-800 pb-4">
           <span class="text-xs font-extrabold uppercase tracking-widest text-amber-400 flex items-center gap-2">
-            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>
+            <svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#lp-alert"></use></svg>
             Recent Warns
           </span>
         </div>
@@ -836,27 +961,27 @@
               <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Houses &amp; Buildings</span>
               <span id="profile-buildings-count" class="text-3xl font-black text-white font-mono tabular-nums">0</span>
             </div>
-            <div class="icon-tile"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M4 21V9l8-5 8 5v12h-6v-6h-4v6H4Z"/></svg></div>
+            <div class="icon-tile"><svg class="w-5 h-5" aria-hidden="true"><use href="#lp-hub"></use></svg></div>
           </div>
           <div class="stat-card glass-box rounded-2xl p-5 border border-slate-800 flex items-center justify-between" style="--accent:#38bdf8">
             <div>
               <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Villagers</span>
               <span id="profile-npcs-count" class="text-3xl font-black text-sky-400 font-mono tabular-nums">0</span>
             </div>
-            <div class="icon-tile"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5Zm0 2.5c-3.34 0-10 1.68-10 5V22h20v-2.5c0-3.32-6.66-5-10-5Z"/></svg></div>
+            <div class="icon-tile"><svg class="w-5 h-5" aria-hidden="true"><use href="#lp-villager"></use></svg></div>
           </div>
           <div class="stat-card glass-box rounded-2xl p-5 border border-slate-800 flex items-center justify-between" style="--accent:#34d399">
             <div>
               <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Total Items</span>
               <span id="profile-resources-count" class="text-3xl font-black text-emerald-400 font-mono tabular-nums">0</span>
             </div>
-            <div class="icon-tile"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2 3 6.5V17.5L12 22l9-4.5V6.5L12 2Zm0 2.24 6.3 3.15L12 10.56 5.7 7.39 12 4.24ZM5 8.85l6 3v7.3l-6-3v-7.3Zm8 10.3v-7.3l6-3v7.3l-6 3Z"/></svg></div>
+            <div class="icon-tile"><svg class="w-5 h-5" aria-hidden="true"><use href="#lp-cube"></use></svg></div>
           </div>
         </div>
 
         <div class="glass-box rounded-2xl p-5 border border-slate-800 space-y-3">
           <span class="text-xs font-extrabold uppercase tracking-widest text-sky-400 flex items-center gap-2 border-b border-slate-800 pb-2">
-            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2 3 6.5V17.5L12 22l9-4.5V6.5L12 2Zm0 2.24 6.3 3.15L12 10.56 5.7 7.39 12 4.24ZM5 8.85l6 3v7.3l-6-3v-7.3Zm8 10.3v-7.3l6-3v7.3l-6 3Z"/></svg>
+            <svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#lp-cube"></use></svg>
             All Resource Details
           </span>
           <div id="profile-resources-list" class="grid grid-cols-2 sm:grid-cols-4 gap-3">

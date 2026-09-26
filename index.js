@@ -66,9 +66,9 @@ const playerSortEl = document.getElementById('player-sort');
 const playerResultCountEl = document.getElementById('player-result-count');
 
 const TOAST_ICON = {
-  success: '<svg class="w-4 h-4 fill-emerald-400 shrink-0" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.6-4.2-4.2 1.4-1.4 2.8 2.8 5.8-5.8 1.4 1.4-7.2 7.2Z"/></svg>',
-  error: '<svg class="w-4 h-4 fill-red-400 shrink-0" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>',
-  info: '<svg class="w-4 h-4 fill-sky-400 shrink-0" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z"/></svg>'
+  success: '<svg class="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true"><use href="#lp-check"></use></svg>',
+  error: '<svg class="w-4 h-4 text-red-400 shrink-0" aria-hidden="true"><use href="#lp-alert"></use></svg>',
+  info: '<svg class="w-4 h-4 text-sky-400 shrink-0" aria-hidden="true"><use href="#lp-info"></use></svg>'
 };
 
 function toast(msg, type = 'info', action = null) {
@@ -132,7 +132,7 @@ function toast(msg, type = 'info', action = null) {
     if (away < MIN_AWAY_MS || away > MAX_AWAY_MS) return;
     if (Date.now() - store.get(K_SHOWN) < COOLDOWN_MS) return;
     store.set(K_SHOWN, Date.now());
-    toast('Welcome back to PlayStash 👋', 'info', { label: 'Play WorldForge', href: 'game/worldforge/index.html' });
+    toast('Welcome back to PlayStash', 'info', { label: 'Play WorldForge', href: 'game/worldforge/index.html' });
   }
 
   document.addEventListener('visibilitychange', () => { if (document.hidden) markTrip(); else maybeWelcome(); });
@@ -887,7 +887,10 @@ function renderGiveawayCard(g) {
 }
 
 function renderLeaderboardRow({ rank, user, right, sub }) {
-  const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+  const MEDAL_TINT = ['#fcd34d', '#e2e8f0', '#f0a868'];
+  const medal = rank >= 1 && rank <= 3
+    ? `<svg class="w-5 h-5 inline-block align-middle" style="color:${MEDAL_TINT[rank - 1]}" aria-hidden="true"><use href="#lp-medal"></use></svg>`
+    : `#${rank}`;
   return `
     <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/90">
       <span class="w-7 text-center text-xs font-black text-slate-400 shrink-0">${medal}</span>
