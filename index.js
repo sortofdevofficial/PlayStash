@@ -202,13 +202,26 @@ const ICON_IDS = {
   house: 'ic-pop',
   person: 'ic-folk',
   medal: 'ic-medal-gold',
-  chat: 'ic-chat'
+  chat: 'ic-chat',
+  sound: 'ic-sound',
+  clock: 'ic-clock',
+  alert: 'ic-alert',
+  info: 'ic-info',
+  ping: 'ic-ping',
+  eye: 'ic-eye',
+  gamepad: 'ic-gamepad',
+  globe: 'ic-globe'
 };
 
 function iconSpan(key, extraClass = '') {
   const id = ICON_IDS[key] || ICON_IDS.box;
   return `<span class="inline-flex items-center justify-center shrink-0 ${extraClass}"><svg class="w-full h-full" aria-hidden="true"><use href="#${id}"></use></svg></span>`;
 }
+
+// Empty states read as broken panels when they are bare text in an otherwise
+// iconned layout. col-span-full is inert outside a grid, so this serves both.
+const emptyNote = (text, iconKey = 'info') =>
+  `<div class="col-span-full p-6 text-center text-slate-400 text-xs flex flex-col items-center gap-2">${iconSpan(iconKey, 'w-5 h-5 opacity-70')}<span>${text}</span></div>`;
 
 const resourceMap = {
   wo: { name: 'Wood', icon: 'wood' }, wood: { name: 'Wood', icon: 'wood' },
@@ -310,7 +323,7 @@ function renderDetailedResources(resourceObj, containerElement) {
 
   const entries = Object.entries(mappedResources);
   if (entries.length === 0) {
-    containerElement.innerHTML = '<span class="text-xs text-slate-400">No resources collected yet</span>';
+    containerElement.innerHTML = emptyNote('No resources collected yet', 'box');
     return;
   }
 
@@ -690,9 +703,10 @@ function sortPlayers(list, mode) {
   return [...list].sort(cmp);
 }
 
-function emptyMessage(text, withSignIn) {
+function emptyMessage(text, withSignIn, iconKey = 'person') {
   const box = document.createElement('div');
   box.className = 'col-span-full glass-box rounded-2xl p-8 text-center text-slate-400 text-xs font-medium flex flex-col items-center gap-4';
+  box.innerHTML = iconSpan(iconKey, 'w-9 h-9 opacity-70');
   const p = document.createElement('span');
   p.textContent = text;
   box.appendChild(p);
@@ -726,7 +740,7 @@ function renderDirectory() {
   if (playerResultCountEl) playerResultCountEl.textContent = list.length;
 
   if (list.length === 0) {
-    usersContainer.replaceChildren(emptyMessage(`No players match "${query.trim()}".`, false));
+    usersContainer.replaceChildren(emptyMessage(`No players match "${query.trim()}".`, false, 'eye'));
     return;
   }
 
@@ -945,41 +959,41 @@ async function loadCommunityData() {
     if (activeGwEl) {
       activeGwEl.innerHTML = active.length
         ? active.map(renderGiveawayCard).join('')
-        : `<div class="col-span-full p-6 text-center text-slate-400 text-xs">No giveaways running right now.</div>`;
+        : emptyNote('No giveaways running right now.', 'box');
     }
 
     const recent = data.giveaways?.recent || [];
     if (recentGwEl) {
       recentGwEl.innerHTML = recent.length
         ? recent.map(renderGiveawayCard).join('')
-        : `<div class="col-span-full p-6 text-center text-slate-400 text-xs">No past giveaways yet.</div>`;
+        : emptyNote('No past giveaways yet.', 'clock');
     }
 
     const messages = data.leaderboard?.messages || [];
     if (msgLbEl) {
       msgLbEl.innerHTML = messages.length
         ? messages.map((m) => renderLeaderboardRow({ rank: m.rank, user: m.user, right: `Lv.${m.level}`, sub: `${m.messages.toLocaleString()} messages` })).join('')
-        : `<div class="p-6 text-center text-slate-400 text-xs">No message activity yet.</div>`;
+        : emptyNote('No message activity yet.', 'chat');
     }
 
     const voice = data.leaderboard?.voice || [];
     if (voiceLbEl) {
       voiceLbEl.innerHTML = voice.length
         ? voice.map((v) => renderLeaderboardRow({ rank: v.rank, user: v.user, right: fmtDuration(v.seconds) })).join('')
-        : `<div class="p-6 text-center text-slate-400 text-xs">No voice activity yet.</div>`;
+        : emptyNote('No voice activity yet.', 'sound');
     }
 
     const invites = data.invites || [];
     if (inviteLbEl) {
       inviteLbEl.innerHTML = invites.length
         ? invites.map((v) => renderLeaderboardRow({ rank: v.rank, user: v.user, right: v.total, sub: `${v.regular} joined · ${v.left} left · ${v.fake} fake` })).join('')
-        : `<div class="p-6 text-center text-slate-400 text-xs">No invite activity yet.</div>`;
+        : emptyNote('No invite activity yet.', 'person');
     }
   } catch (err) {
     console.warn('Community API fetch failed:', err.message);
     offlineEl?.classList.remove('hidden');
-    [activeGwEl, recentGwEl].forEach((el) => { if (el) el.innerHTML = `<div class="col-span-full p-6 text-center text-slate-500 text-xs">Unavailable</div>`; });
-    [msgLbEl, voiceLbEl, inviteLbEl].forEach((el) => { if (el) el.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">Unavailable</div>`; });
+    [activeGwEl, recentGwEl].forEach((el) => { if (el) el.innerHTML = emptyNote('Unavailable', 'alert'); });
+    [msgLbEl, voiceLbEl, inviteLbEl].forEach((el) => { if (el) el.innerHTML = emptyNote('Unavailable', 'alert'); });
     communityLoaded = false; // allow a later manual retry
   }
 }
@@ -1070,27 +1084,27 @@ async function loadModerationData() {
     if (openEl) {
       openEl.innerHTML = open.length
         ? open.map((t) => renderTicketCard(t, false)).join('')
-        : `<div class="col-span-full p-6 text-center text-slate-400 text-xs">No open tickets right now.</div>`;
+        : emptyNote('No open tickets right now.', 'chat');
     }
 
     const closed = data.tickets?.closed || [];
     if (closedEl) {
       closedEl.innerHTML = closed.length
         ? closed.map((t) => renderTicketCard(t, true)).join('')
-        : `<div class="col-span-full p-6 text-center text-slate-400 text-xs">No closed tickets yet.</div>`;
+        : emptyNote('No closed tickets yet.', 'clock');
     }
 
     const warnList = data.warns || [];
     if (warnsEl) {
       warnsEl.innerHTML = warnList.length
         ? warnList.map(renderWarnRow).join('')
-        : `<div class="p-6 text-center text-slate-400 text-xs">No warns on record.</div>`;
+        : emptyNote('No warns on record.', 'alert');
     }
   } catch (err) {
     console.warn('Moderation API fetch failed:', err.message);
     offlineEl?.classList.remove('hidden');
-    [openEl, closedEl].forEach((el) => { if (el) el.innerHTML = `<div class="col-span-full p-6 text-center text-slate-500 text-xs">Unavailable</div>`; });
-    if (warnsEl) warnsEl.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">Unavailable</div>`;
+    [openEl, closedEl].forEach((el) => { if (el) el.innerHTML = emptyNote('Unavailable', 'alert'); });
+    if (warnsEl) warnsEl.innerHTML = emptyNote('Unavailable', 'alert');
     moderationLoaded = false;
   }
 }
