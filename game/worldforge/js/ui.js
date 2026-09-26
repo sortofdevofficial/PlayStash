@@ -87,7 +87,7 @@ export function updateResourceUI(activeNPCsLength, maxCap, placedObjects) {
  * Show a notification in the notifContainer.
  * Gracefully handles missing container.
  */
-export function showNotif(msg, type = "success", duration = 1600) {
+export function showNotif(msg, type = "success", duration = 1600, iconId = null) {
   const container = document.getElementById("notifContainer");
   if (!container) {
     console.warn("Notification container not found.");
@@ -101,6 +101,10 @@ export function showNotif(msg, type = "success", duration = 1600) {
   notif.className = "mobile-notif";
   const badge = document.createElement("div");
   badge.className = `notif-badge ${type === "warn" ? "warn" : type === "info" ? "info" : ""}`;
+  if (iconId) {
+    badge.classList.add("has-icon");
+    badge.appendChild(iconEl(iconId));
+  }
   const text = document.createElement("span");
   text.textContent = msg;
   notif.append(badge, text);
@@ -113,7 +117,7 @@ export function showNotif(msg, type = "success", duration = 1600) {
   setTimeout(() => notif.remove(), duration);
 }
 
-const ICON_KEYS = new Set(["wood", "stone", "food", "water", "cap", "pop"]);
+const ICON_KEYS = new Set(["wood", "stone", "food", "water", "cap", "pop", "flame", "bolt"]);
 
 /** Build one of the #iconSprite symbols as a standalone element. */
 export function iconEl(id) {

@@ -512,10 +512,10 @@ import { Lightning, lightning } from "../nd/lightning.js";
 import { Wildfire, wildfire } from "../nd/wildfire.js";
 
 const DISASTER_DEFS = [
-  { key: "flood", name: flood.name, trigger: flood.trigger, VisualClass: Flood },
-  { key: "earthquake", name: earthquake.name, trigger: earthquake.trigger, VisualClass: Earthquake },
-  { key: "lightning", name: lightning.name, trigger: lightning.trigger, VisualClass: Lightning },
-  { key: "wildfire", name: wildfire.name, trigger: wildfire.trigger, VisualClass: Wildfire }
+  { key: "flood", name: flood.name, icon: flood.icon, trigger: flood.trigger, VisualClass: Flood },
+  { key: "earthquake", name: earthquake.name, icon: earthquake.icon, trigger: earthquake.trigger, VisualClass: Earthquake },
+  { key: "lightning", name: lightning.name, icon: lightning.icon, trigger: lightning.trigger, VisualClass: Lightning },
+  { key: "wildfire", name: wildfire.name, icon: wildfire.icon, trigger: wildfire.trigger, VisualClass: Wildfire }
 ];
 
 const DISASTER_DURATION_MS = 8000;
@@ -553,7 +553,8 @@ let disasterSchedulerId = null;
 
 // Call once at boot. Picks a random disaster every 1.5-3.5 minutes and runs
 // it for DISASTER_DURATION_MS, never overlapping another. onDisasterStart is
-// called with the disaster's display name so the caller can show a warning.
+// called with the disaster's display name and sprite icon so the caller can
+// show a warning.
 export function startDisasterSystem(activeNPCs, onDisasterStart) {
   if (disasterSchedulerId) return;
 
@@ -563,7 +564,7 @@ export function startDisasterSystem(activeNPCs, onDisasterStart) {
       if (!activeDisaster) {
         const def = DISASTER_DEFS[Math.floor(Math.random() * DISASTER_DEFS.length)];
         const name = triggerDisaster(def.key, activeNPCs);
-        if (name && onDisasterStart) onDisasterStart(name);
+        if (name && onDisasterStart) onDisasterStart(name, def.icon);
       }
       scheduleNext();
     }, delay);

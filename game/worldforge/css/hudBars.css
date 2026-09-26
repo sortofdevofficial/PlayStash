@@ -97,3 +97,10 @@
 .notif-badge { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; }
 .notif-badge.warn { background: #f87171; }
 .notif-badge.info { background: #60a5fa; }
+
+/* An iconned badge keeps the dot's type colour as a tinted disc, so a warning
+   still reads red before the words are parsed. */
+.notif-badge.has-icon { width: 20px; height: 20px; display: grid; place-items: center; background: rgba(74, 222, 128, .16); }
+.notif-badge.has-icon.warn { background: rgba(248, 113, 113, .18); }
+.notif-badge.has-icon.info { background: rgba(96, 165, 250, .18); }
+.notif-badge.has-icon .ic { width: 13px; height: 13px; }

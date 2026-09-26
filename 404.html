@@ -33,17 +33,37 @@
     a.primary { background: linear-gradient(135deg, #0284c7, #4f46e5); }
     a.ghost { background: rgba(255, 255, 255, 0.05); }
     img.logo { width: 56px; height: 56px; border-radius: 14px; margin-bottom: 8px; }
+    svg.ic { width: 18px; height: 18px; flex: none; }
   </style>
 </head>
 <body>
+  <!-- The two symbols the hub's sheet uses for these destinations, so this
+       page speaks the same icon language without loading the whole sheet. -->
+  <svg id="iconSprite" aria-hidden="true" focusable="false"
+       style="position:absolute; width:0; height:0; overflow:hidden;">
+    <defs>
+      <symbol id="ic-gamepad" viewBox="0 0 24 24">
+        <path d="M7.6 6.8h8.8c3.1 0 5.6 2.7 5.6 5.8 0 2.7-1.5 4.6-3.4 4.6-1.5 0-2.3-1.1-3.4-1.8H8.8c-1.1.7-1.9 1.8-3.4 1.8-1.9 0-3.4-1.9-3.4-4.6 0-3.1 2.5-5.8 5.6-5.8z" fill="#5b6b8c"/>
+        <path d="M12 6.8h4.4c3.1 0 5.6 2.7 5.6 5.8 0 2.7-1.5 4.6-3.4 4.6-1.5 0-2.3-1.1-3.4-1.8H12z" fill="#48556f"/>
+        <path d="M6.4 10.2h1.6v1.8H10v1.6H8v1.8H6.4v-1.8H4.6V12h1.8z" fill="#dfe7f5"/>
+        <circle cx="15.6" cy="11" r="1.3" fill="#ffd257"/>
+        <circle cx="18.2" cy="13.6" r="1.3" fill="#7fc85e"/>
+      </symbol>
+      <symbol id="ic-pop" viewBox="0 0 24 24">
+        <path d="M12 2.8 2.9 11.4h2.4v9.4h13.4v-9.4h2.4z" fill="#d99a52"/>
+        <path d="M12 2.8 6.6 8.5h10.8z" fill="#f0b978"/>
+        <rect x="10" y="13.6" width="4" height="7.2" rx="1.2" fill="#7c4f22"/>
+      </symbol>
+    </defs>
+  </svg>
   <main class="card">
     <img class="logo" src="favicon.png" alt="PlayStash logo" width="56" height="56" />
     <div class="code">404</div>
     <h1>This page wandered off into the wilderness</h1>
     <p>The address you followed does not exist on PlayStash. Everything we publish is reachable from the hub.</p>
     <nav aria-label="Destination links">
-      <a class="btn primary" href="./">🎮 PlayStash hub</a>
-      <a class="btn ghost" href="./game/worldforge/">🌲 Play WorldForge</a>
+      <a class="btn primary" href="./"><svg class="ic" aria-hidden="true"><use href="#ic-gamepad"></use></svg>PlayStash hub</a>
+      <a class="btn ghost" href="./game/worldforge/"><svg class="ic" aria-hidden="true"><use href="#ic-pop"></use></svg>Play WorldForge</a>
     </nav>
   </main>
 </body>

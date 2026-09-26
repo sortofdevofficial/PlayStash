@@ -52,14 +52,15 @@ export class Lightning {
 }
 
 export const lightning = {
-  name: "Lightning Strike ⚡",
+  name: "Lightning Strike",
+  icon: "ic-bolt",
   trigger(npcs, scene, camera, engine) {
     npcs.forEach(npc => {
       if (npc.health === undefined) npc.health = 100;
       if (!npc.isDead && Math.random() < 0.4) {
         const dmg = 30 + Math.floor(Math.random() * 25);
         npc.health = Math.max(0, npc.health - dmg);
-        showFloatingText(`Lightning -${dmg} HP! ⚡`, npc.root?.position, "#FFFF00", scene, camera, engine);
+        showFloatingText(`Lightning -${dmg} HP! [bolt]`, npc.root?.position, "#FFFF00", scene, camera, engine);
       }
     });
   }

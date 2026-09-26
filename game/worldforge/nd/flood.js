@@ -65,7 +65,8 @@ export class Flood {
 }
 
 export const flood = {
-  name: "Flood 🌊",
+  name: "Flood",
+  icon: "ic-water",
   trigger(npcs, scene, camera, engine) {
     npcs.forEach((npc) => {
       // Defensive init: health isn't guaranteed to exist on every NPC yet
@@ -79,7 +80,7 @@ export const flood = {
         // Death/respawn is handled centrally by updateNPCs() in npcBrain.js -
         // see the matching comment in earthquake.js for why this trigger
         // only ever applies damage and never sets isDead itself.
-        showFloatingText(`Flood -${dmg} HP! 🌊`, npc.root?.position, "#4FC3F7", scene, camera, engine);
+        showFloatingText(`Flood -${dmg} HP! [water]`, npc.root?.position, "#4FC3F7", scene, camera, engine);
       }
     });
   }

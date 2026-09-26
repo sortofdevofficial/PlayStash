@@ -34,7 +34,8 @@ export class Earthquake {
 }
 
 export const earthquake = {
-  name: "Earthquake 🌋",
+  name: "Earthquake",
+  icon: "ic-stone",
   trigger(npcs, scene, camera, engine) {
     npcs.forEach(npc => {
       // Defensive init: health isn't guaranteed to exist on every NPC yet
@@ -50,7 +51,7 @@ export const earthquake = {
         // isDead here without also disposing the mesh and respawning left
         // earthquake/flood-killed NPCs as permanent lifeless zombies that
         // updateNPCs would then skip forever (isDead short-circuits it).
-        showFloatingText(`Quake -${dmg} HP! 🌋`, npc.root?.position, "#FFA500", scene, camera, engine);
+        showFloatingText(`Quake -${dmg} HP! [stone]`, npc.root?.position, "#FFA500", scene, camera, engine);
       }
     });
   }

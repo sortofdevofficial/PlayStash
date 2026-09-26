@@ -120,7 +120,7 @@ function initAuthHandlers() {
     signInBtn.addEventListener("click", async () => {
       try {
         await signInWithGoogle();
-        showNotif("Signed in successfully! HALO", "info");
+        showNotif("Signed in successfully", "info");
         window.location.reload();
       } catch (err) {
         showNotif("Sign in failed", "warn");
@@ -384,7 +384,7 @@ async function boot() {
   await waitForPlay(data);
 
   startWorldTicks();
-  startDisasterSystem(activeNPCs, (name) => showNotif(`${name} incoming!`, "warn"));
+  startDisasterSystem(activeNPCs, (name, icon) => showNotif(`${name} incoming!`, "warn", 2400, icon));
   initAutosave({ placedObjects, activeNPCs, state }, setSaveStatus);
   setSaveStatus(uid ? "ready" : "offline");
 }
