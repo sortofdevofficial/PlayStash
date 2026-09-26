@@ -210,8 +210,19 @@ function rotateActiveGhost() {
 function bindKeyboardShortcuts() {
   window.addEventListener("keydown", (e) => {
     if (state.isSpectating) return;
+    const tag = (e.target && e.target.tagName || "").toUpperCase();
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
     if (e.key.toLowerCase() === "r" && state.mode === "plant") rotateActiveGhost();
     if (e.key === "Escape") deselectAllModes(ghosts, removeGhostBox);
+
+    // The chips on the build cards are the contract here: 1-8 pick a building.
+    const digit = Number(e.key);
+    if (!e.repeat && digit >= 1 && digit <= 8) {
+      const types = ["hut", "campfire", "farm", "tower", "well", "storage", "market", "lumbermill"];
+      const type = types[digit - 1];
+      const el = document.getElementById("card" + type.charAt(0).toUpperCase() + type.slice(1));
+      if (el) el.click();
+    }
   });
 
   const rotateBtn = document.getElementById("mobileRotateBtn");

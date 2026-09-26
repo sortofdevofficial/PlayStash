@@ -129,13 +129,14 @@ export function spawnRandomWildernessNode() {
 // the lot regrows faster so a full staff cannot strip it bare.
 // ============================================================
 export const MAX_WORKERS = 4;
-export const WOODLOT_CAP = 6;         // standing trees a single lot supports
+export const WOODLOT_CAP = 10;        // standing trees a single lot supports
 const WILDERNESS_NODE_CAP = 35;
-// The mill's fenced woodlot in models/lumbermill.js has YARD_HALF = 3.5. This
-// pad is measured from the 2-tile footprint, so pad 2 puts the outer tile edges
-// 3 units from the lot centre and leaves the fence half a unit of slack - trees
-// never sprout through it. Keep the two numbers in step.
-const WOODLOT_PAD = 2;                // tiles of forest a mill claims past its footprint
+// The mill's fenced woodlot in models/lumbermill.js has YARD_HALF = 3.5, scaled
+// by MILL_SCALE (1.3) to 4.55. This pad is measured from the 2-tile footprint,
+// so pad 3 puts the outer tile edges 4 units from the lot centre and leaves the
+// fence half a unit of slack - trees never sprout through it. Keep the two
+// numbers in step: change MILL_SCALE and this has to move with it.
+const WOODLOT_PAD = 3;                // tiles of forest a mill claims past its footprint
 const WOODLOT_REGROW_S = 12;          // seconds per sprout with one worker
 const WOODLOT_MIN_S = 3;              // floor, so a big crew can't outrun the chop
 

@@ -81,6 +81,7 @@ export function updateResourceUI(activeNPCsLength, maxCap, placedObjects) {
   if (document.getElementById("popCount")) {
     document.getElementById("popCount").textContent = `${activeNPCsLength}/${maxCap}`;
   }
+  updateCardHighlights();
 }
 
 /**
@@ -178,12 +179,17 @@ export function showFloatingText(text, worldPos, color = "#81C784", scene, camer
 }
 
 /**
- * Highlight card elements based on the current building mode.
+ * Highlight card elements based on the current building mode, and dim the ones
+ * the village cannot afford so a short stack reads before placement fails.
  */
 export function updateCardHighlights() {
   ["hut", "campfire", "farm", "tower", "well", "storage", "market", "lumbermill"].forEach((type) => {
     const el = document.getElementById(`card${type.charAt(0).toUpperCase() + type.slice(1)}`);
-    if (el) el.classList.toggle("active", state.mode === "plant" && state.buildType === type);
+    if (!el) return;
+    el.classList.toggle("active", state.mode === "plant" && state.buildType === type);
+    const cost = state.BUILD_COSTS[type];
+    const poor = Object.entries(cost).some(([res, need]) => need > 0 && (state.resources[res] || 0) < need);
+    el.classList.toggle("poor", poor);
   });
 }
 

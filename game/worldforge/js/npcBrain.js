@@ -3,6 +3,7 @@ import { playSound } from "./audio.js";
 import { createLowPolyNPC, updateNPCAnimation } from "./models/npc.js";
 import { updateWatchtowerHover } from "./models/watchtower.js";
 import { tickGate, GATE_TRIGGER } from "./models/wall.js";
+import { camera as viewCamera } from "./environment.js";
 
 export const BUILD_SIZE = 80;
 export const HALF_SIZE = BUILD_SIZE / 2;
@@ -426,6 +427,131 @@ function separateNPCs(activeNPCs, occupiedGrid) {
   }
 }
 
+function crowdBlocker(x, z, self, activeNPCs) {
+  for (const other of activeNPCs) {
+    if (other === self || !canNudge(other)) continue;
+    const ox = other.root.position.x - x;
+    const oz = other.root.position.z - z;
+    if (ox * ox + oz * oz < NPC_SEPARATION * NPC_SEPARATION) return other;
+  }
+  return null;
+}
+
+// Which way a villager yields. Picking the side from its own heading mirrors on
+// an approaching pair - both step to the same world side and then slide along
+// abreast forever, which is the deadlock that used to look like a freeze. So the
+// pair decides between them: the lower id goes right, the other left.
+function dodgeSide(self, other) {
+  const a = Number(self.id);
+  const b = Number(other && other.id);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) return 1;
+  return a < b ? 1 : -1;
+}
+
+// Squared distance to the nearest neighbour. In a jam every lane has somebody
+// in it, so a binary blocked/free test makes a villager flip between two equally
+// bad choices and crawl; scoring lanes by clear space lets the crowd flow.
+function clearance2(x, z, self, activeNPCs) {
+  let best = Infinity;
+  for (const other of activeNPCs) {
+    if (other === self || !canNudge(other)) continue;
+    const ox = other.root.position.x - x;
+    const oz = other.root.position.z - z;
+    const d2 = ox * ox + oz * oz;
+    if (d2 < best) best = d2;
+  }
+  return best;
+}
+
+// Walking straight into a neighbour ends in a push-war neither villager can
+// win - separation undoes the step every frame and they jitter in place
+// forever. A blocked step therefore veers into the emptiest walkable lane, and
+// holding still is left as the very last resort: measured head-on, both
+// villagers refused every lane the other stood in and froze for seconds at a
+// time. Squeezing past a crowded lane costs a shove from separation, which is
+// cheap next to standing there.
+function crowdStep(npc, ux, uz, step, occupiedGrid, activeNPCs) {
+  const x0 = npc.root.position.x;
+  const z0 = npc.root.position.z;
+  const rel = (px, pz) => ({ x: px - x0, z: pz - z0 });
+  const walkable = (px, pz) => !occupiedGrid.has(tileKey(Math.floor(px), Math.floor(pz)));
+  // side 0 walks straight on; the others veer 45 degrees and stay unit length,
+  // so a dodge clears the neighbour quickly without losing much ground.
+  const laneAt = (side) => {
+    let lx = ux;
+    let lz = uz;
+    if (side !== 0) {
+      lx = ux - uz * side;
+      lz = uz + ux * side;
+      const len = Math.hypot(lx, lz) || 1;
+      lx /= len;
+      lz /= len;
+    }
+    return { x: x0 + lx * step, z: z0 + lz * step };
+  };
+
+  const straight = laneAt(0);
+  if (walkable(straight.x, straight.z) && !crowdBlocker(straight.x, straight.z, npc, activeNPCs)) {
+    return rel(straight.x, straight.z);
+  }
+
+  const blocker = crowdBlocker(straight.x, straight.z, npc, activeNPCs);
+  if (blocker) npc.dodgeId = blocker.id;
+
+  // Hold the dodge until the pair is properly past each other. Path steering
+  // pulls a villager back onto its route the instant separation clears, so
+  // without this the pair dodges, converges, dodges again, and crawls.
+  if (npc.dodgeId) {
+    const held = activeNPCs.find((o) => o.id === npc.dodgeId);
+    const hd = held
+      ? (held.root.position.x - x0) * (held.root.position.x - x0) + (held.root.position.z - z0) * (held.root.position.z - z0)
+      : Infinity;
+    if (!held || hd > NPC_SEPARATION * NPC_SEPARATION * 6.5) {
+      npc.dodgeId = null;
+    } else {
+      const p = laneAt(dodgeSide(npc, held));
+      if (walkable(p.x, p.z)) return rel(p.x, p.z);
+    }
+  }
+
+  const sides = blocker ? [dodgeSide(npc, blocker), -dodgeSide(npc, blocker)] : [1, -1];
+
+  // Straight is out: it was already rejected above, and letting it compete here
+  // makes an abreast pair walk into each other every frame. The bonus on the
+  // agreed side keeps near-ties committed to one lane instead of flip-flopping.
+  let best = null;
+  let bestScore = -Infinity;
+  for (const side of sides) {
+    const p = laneAt(side);
+    if (!walkable(p.x, p.z)) continue;
+    const score = clearance2(p.x, p.z, npc, activeNPCs) + (side === sides[0] ? NPC_SEPARATION * NPC_SEPARATION * 0.25 : 0);
+    if (score > bestScore) {
+      bestScore = score;
+      best = p;
+    }
+  }
+  return best ? rel(best.x, best.z) : { x: 0, z: 0 };
+}
+
+// A villager shoved into a one-tile gap has no free neighbour at all, and the
+// old rescue simply gave up there - leaving it standing inside a wall with an
+// empty path and nothing left to cancel. Widen the ring until something free
+// turns up; the world edge is far from any build, so this always terminates.
+function nearestFreeTile(x, z, occupiedGrid, maxRing = 6) {
+  for (let r = 2; r <= maxRing; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+        const nx = x + dx;
+        const nz = z + dz;
+        if (nx < BOUND_MIN || nx > BOUND_MAX || nz < BOUND_MIN || nz > BOUND_MAX) continue;
+        if (!occupiedGrid.has(tileKey(nx, nz))) return { x: nx, z: nz };
+      }
+    }
+  }
+  return null;
+}
+
 // A gate only swings for someone actually crossing it, so the trigger is a
 // radius around the doorway rather than a whole tile block. The hold keeps the
 // leaves from starting shut while the last villager is still in the gap.
@@ -446,6 +572,16 @@ function tickGates(deltaTime, activeNPCs) {
       const dx = npc.root.position.x - center.x;
       const dz = npc.root.position.z - center.z;
       if (dx * dx + dz * dz < reach2) { near = true; break; }
+    }
+
+    // The player has no avatar here - the orbit target is where they are - so
+    // looking at a doorway swings it too, on a slightly wider radius than the
+    // villagers get so the leaves are already moving as it comes into view.
+    if (!near && viewCamera) {
+      const dx = viewCamera.target.x - center.x;
+      const dz = viewCamera.target.z - center.z;
+      const focus2 = GATE_TRIGGER * 2.2;
+      if (dx * dx + dz * dz < focus2 * focus2) near = true;
     }
 
     gate.gateHold = near ? GATE_HOLD_S : Math.max(0, (gate.gateHold || 0) - deltaTime);
@@ -652,6 +788,42 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
       return;
     }
 
+    // Both nets run before the job search on purpose: the branches below return
+    // early for hired crew and tower climbers, and those are exactly the
+    // villagers that end up wedged. Dropping a path only helps one that can
+    // still walk, so six seconds without covering ground sends it home instead
+    // of leaving it standing there forever.
+    const curTile = worldToGrid(npc.root.position);
+    const curKey = tileKey(curTile.x, curTile.z);
+    if (occupiedGrid.has(curKey) && !passableGateTiles().has(curKey)) {
+      const goal = npc.path[0] || npc.root.position;
+      const freeTile = findAdjacentFreeTile(curTile.x, curTile.z, 1, occupiedGrid, goal)
+        || nearestFreeTile(curTile.x, curTile.z, occupiedGrid);
+      if (freeTile) {
+        const center = gridToWorldCenter(freeTile.x, freeTile.z, 1);
+        npc.root.position.x = center.x;
+        npc.root.position.z = center.z;
+        npc.path = [];
+        npc.a = "IDLE";
+      }
+    }
+
+    if (canNudge(npc)) {
+      const nowS = performance.now() / 1000;
+      if (!npc.progressAt) {
+        npc.progressAt = nowS;
+        npc.progressPos = npc.root.position.clone();
+      } else if (Math.hypot(npc.root.position.x - npc.progressPos.x, npc.root.position.z - npc.progressPos.z) > 1.2) {
+        npc.progressAt = nowS;
+        npc.progressPos = npc.root.position.clone();
+      } else if (nowS - npc.progressAt > STUCK_RESPAWN_S) {
+        npc.progressAt = nowS;
+        npc.progressPos = npc.root.position.clone();
+        respawnExactNPC(npc, scene, camera, engine, placedObjects, "stuck");
+        return;
+      }
+    }
+
     if (npc.a === "IDLE" && (!npc.path || npc.path.length === 0)) {
       const currentG = worldToGrid(npc.root.position);
 
@@ -781,19 +953,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
       }
     }
 
-    const curTile = worldToGrid(npc.root.position);
-    const curKey = tileKey(curTile.x, curTile.z);
-    if (occupiedGrid.has(curKey) && !passableGateTiles().has(curKey)) {
-      const freeTile = findAdjacentFreeTile(curTile.x, curTile.z, 1, occupiedGrid);
-      if (freeTile) {
-        const center = gridToWorldCenter(freeTile.x, freeTile.z, 1);
-        npc.root.position.x = center.x;
-        npc.root.position.z = center.z;
-        npc.path = [];
-        npc.a = "IDLE";
-      }
-    }
-
     if (npc.path && npc.path.length > 0) {
       npc.a = "WALK";
       const targetWorld = npc.path[0];
@@ -813,23 +972,6 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
         npc.lastPos = npc.root.position.clone();
       }
 
-      // Dropping the path only helps a villager that can still walk. One wedged
-      // against a wall just picks a new goal and freezes again, so compare it with
-      // where it was a few seconds ago and send it home if nothing changed.
-      const nowS = performance.now() / 1000;
-      if (!npc.progressAt) {
-        npc.progressAt = nowS;
-        npc.progressPos = npc.root.position.clone();
-      } else if (Math.hypot(npc.root.position.x - npc.progressPos.x, npc.root.position.z - npc.progressPos.z) > 1.2) {
-        npc.progressAt = nowS;
-        npc.progressPos = npc.root.position.clone();
-      } else if (nowS - npc.progressAt > STUCK_RESPAWN_S) {
-        npc.progressAt = nowS;
-        npc.progressPos = npc.root.position.clone();
-        respawnExactNPC(npc, scene, camera, engine, placedObjects, "stuck");
-        return;
-      }
-
       if (dist < 0.15) {
         npc.path.shift();
         if (npc.path.length === 0) {
@@ -843,9 +985,10 @@ export function updateNPCs(deltaTime, activeNPCs, placedObjects, occupiedGrid, s
         }
       } else {
         const step = Math.min(npc.speed * deltaTime, dist);
-        npc.root.position.x += (dx / dist) * step;
-        npc.root.position.z += (dz / dist) * step;
-        npc.root.rotation.y = Math.atan2(dx, dz);
+        const move = crowdStep(npc, dx / dist, dz / dist, step, occupiedGrid, activeNPCs);
+        npc.root.position.x += move.x;
+        npc.root.position.z += move.z;
+        if (move.x !== 0 || move.z !== 0) npc.root.rotation.y = Math.atan2(move.x, move.z);
       }
     }
 

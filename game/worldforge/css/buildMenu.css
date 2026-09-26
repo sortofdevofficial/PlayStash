@@ -70,7 +70,11 @@
   border-bottom: 1px solid rgba(96,165,250,0.2);
   margin-bottom: 2px;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
+.build-category-title .ic { width: 1.7em; height: 1.7em; }
 
 /* ─── Cards row inside each category ─────────────────────────────── */
 .build-category .cards-row {
@@ -111,6 +115,37 @@
   animation: buildCardPulse 1.8s ease-in-out infinite;
 }
 .build-card:active { transform: translateY(0) scale(0.96); }
+
+/* Hotkey chip, drawn from data-key so the markup stays one attribute. */
+.build-card::after {
+  content: attr(data-key);
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 7px;
+  font-weight: 800;
+  line-height: 1;
+  color: #94a3b8;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  padding: 1px 3px;
+  pointer-events: none;
+}
+.build-card:hover::after { color: #e2e8f0; }
+
+/* Unaffordable: dim the card and redden the cost so a short stack reads
+   before placement fails, and drop the hover lift that promises a click. */
+.build-card.poor { opacity: 0.5; filter: saturate(0.35); }
+.build-card.poor .card-cost { color: #fca5a5; border-color: rgba(248, 113, 113, 0.4); }
+.build-card.poor:hover {
+  background: rgba(30, 41, 59, 0.45);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: none;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.build-card.poor.active { opacity: 1; filter: none; cursor: pointer; }
 
 @keyframes buildCardPulse {
   0%,100% { box-shadow: 0 4px 16px rgba(59,130,246,0.3); }
@@ -184,6 +219,7 @@ canvas.build-preview {
 @media (max-width: 600px) {
   #sideMenu { bottom: 48px; padding: 6px 8px 4px; }
   .build-card { width: 62px; }
+  .build-card::after { display: none; }
   canvas.build-preview { width: 44px; height: 44px; }
   .card-cost { font-size: 6.5px; padding: 1px 2px; }
 }

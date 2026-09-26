@@ -421,6 +421,7 @@
             • <b>WASD</b>: Pan camera across the world.<br/>
             • <b>Right Mouse Button + Drag</b>: Rotate and tilt camera angle.<br/>
             • <b>Mouse Wheel / Q & E</b>: Adjust zoom and camera height.<br/>
+            • <b>1-8 Keys</b>: Pick a building from the build menu.<br/>
             • <b>R Key</b>: Rotate building ghost before placing.<br/>
             • <b>Right-Click / Esc</b>: Cancel active building placement.
           </div>
@@ -836,14 +837,14 @@
       <div class="menu-title">Build Menu</div>
       <div class="scroll-frame">
         <div class="build-category">
-          <div class="build-category-title">Housing</div>
+          <div class="build-category-title"><svg class="ic" aria-hidden="true"><use href="#ic-pop"></use></svg>Housing</div>
           <div class="cards-row">
-            <div id="cardHut" class="build-card" title="20 Wood, 10 Stone (+2 Pop)">
+            <div id="cardHut" class="build-card" data-key="1" title="20 Wood, 10 Stone (+2 Pop)">
               <canvas class="build-preview" data-model="hut" width="56" height="56" role="img" aria-label="3D preview of a thatched hut"></canvas>
               <div class="card-header"><span class="card-title">Hut</span></div>
               <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>20 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>10</div>
             </div>
-            <div id="cardCampfire" class="build-card" title="10 Wood, 10 Stone (Attracts NPCs)">
+            <div id="cardCampfire" class="build-card" data-key="2" title="10 Wood, 10 Stone (Attracts NPCs)">
               <canvas class="build-preview" data-model="campfire" width="56" height="56" role="img" aria-label="3D preview of a campfire"></canvas>
               <div class="card-header"><span class="card-title">Campfire</span></div>
               <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>10 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>10</div>
@@ -851,14 +852,14 @@
           </div>
         </div>
         <div class="build-category">
-          <div class="build-category-title">Resources</div>
+          <div class="build-category-title"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>Resources</div>
           <div class="cards-row">
-            <div id="cardFarm" class="build-card" title="15 Wood, 5 Stone, 5 Water">
+            <div id="cardFarm" class="build-card" data-key="3" title="15 Wood, 5 Stone, 5 Water">
               <canvas class="build-preview" data-model="farm" width="56" height="56" role="img" aria-label="3D preview of a wheat farm"></canvas>
               <div class="card-header"><span class="card-title">Farm</span></div>
               <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>15 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>5 <svg class="ic" aria-hidden="true"><use href="#ic-water"></use></svg>5</div>
             </div>
-            <div id="cardWell" class="build-card" title="15 Wood, 15 Stone">
+            <div id="cardWell" class="build-card" data-key="4" title="15 Wood, 15 Stone">
               <canvas class="build-preview" data-model="well" width="56" height="56" role="img" aria-label="3D preview of a stone well"></canvas>
               <div class="card-header"><span class="card-title">Well</span></div>
               <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>15 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>15</div>
@@ -866,24 +867,24 @@
           </div>
         </div>
         <div class="build-category">
-          <div class="build-category-title">Structures</div>
+          <div class="build-category-title"><svg class="ic" aria-hidden="true"><use href="#ic-builds"></use></svg>Structures</div>
           <div class="cards-row">
-            <div id="cardTower" class="build-card" title="30 Wood, 25 Stone">
+            <div id="cardTower" class="build-card" data-key="5" title="30 Wood, 25 Stone">
               <canvas class="build-preview" data-model="tower" width="56" height="56" role="img" aria-label="3D preview of a wooden watchtower"></canvas>
               <div class="card-header"><span class="card-title">Tower</span></div>
               <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>30 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>25</div>
             </div>
-            <div id="cardStorage" class="build-card" title="25 Wood, 10 Stone (+150 Cap)">
+            <div id="cardStorage" class="build-card" data-key="6" title="25 Wood, 10 Stone (+150 Cap)">
               <canvas class="build-preview" data-model="storage" width="56" height="56" role="img" aria-label="3D preview of a storage shed"></canvas>
               <div class="card-header"><span class="card-title">Storage</span></div>
               <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>25 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>10</div>
             </div>
-            <div id="cardMarket" class="build-card" title="20 Wood, 20 Stone">
+            <div id="cardMarket" class="build-card" data-key="7" title="20 Wood, 20 Stone">
               <canvas class="build-preview" data-model="market" width="56" height="56" role="img" aria-label="3D preview of a market stall"></canvas>
               <div class="card-header"><span class="card-title">Market</span></div>
               <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>20 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>20</div>
             </div>
-            <div id="cardLumbermill" class="build-card" title="25 Wood, 20 Stone - fenced woodlot that regrows timber. Click it after placing to assign workers.">
+            <div id="cardLumbermill" class="build-card" data-key="8" title="25 Wood, 20 Stone - fenced woodlot that regrows timber. Click it after placing to assign workers.">
               <canvas class="build-preview" data-model="lumbermill" width="56" height="56" role="img" aria-label="3D preview of a lumbermill shed beside a fenced woodlot"></canvas>
               <div class="card-header"><span class="card-title">Lumbermill</span></div>
               <div class="card-cost"><svg class="ic" aria-hidden="true"><use href="#ic-wood"></use></svg>25 <svg class="ic" aria-hidden="true"><use href="#ic-stone"></use></svg>20</div>

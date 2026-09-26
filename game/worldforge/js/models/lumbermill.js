@@ -1,6 +1,12 @@
 import { flatShade } from "../flatShade.js";
 import { sharedMat, solidMat } from "./materials.js";
 
+// The mill is the village's landmark and at authored size it read as just
+// another shed. Scaling the root keeps every part - including the woodlot
+// fence - in proportion; WOODLOT_PAD in world.js grows with it so the fence
+// still rings exactly the tiles the yard claim covers.
+export const MILL_SCALE = 1.3;
+
 // The mill is built from a lot of small parts - plank courses, shingle rows,
 // knee braces, log ends - and a mesh per part would cost more draw calls and
 // more shadow casters than the rest of the village. Every part therefore goes
@@ -299,6 +305,8 @@ export function createLumbermill(id, scene, withYard = true) {
   add(BABYLON.MeshBuilder.CreateCylinder(id + "_lampCap", { height: 0.08, diameterTop: 0.02, diameterBottom: 0.16, tessellation: 6 }, scene), m.iron)
     .position.set(0.46, 1.63, 1.1);
 
-  return flatShade(root);
+  const finished = flatShade(root);
+  finished.scaling.setAll(MILL_SCALE);
+  return finished;
 }
 
