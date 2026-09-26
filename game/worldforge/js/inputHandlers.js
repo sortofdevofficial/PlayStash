@@ -161,7 +161,7 @@ function bindPointerEvents() {
         if (targetMesh && targetMesh.metadata?.objId) {
           const objData = placedObjects.get(targetMesh.metadata.objId);
           if (objData && objData.type === "lumbermill") {
-            openMillPanel(objData, scene.pointerX, scene.pointerY, placedObjects, activeNPCs);
+            openMillPanel(objData, placedObjects, activeNPCs);
             return;
           }
         }

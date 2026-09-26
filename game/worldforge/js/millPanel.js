@@ -60,10 +60,13 @@ function redraw(mill, activeNPCs) {
 }
 
 /**
- * Opens the staffing popover for one mill, anchored near where it was clicked.
- * A second click on the same mill closes it, matching the other HUD toggles.
+ * Opens the staffing popover for one mill. The panel docks in one fixed area
+ * on the left of the screen (see .mill-panel in panels.css) instead of chasing
+ * the cursor, so it opens in the same place no matter which part of the mill
+ * was clicked. A second click on the same mill closes it, matching the other
+ * HUD toggles.
  */
-export function openMillPanel(mill, screenX, screenY, placedObjects, activeNPCs) {
+export function openMillPanel(mill, placedObjects, activeNPCs) {
   if (!mill || mill.type !== "lumbermill" || state.isSpectating) return;
 
   if (panelEl && panelEl.dataset.millId === mill.id) return closeMillPanel();
@@ -72,8 +75,6 @@ export function openMillPanel(mill, screenX, screenY, placedObjects, activeNPCs)
   panelEl = document.createElement("div");
   panelEl.className = "mill-panel";
   panelEl.dataset.millId = mill.id;
-  panelEl.style.left = `${Math.max(12, Math.min(window.innerWidth - 268, screenX - 130))}px`;
-  panelEl.style.top = `${Math.max(12, Math.min(window.innerHeight - 250, screenY - 220))}px`;
   panelEl.append(body(mill, namesFor(mill, activeNPCs), activeNPCs));
   document.body.appendChild(panelEl);
 

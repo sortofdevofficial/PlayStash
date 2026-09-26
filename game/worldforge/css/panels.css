@@ -217,11 +217,15 @@
 
 /* ============================================================
    LUMBERMILL STAFFING POPOVER
-   Anchored at the point the mill was clicked. Width is fixed because
-   millPanel.js clamps the left offset against it.
+   Docked mid-left on purpose: the panel opens in the same spot
+   no matter which part of the mill was clicked, instead of
+   chasing the cursor around the screen.
    ============================================================ */
 .mill-panel {
   position: fixed;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 2600;
   width: 244px;
   display: flex;
@@ -261,6 +265,10 @@
   box-shadow: none;
 }
 .mill-panel-close:hover { background: none; color: #fff; transform: none; }
+
+@media (max-width: 600px) {
+  .mill-panel { left: 8px; right: 8px; width: auto; }
+}
 
 .mill-crew-row {
   display: flex;

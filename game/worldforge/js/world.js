@@ -128,7 +128,7 @@ export function spawnRandomWildernessNode() {
 // it. Crew size drives both halves of the loop: more NPCs chop more trees, and
 // the lot regrows faster so a full staff cannot strip it bare.
 // ============================================================
-export const MAX_WORKERS = 4;
+export const MAX_WORKERS = 2;
 export const WOODLOT_CAP = 10;        // standing trees a single lot supports
 const WILDERNESS_NODE_CAP = 35;
 // The mill's fenced woodlot in models/lumbermill.js has YARD_HALF = 3.5, scaled
