@@ -1,222 +1,192 @@
 /**
- * Sneaky Chefs: Kitchen Escape - Main Entry Point & Game Loop
+ * Sneaky Chefs: Kitchen Escape - Main Game & Interaction Loop
  */
 
-let scene, camera, renderer;
-let mouseGroup, chefGroup, chefSpotlight;
-let tailSegments = [];
-let addCarriedCheeseWedge, clearCarriedCheeseStack;
-let mouseHeadGroup, mouseSpine, mouseLegJoints = [];
-let prevMouseFacingAngle = 0;
-let footstepDust = [];
-let landingSquash = 0;
-let cheeseCollectibles = [];
-let kitchenObstacles = [];
-let cameraCollisionMeshes = [];
-let chefWaypoints = [];
+var scene, camera, renderer;
+var mouseGroup, chefGroup;
+var cheeseList = [];
+var cheeseCollected = 0;
+var totalCheese = 5;
+var score = 0;
+var isHiding = false;
+var chefIsChasing = false;
+var keys = {};
 
-const inventory = { cheese: 0 };
-const INVENTORY_SLOTS = 8;
-const INVENTORY_ITEMS = { cheese: { icon: '🧀' } };
-let nearCheeseItem = null;
-let isGameOver = false;
-let chefIsChasing = false;
-let currentWaypointIdx = 0;
-let chefGaitPhase = 0;
-let chefShoulderL, chefShoulderR, chefPinWrist, chefLegL, chefLegR;
+// Initialize Game
+function init() {
+    // 1. Scene & Camera Setup
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a24);
 
-const mouseVel = new THREE.Vector3();
-let mouseAngle = 0;
-let isGrounded = true;
-let jumpVelocity = 0;
-const GRAVITY = 28.0;
-const JUMP_FORCE = 9.5;
-const MOVE_SPEED = 8.5;
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 18, 14);
+    camera.lookAt(0, 0, 0);
 
-let isRightMouseDown = false;
-let camYaw = 0;
-let camPitch = 0.55;
-const CAM_DIST_MIN = 4.0;
-const CAM_DIST_MAX = 24.0;
-const CAM_ZOOM_STEP = 1.2;
-let camDist = 13.0;
-let camDistTarget = 13.0;
-const cameraRaycaster = new THREE.Raycaster();
-const CAM_COLLISION_MARGIN = 0.4;
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
 
-const keys = { forward: false, backward: false, left: false, right: false };
+    // 2. Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
 
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playSound(type) {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 20, 10);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
 
-    const now = audioCtx.currentTime;
-    if (type === 'jump') {
-        osc.frequency.setValueAtTime(180, now);
-        osc.frequency.exponentialRampToValueAtTime(420, now + 0.15);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
-        osc.start(now);
-        osc.stop(now + 0.15);
-    } else if (type === 'collect') {
-        osc.frequency.setValueAtTime(520, now);
-        osc.frequency.setValueAtTime(780, now + 0.1);
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
-        osc.start(now);
-        osc.stop(now + 0.25);
-    } else if (type === 'alert') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(300, now);
-        osc.frequency.linearRampToValueAtTime(600, now + 0.2);
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
-        osc.start(now);
-        osc.stop(now + 0.3);
+    // 3. Warning Ring & Entities Setup
+    if (typeof createWarningRing === 'function') createWarningRing();
+    if (typeof createLowPolyChef === 'function') {
+        chefGroup = createLowPolyChef();
+        scene.add(chefGroup);
+    }
+
+    // 4. Player Creation (Mouse)
+    createMousePlayer();
+
+    // 5. Spawn Cheese
+    spawnCheeseItems();
+
+    // Event Listeners
+    window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+    window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+    window.addEventListener('resize', onWindowResize);
+
+    animate(0);
+}
+
+// Simple Mouse Creation Placeholder
+function createMousePlayer() {
+    mouseGroup = new THREE.Group();
+    const geo = new THREE.SphereGeometry(0.4, 16, 16);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x888888 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = 0.4;
+    mesh.castShadow = true;
+    mouseGroup.add(mesh);
+    mouseGroup.position.set(0, 0, 8);
+    scene.add(mouseGroup);
+}
+
+// Spawn Cheese Wedges
+function spawnCheeseItems() {
+    const cheesePositions = [
+        { x: -10, z: -10 },
+        { x: 10, z: -10 },
+        { x: -10, z: 5 },
+        { x: 10, z: 5 },
+        { x: 0, z: -12 }
+    ];
+
+    totalCheese = cheesePositions.length;
+
+    cheesePositions.forEach((pos) => {
+        const cheeseGeo = new THREE.CylinderGeometry(0.1, 0.5, 0.3, 3);
+        const cheeseMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, flatShading: true });
+        const cheese = new THREE.Mesh(cheeseGeo, cheeseMat);
+        
+        cheese.position.set(pos.x, 0.25, pos.z);
+        cheese.rotation.y = Math.random() * Math.PI;
+        cheese.castShadow = true;
+
+        scene.add(cheese);
+        cheeseList.push(cheese);
+    });
+}
+
+// Cheese Pickup System
+function checkCheesePickup() {
+    if (!mouseGroup || cheeseList.length === 0) return;
+
+    const pickupRadius = 1.2; // Pickup range
+
+    for (let i = cheeseList.length - 1; i >= 0; i--) {
+        const cheese = cheeseList[i];
+        if (!cheese) continue;
+
+        const dist = mouseGroup.position.distanceTo(cheese.position);
+
+        if (dist < pickupRadius) {
+            // Remove from 3D scene
+            scene.remove(cheese);
+            cheeseList.splice(i, 1);
+
+            // Update score and stats
+            cheeseCollected++;
+            score += 100;
+
+            // UI Updates
+            const scoreEl = document.getElementById('score');
+            const cheeseEl = document.getElementById('cheeseCount');
+            if (scoreEl) scoreEl.innerText = score;
+            if (cheeseEl) cheeseEl.innerText = cheeseCollected + ' / ' + totalCheese;
+
+            if (typeof playSound === 'function') playSound('pickup');
+
+            // Win Trigger
+            if (cheeseCollected >= totalCheese) {
+                if (typeof triggerWin === 'function') triggerWin();
+            }
+        }
     }
 }
 
-function setupSecurityRestrictions() {
-    window.addEventListener('contextmenu', (e) => e.preventDefault());
+// Player Movement Update
+function updatePlayer(dt) {
+    if (!mouseGroup) return;
+
+    const moveSpeed = 6.0;
+    let moveX = 0;
+    let moveZ = 0;
+
+    if (keys['w'] || keys['arrowup']) moveZ -= 1;
+    if (keys['s'] || keys['arrowdown']) moveZ += 1;
+    if (keys['a'] || keys['arrowleft']) moveX -= 1;
+    if (keys['d'] || keys['arrowright']) moveX += 1;
+
+    if (moveX !== 0 || moveZ !== 0) {
+        const dir = new THREE.Vector3(moveX, 0, moveZ).normalize();
+        mouseGroup.position.x += dir.x * moveSpeed * dt;
+        mouseGroup.position.z += dir.z * moveSpeed * dt;
+
+        mouseGroup.rotation.y = Math.atan2(dir.x, dir.z);
+    }
+
+    // Camera Follow
+    camera.position.x = mouseGroup.position.x;
+    camera.position.z = mouseGroup.position.z + 14;
 }
 
-window.addEventListener('load', () => {
-    setupSecurityRestrictions();
-    initScene();
-    buildKitchenEnvironment();
-    createLowPolyHidingBox(scene);
-
-    const mouseData = createLowPolyMouse();
-    mouseGroup = mouseData.mouseGroup;
-    tailSegments = mouseData.tailSegments;
-    addCarriedCheeseWedge = mouseData.addCarriedCheeseWedge;
-    clearCarriedCheeseStack = mouseData.clearCarriedCheeseStack;
-    mouseHeadGroup = mouseData.headGroup;
-    mouseSpine = mouseData.spine;
-    mouseLegJoints = mouseData.legJoints;
-    scene.add(mouseGroup);
-
-    chefGroup = createLowPolyChef();
-    chefShoulderL = chefGroup.userData.shoulderL;
-    chefShoulderR = chefGroup.userData.shoulderR;
-    chefPinWrist = chefGroup.userData.pinWrist;
-    chefLegL = chefGroup.userData.legL;
-    chefLegR = chefGroup.userData.legR;
-
-    chefSpotlight = new THREE.SpotLight(0xffaa55, 1.6, 11, Math.PI / 4.5, 0.5, 1.5);
-    chefSpotlight.position.set(0, 3.4, 0);
-    chefSpotlight.target.position.set(0, 0, 0.01);
-    chefGroup.add(chefSpotlight, chefSpotlight.target);
-    scene.add(chefGroup);
-
-    createWarningRing();
-    spawnCheeseCollectibles();
-    initMap('mapCanvas');
-    updateInventoryUI();
-    setupInputListeners();
-    animate(0);
-});
-
-let lastTime = 0;
-function animate(time) {
+// Main Game Loop
+var lastTime = 0;
+function animate(currentTime) {
     requestAnimationFrame(animate);
 
-    const dt = Math.min(0.05, (time - lastTime) / 1000);
-    lastTime = time;
+    const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+    lastTime = currentTime;
 
-    if (!isGameOver) {
-        updateMouse(dt, time);
-        updateCamera(dt);
-        updateChefAI(dt, time);
-        updateMap(
-            mouseGroup.position,
-            chefGroup.position,
-            HIDING_BOX_POS,
-            isHiding,
-            mouseGroup.position.distanceTo(HIDING_BOX_POS) < HIDING_INTERACT_RADIUS
-        );
+    updatePlayer(dt);
+    checkCheesePickup(); // Check for cheese pickups every frame
+
+    if (typeof updateChefAI === 'function') {
+        updateChefAI(dt, currentTime / 1000);
     }
+
+    // Animate remaining cheese floating/rotating
+    cheeseList.forEach((cheese, idx) => {
+        cheese.rotation.y += dt * 2;
+        cheese.position.y = 0.25 + Math.sin(currentTime * 0.003 + idx) * 0.05;
+    });
 
     renderer.render(scene, camera);
 }
 
-function updateInventoryUI(bumpId) {
-    const grid = document.getElementById('inv-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
-    const ids = Object.keys(inventory).filter(id => inventory[id] > 0);
-    for (let i = 0; i < INVENTORY_SLOTS; i++) {
-        const slot = document.createElement('div');
-        slot.className = 'inv-slot';
-        const id = ids[i];
-        if (id) {
-            slot.classList.add('filled');
-            slot.textContent = INVENTORY_ITEMS[id].icon;
-            const count = document.createElement('span');
-            count.className = 'inv-count';
-            count.textContent = inventory[id];
-            slot.appendChild(count);
-        }
-        grid.appendChild(slot);
-    }
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-const RESTART_DELAY_MS = 1500;
-let restartCountdownTimer = null;
-
-function triggerGameOver() {
-    if (isGameOver) return;
-    isGameOver = true;
-
-    const modal = document.getElementById('game-over-modal');
-    if (modal) modal.classList.add('show');
-
-    clearTimeout(restartCountdownTimer);
-    restartCountdownTimer = setTimeout(restartGame, RESTART_DELAY_MS);
-}
-
-function restartGame() {
-    clearTimeout(restartCountdownTimer);
-    restartCountdownTimer = null;
-    isGameOver = false;
-    isHiding = false;
-    inventory.cheese = 0;
-    chefIsChasing = false;
-    chefAttackState = 'idle';
-    chefAttackTimer = 0;
-    chefSmashSequence = [];
-    chefSmashIndex = 0;
-    hideAllWarningRings();
-    clearCarriedCheeseStack();
-
-    updateInventoryUI();
-    const modal = document.getElementById('game-over-modal');
-    if (modal) modal.classList.remove('show');
-
-    mouseGroup.position.set(0, 0, 11);
-    mouseGroup.scale.set(1, 1, 1);
-    mouseVel.set(0, 0, 0);
-    jumpVelocity = 0;
-    isGrounded = true;
-    nearCheeseItem = null;
-    keys.forward = keys.backward = keys.left = keys.right = false;
-    chefLoseTimer = 0;
-    chefRealertTimer = 0;
-    currentWaypointIdx = 0;
-    chefGroup.position.set(-8, 0, -8);
-    chefGaitPhase = 0;
-    landingSquash = 0;
-    mouseAngle = 0;
-    mouseGroup.rotation.y = 0;
-    chefGroup.rotation.y = 0;
-    if (mouseSpine) { mouseSpine.position.y = 0; mouseSpine.rotation.set(0, 0, 0); }
-
-    cheeseCollectibles.forEach(c => {
-        c.collected = false;
-        scene.add(c.group);
-    });
-}
+window.onload = init;
