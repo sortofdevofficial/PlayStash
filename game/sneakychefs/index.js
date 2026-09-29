@@ -15,13 +15,19 @@ let kitchenObstacles = [];
 let cameraCollisionMeshes = [];
 let chefWaypoints = [];
 
-// No goal, no win state, no inventory; the game only ends if the chef catches you.
-// Cheese wheels are just physical props you can roll around with your own momentum.
 let isGameOver = false;
 let chefIsChasing = false;
 let currentWaypointIdx = 0;
 let chefGaitPhase = 0;
 let chefShoulderL, chefShoulderR, chefPinWrist, chefLegL, chefLegR;
+
+// Run state: deliver every cheese wheel to the mouse hole before the chef catches you.
+let runElapsed = 0;
+let cheesesEscaped = 0;
+let totalCheeses = 0;
+let timerHudSecond = -1;
+let hintHidden = false;
+const HINT_SECONDS = 10;
 
 // Mouse Physics
 const mouseVel = new THREE.Vector3();
@@ -36,11 +42,11 @@ const MOVE_SPEED = 8.5;
 let isRightMouseDown = false;
 let camYaw = 0;
 let camPitch = 0.55;
-const CAM_DIST_MIN = 4.0;    // max zoom in
-const CAM_DIST_MAX = 24.0;   // max zoom out
-const CAM_ZOOM_STEP = 1.2;   // distance change per wheel notch / +- key press
-let camDist = 13.0;          // current (smoothed) distance
-let camDistTarget = 13.0;    // where zoom input is steering it
+const CAM_DIST_MIN = 4.0;
+const CAM_DIST_MAX = 24.0;
+const CAM_ZOOM_STEP = 1.2;
+let camDist = 13.0;
+let camDistTarget = 13.0;
 const cameraRaycaster = new THREE.Raycaster();
 const CAM_COLLISION_MARGIN = 0.4;
 
@@ -78,6 +84,13 @@ function playSound(type) {
         gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
         osc.start(now);
         osc.stop(now + 0.3);
+    } else if (type === 'win') {
+        osc.type = 'triangle';
+        [523, 659, 784, 1047].forEach((f, i) => osc.frequency.setValueAtTime(f, now + i * 0.11));
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.55);
+        osc.start(now);
+        osc.stop(now + 0.55);
     }
 }
 
@@ -96,6 +109,86 @@ function setupSecurityRestrictions() {
             return false;
         }
     });
+}
+
+// Objective bookkeeping
+const BEST_TIME_KEY = 'sneakychefs.bestTime';
+
+function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return m + ':' + String(s).padStart(2, '0');
+}
+
+// localStorage throws under private mode and sometimes on file:// — a missing best
+// time must never break the run.
+function readBestTime() {
+    try {
+        const v = parseFloat(localStorage.getItem(BEST_TIME_KEY));
+        return Number.isFinite(v) && v > 0 ? v : null;
+    } catch (e) { return null; }
+}
+
+function writeBestTime(seconds) {
+    try { localStorage.setItem(BEST_TIME_KEY, String(seconds)); } catch (e) { /* storage unavailable */ }
+}
+
+function buildCheesePips(total) {
+    const holder = document.getElementById('cheese-pips');
+    holder.textContent = '';
+    for (let i = 0; i < total; i++) {
+        const pip = document.createElement('i');
+        pip.className = 'pip';
+        holder.appendChild(pip);
+    }
+}
+
+function updateCheeseHud() {
+    document.getElementById('cheese-count').textContent = cheesesEscaped + '/' + totalCheeses;
+    const pips = document.getElementById('cheese-pips').children;
+    for (let i = 0; i < pips.length; i++) pips[i].classList.toggle('on', i < cheesesEscaped);
+}
+
+function updateTimerHud() {
+    const second = Math.floor(runElapsed);
+    if (second === timerHudSecond) return;
+    timerHudSecond = second;
+    document.getElementById('hud-timer').textContent = formatTime(runElapsed);
+}
+
+// Called by the cheese physics the moment a wheel drops into the hole.
+function onCheeseEscaped() {
+    cheesesEscaped++;
+    updateCheeseHud();
+    playSound('collect');
+    if (cheesesEscaped >= totalCheeses) {
+        triggerWin();
+    } else {
+        const left = totalCheeses - cheesesEscaped;
+        showToast('Cheese delivered — ' + left + ' more to escape');
+    }
+}
+
+function triggerWin() {
+    if (isGameOver) return;
+    isGameOver = true;
+
+    const title = document.getElementById('modal-title');
+    title.textContent = 'ESCAPED!';
+    title.className = 'win';
+
+    const best = readBestTime();
+    const isRecord = best === null || runElapsed < best;
+    if (isRecord) writeBestTime(runElapsed);
+
+    const summary = 'You rolled every cheese wheel home in ' + formatTime(runElapsed) + '.';
+    document.getElementById('modal-desc').textContent = isRecord
+        ? summary + ' New best time!'
+        : summary + ' Best: ' + formatTime(best) + '.';
+    document.getElementById('restart-btn').textContent = 'PLAY AGAIN';
+    document.getElementById('game-over-modal').classList.add('show');
+
+    playSound('win');
 }
 
 // Init Game
@@ -126,24 +219,12 @@ window.addEventListener('load', () => {
 
     createWarningRing();
     spawnCheeseCollectibles();
+    totalCheeses = cheeseCollectibles.length;
+    buildCheesePips(totalCheeses);
+    updateCheeseHud();
     setupInputListeners();
-    setupGraphicsToggle();
     animate(0);
 });
-
-function setupGraphicsToggle() {
-    const btn = document.getElementById('gfx-toggle');
-    if (!btn) return;
-    const render = () => {
-        btn.textContent = 'LOW GRAPHICS: ' + (lowGraphics ? 'ON' : 'OFF');
-        btn.classList.toggle('low', lowGraphics);
-    };
-    render();
-    btn.addEventListener('click', () => {
-        setLowGraphics(!lowGraphics);
-        render();
-    });
-}
 
 let lastTime = 0;
 function animate(time) {
@@ -153,27 +234,33 @@ function animate(time) {
     lastTime = time;
 
     if (!isGameOver) {
+        runElapsed += dt;
         updateMouse(dt, time);
         updateCamera(dt);
         updateChefAI(dt, time);
+        updateTimerHud();
+        if (!hintHidden && runElapsed > HINT_SECONDS) {
+            hintHidden = true;
+            document.getElementById('hint').classList.add('hide');
+        }
     }
 
+    updateMouseHoleGlow(time, cheesesEscaped >= totalCheeses);
     renderer.render(scene, camera);
 }
 
-// The only way to lose is getting caught; there is no win condition. Getting caught
-// shows a short "restarting" countdown and then restarts the run automatically.
 const RESTART_DELAY_MS = 1500;
 let restartCountdownTimer = null;
 
 function triggerGameOver() {
-    if (isGameOver) return; // already caught; don't stack timers
+    if (isGameOver) return;
     isGameOver = true;
 
     const title = document.getElementById('modal-title');
     title.textContent = 'CAUGHT!';
     title.className = '';
     document.getElementById('modal-desc').textContent = 'The Chef caught you! Restarting...';
+    document.getElementById('restart-btn').textContent = 'RESTART NOW';
     document.getElementById('game-over-modal').classList.add('show');
 
     clearTimeout(restartCountdownTimer);
@@ -215,15 +302,17 @@ function restartGame() {
 
     footstepDust.forEach(d => {
         scene.remove(d.mesh);
-        d.mesh.geometry.dispose();
         d.mesh.material.dispose();
     });
     footstepDust = [];
 
-    cheeseCollectibles.forEach(c => {
-        c.group.position.set(c.spawnPos.x, getFloorY(c.spawnPos.x, c.spawnPos.z) + CHEESE_HEIGHT / 2, c.spawnPos.z);
-        c.vel.set(0, 0, 0);
-        c.velY = 0;
-        c.grounded = true;
-    });
+    resetCheeseProps();
+
+    runElapsed = 0;
+    cheesesEscaped = 0;
+    timerHudSecond = -1;
+    hintHidden = false;
+    document.getElementById('hint').classList.remove('hide');
+    updateCheeseHud();
+    updateTimerHud();
 }

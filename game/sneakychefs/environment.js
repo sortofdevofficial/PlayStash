@@ -2,60 +2,25 @@
  * Sneaky Chefs: Kitchen Escape - Scene, Kitchen Environment, Cheese, Dust
  */
 
-// Graphics quality: LOW mode stacks several cuts, biggest first:
-//  - render resolution scale (pixelRatio 0.55): fewer pixels to shade is the single
-//    biggest lever for GPU-bound lag, far more than shadows/antialiasing alone
-//  - shadows off entirely (skips a whole extra scene render from the light's view)
-//  - antialiasing off (needs the WebGL context recreated — can't be flipped live)
-//  - the fill light removed (one less light every lit fragment has to be shaded against)
-//  - fog removed and dust particles skipped entirely
-// This is in-memory only for the current page load — no localStorage, so it always
-// starts back at normal quality on refresh.
-let lowGraphics = false;
 let fillLight = null;
-
-function applyGraphicsQuality() {
-    if (!renderer) return;
-    renderer.shadowMap.enabled = !lowGraphics;
-    renderer.setPixelRatio(lowGraphics ? 0.55 : Math.min(window.devicePixelRatio, 2));
-    scene.fog = lowGraphics ? null : new THREE.FogExp2(0x1a1a24, 0.025);
-    if (fillLight) fillLight.visible = !lowGraphics;
-    if (typeof chefSpotlight !== 'undefined' && chefSpotlight) chefSpotlight.visible = !lowGraphics;
-}
-
-// Antialiasing can only be set when the WebGL context is created, so switching it
-// means building a brand new renderer on the same canvas and re-applying everything
-// initScene originally set up on it.
-function recreateRenderer() {
-    const canvas = renderer.domElement;
-    renderer.dispose();
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: !lowGraphics, powerPreference: "high-performance" });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    applyGraphicsQuality();
-}
-
-function setLowGraphics(enabled) {
-    lowGraphics = enabled;
-    recreateRenderer();
-}
+const dustGeo = new THREE.SphereGeometry(0.06, 4, 4);
 
 function initScene() {
     const canvas = document.getElementById('game-canvas');
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a24);
+    scene.fog = new THREE.FogExp2(0x1a1a24, 0.025);
 
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(0, 10, 14);
 
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: !lowGraphics, powerPreference: "high-performance" });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    applyGraphicsQuality();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
-    // Lighting: sky/ground hemisphere gives faces facing up vs down different tints (what makes
-    // flat-shaded facets read), a low ambient stops shadows going black, a warm key light casts
-    // the shadows, and a cool fill from the opposite side lifts the shaded facets.
+    // Lighting
     scene.add(new THREE.HemisphereLight(0xcfd8ff, 0x4a3b34, 0.5));
     scene.add(new THREE.AmbientLight(0xffeedd, 0.22));
 
@@ -66,9 +31,8 @@ function initScene() {
     const dirLight = new THREE.DirectionalLight(0xfff0dc, 1.0);
     dirLight.position.set(12, 20, 10);
     dirLight.castShadow = true;
-    const shadowRes = lowGraphics ? 512 : 2048;
-    dirLight.shadow.mapSize.width = shadowRes;
-    dirLight.shadow.mapSize.height = shadowRes;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
     const d = 18;
     dirLight.shadow.camera.left = -d;
     dirLight.shadow.camera.right = d;
@@ -91,8 +55,6 @@ function buildKitchenEnvironment() {
     kitchenObstacles = [];
     cameraCollisionMeshes = [];
 
-    // Checkerboard kitchen tiles: a tiny 2x2 canvas texture with NEAREST magnification, so the tile
-    // edges stay crisp and blocky (fits the low-poly look) and it costs nothing in geometry.
     const tileCanvas = document.createElement('canvas');
     tileCanvas.width = tileCanvas.height = 64;
     const tctx = tileCanvas.getContext('2d');
@@ -100,7 +62,7 @@ function buildKitchenEnvironment() {
     tctx.fillStyle = '#34344a'; tctx.fillRect(0, 0, 32, 32); tctx.fillRect(32, 32, 32, 32);
     const tileTex = new THREE.CanvasTexture(tileCanvas);
     tileTex.wrapS = tileTex.wrapT = THREE.RepeatWrapping;
-    tileTex.repeat.set(8, 8); // 2 tiles per repeat -> 16 x 16 tiles of 2 units
+    tileTex.repeat.set(8, 8);
     tileTex.magFilter = THREE.NearestFilter;
     tileTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     const floorTileMat = new THREE.MeshStandardMaterial({ map: tileTex, roughness: 0.5, flatShading: true });
@@ -122,16 +84,15 @@ function buildKitchenEnvironment() {
     createWall(1, 8, 32, -16, 4, 0);
     createWall(1, 8, 32, 16, 4, 0);
 
+    buildMouseHole();
+
     const addObstacle = (w, h, d, x, z, color) => {
         const mat = new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.5 });
-        // Body stops 0.02 short of the top so the lighter counter slab's top face is the only
-        // surface at height h (no coplanar z-fighting); collision still uses the full h.
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h - 0.02, d), mat);
         mesh.position.set(x, (h - 0.02) / 2, z);
         mesh.castShadow = mesh.receiveShadow = true;
         scene.add(mesh);
 
-        // Lighter overhanging top: makes every platform's edge and standing surface easy to read
         const slabMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.4), flatShading: true, roughness: 0.4 });
         const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, 0.12, d + 0.12), slabMat);
         slab.position.set(x, h - 0.06, z);
@@ -160,15 +121,52 @@ function buildKitchenEnvironment() {
     ];
 }
 
-// Cheese wheels are physical props: they rest on the actual floor/counter surface,
-// fall with gravity, collide with walls and obstacles, and roll when the mouse's own
-// body weight (its momentum) bumps into them. There is no pickup — rolling them around
-// IS the interaction.
+// The escape target: a semicircular hole cut into the base of the north wall — the wall
+// the player faces on spawn, so the objective is visible from the first frame. Its centre
+// sits on the floor line at the wall's inner face, and MOUSE_HOLE.radius is the capture
+// radius, deliberately equal to the inner edge of the floor glow below so the painted
+// marker and the real trigger line up.
+const MOUSE_HOLE = { x: 0, z: -15.35, radius: 0.95, arch: 1.0 };
+let holeGlowMesh = null;
+
+function buildMouseHole() {
+    const arch = new THREE.Mesh(
+        new THREE.CircleGeometry(MOUSE_HOLE.arch, 22, 0, Math.PI),
+        new THREE.MeshBasicMaterial({ color: 0x050507, side: THREE.DoubleSide })
+    );
+    arch.position.set(MOUSE_HOLE.x, 0.002, -15.44);
+    scene.add(arch);
+
+    const rim = new THREE.Mesh(
+        new THREE.RingGeometry(MOUSE_HOLE.arch, MOUSE_HOLE.arch + 0.16, 22, 1, 0, Math.PI),
+        new THREE.MeshBasicMaterial({ color: 0x6e4f30, side: THREE.DoubleSide })
+    );
+    rim.position.set(MOUSE_HOLE.x, 0.001, -15.42);
+    scene.add(rim);
+
+    // Floor marker: a half-annulus bulging into the room, flat edge against the wall.
+    holeGlowMesh = new THREE.Mesh(
+        new THREE.RingGeometry(MOUSE_HOLE.radius, MOUSE_HOLE.radius + 0.85, 26, 1, 0, Math.PI),
+        new THREE.MeshBasicMaterial({
+            color: 0xffbe00, transparent: true, opacity: 0.18,
+            side: THREE.DoubleSide, depthWrite: false
+        })
+    );
+    holeGlowMesh.rotation.x = Math.PI / 2;
+    holeGlowMesh.position.set(MOUSE_HOLE.x, 0.02, MOUSE_HOLE.z);
+    scene.add(holeGlowMesh);
+}
+
+function updateMouseHoleGlow(time, allDelivered) {
+    if (!holeGlowMesh) return;
+    holeGlowMesh.material.opacity = allDelivered ? 0 : 0.13 + Math.abs(Math.sin(time * 0.0022)) * 0.16;
+}
+
 const CHEESE_RADIUS = 0.4;
 const CHEESE_HEIGHT = 0.28;
-const CHEESE_FRICTION = 1.6;   // per-second velocity decay while grounded
+const CHEESE_FRICTION = 1.6;
 const CHEESE_MAX_SPEED = 9.0;
-const KITCHEN_BOUND = 15.35;   // inner play area edge (walls sit just outside this)
+const KITCHEN_BOUND = 15.35;
 
 function spawnCheeseCollectibles() {
     cheeseCollectibles = [];
@@ -180,10 +178,8 @@ function spawnCheeseCollectibles() {
         { x: 8, z: -2 }
     ];
 
-    positions.forEach((pos, idx) => {
+    positions.forEach((pos) => {
         const group = new THREE.Group();
-        // Wedge mesh is the child that actually spins as the wheel rolls; the group only
-        // ever translates, so rotation and position never fight each other.
         const mesh = new THREE.Mesh(new THREE.CylinderGeometry(CHEESE_RADIUS, CHEESE_RADIUS, CHEESE_HEIGHT, 3), cheeseMat);
         mesh.rotation.y = Math.PI / 4;
         mesh.castShadow = true;
@@ -199,20 +195,23 @@ function spawnCheeseCollectibles() {
             vel: new THREE.Vector3(),
             velY: 0,
             grounded: true,
-            spawnPos: { x: pos.x, z: pos.z }
+            spawnPos: { x: pos.x, z: pos.z },
+            escaping: false,
+            sunk: false,
+            escapeT: 0,
+            escapeFrom: new THREE.Vector3()
         });
     });
 }
 
-// Physics step for every cheese wheel: gravity/floor snap (mirrors the mouse's own
-// grounding logic), wall/obstacle collision, friction, and a roll rotation driven by
-// how far it actually moved this frame (distance / radius = rotation angle), so the
-// spin always visually matches the motion regardless of speed.
+const CHEESE_ESCAPE_TIME = 0.45;
+
 function updateCheeseProps(dt) {
     cheeseCollectibles.forEach(c => {
         const pos = c.group.position;
 
-        // Horizontal motion + friction (only while resting on a surface)
+        if (c.escaping || c.sunk) { animateCheeseEscape(c, dt); return; }
+
         if (c.grounded) {
             const speed = c.vel.length();
             if (speed > 0.001) {
@@ -229,24 +228,18 @@ function updateCheeseProps(dt) {
         pos.x += c.vel.x * dt;
         pos.z += c.vel.z * dt;
 
-        // Keep inside the room
         if (pos.x < -KITCHEN_BOUND) { pos.x = -KITCHEN_BOUND; c.vel.x = 0; }
         if (pos.x > KITCHEN_BOUND) { pos.x = KITCHEN_BOUND; c.vel.x = 0; }
         if (pos.z < -KITCHEN_BOUND) { pos.z = -KITCHEN_BOUND; c.vel.z = 0; }
         if (pos.z > KITCHEN_BOUND) { pos.z = KITCHEN_BOUND; c.vel.z = 0; }
 
-        // Obstacle side-walls: same rule as the mouse (below the step height a box is a
-        // wall, at/above it it's a floor), so cheese can roll UP onto a low counter's
-        // edge but bounces off a tall obstacle's side.
         solveObstacleCollision(pos, CHEESE_RADIUS);
 
-        // Vertical: gravity toward whatever surface is under its current resting height,
-        // exactly like the mouse's own ground-snap.
         const floorY = getFloorY(pos.x, pos.z, pos.y - CHEESE_HEIGHT / 2 + 0.05);
         const restY = floorY + CHEESE_HEIGHT / 2;
         if (pos.y > restY + 0.001) {
             c.grounded = false;
-            c.velY -= 28.0 * dt; // matches GRAVITY in index.js
+            c.velY -= 28.0 * dt;
             pos.y += c.velY * dt;
             if (pos.y <= restY) { pos.y = restY; c.velY = 0; c.grounded = true; }
         } else {
@@ -255,27 +248,60 @@ function updateCheeseProps(dt) {
             c.grounded = true;
         }
 
-        // Roll: rotate the child mesh around the horizontal axis perpendicular to the
-        // direction actually travelled, by distance/radius — a true rolling rotation
-        // rather than a spin that doesn't match the motion.
         const dx = pos.x - prevX, dz = pos.z - prevZ;
         const dist = Math.hypot(dx, dz);
         if (dist > 0.0001) {
             const axis = new THREE.Vector3(dz, 0, -dx).normalize();
             c.mesh.rotateOnWorldAxis(axis, dist / CHEESE_RADIUS);
         }
+
+        if (c.grounded && Math.hypot(pos.x - MOUSE_HOLE.x, pos.z - MOUSE_HOLE.z) < MOUSE_HOLE.radius) {
+            c.escaping = true;
+            c.escapeT = 0;
+            c.vel.set(0, 0, 0);
+            c.escapeFrom.copy(pos);
+            onCheeseEscaped();
+        }
     });
 }
 
-// An obstacle is a WALL to anything whose feet are more than STEP_HEIGHT below its top,
-// and a FLOOR once the feet are within STEP_HEIGHT of it. getFloorY and
-// solveObstacleCollision both use this same threshold, so there's no height band where
-// neither applies (that gap is what let spam-jumping against a box slide you inside it
-// and snap you onto the top).
+function animateCheeseEscape(c, dt) {
+    if (c.sunk) return;
+    c.escapeT += dt;
+    const k = Math.min(1, c.escapeT / CHEESE_ESCAPE_TIME);
+    const pos = c.group.position;
+    pos.x = THREE.MathUtils.lerp(c.escapeFrom.x, MOUSE_HOLE.x, k * k);
+    pos.z = THREE.MathUtils.lerp(c.escapeFrom.z, MOUSE_HOLE.z, k * k);
+    pos.y = THREE.MathUtils.lerp(c.escapeFrom.y, -CHEESE_HEIGHT, k);
+    const s = 1 - k;
+    c.group.scale.set(s, s, s);
+    if (k >= 1) {
+        c.sunk = true;
+        c.group.visible = false;
+    }
+}
+
+function resetCheeseProps() {
+    cheeseCollectibles.forEach(c => {
+        c.escaping = false;
+        c.sunk = false;
+        c.escapeT = 0;
+        c.group.visible = true;
+        c.group.scale.set(1, 1, 1);
+        c.group.position.set(
+            c.spawnPos.x,
+            getFloorY(c.spawnPos.x, c.spawnPos.z) + CHEESE_HEIGHT / 2,
+            c.spawnPos.z
+        );
+        c.mesh.rotation.set(0, Math.PI / 4, 0);
+        c.vel.set(0, 0, 0);
+        c.velY = 0;
+        c.grounded = true;
+    });
+}
+
 const STEP_HEIGHT = 0.12;
 
-// feetY: the caller's current height. Omit it to get the highest surface under (px, pz)
-// regardless of height (used by the chef AI for placing smash rings).
 function getFloorY(px, pz, feetY = Infinity) {
     let maxY = 0;
     for (const obs of kitchenObstacles) {
@@ -293,8 +319,6 @@ function solveObstacleCollision(pos, radius) {
         const minZ = obs.z - obs.d / 2 - radius;
         const maxZ = obs.z + obs.d / 2 + radius;
 
-        // Side wall while the feet are below the top lip; at/above the lip it's a floor
-        // (see STEP_HEIGHT), so it must not push sideways.
         if (pos.x > minX && pos.x < maxX && pos.z > minZ && pos.z < maxZ && pos.y < obs.h - STEP_HEIGHT) {
             const dxMin = Math.abs(pos.x - minX);
             const dxMax = Math.abs(pos.x - maxX);
@@ -310,14 +334,12 @@ function solveObstacleCollision(pos, radius) {
     }
 }
 
-// Simple particle dust puffs for landings/footsteps (cheap, pooled)
-const dustMat = new THREE.MeshBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.55 });
+// Particle dust puffs sharing geometry and material to prevent GC stuttering
 function spawnDust(pos, scale = 1.0) {
-    if (lowGraphics) return; // dust is purely decorative — skip entirely in low graphics
     const count = Math.ceil(3 * scale);
     for (let i = 0; i < count; i++) {
-        const geo = new THREE.SphereGeometry(0.05 + Math.random() * 0.04, 4, 4);
-        const mesh = new THREE.Mesh(geo, dustMat.clone());
+        const mat = new THREE.MeshBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.55 });
+        const mesh = new THREE.Mesh(dustGeo, mat);
         mesh.position.set(
             pos.x + (Math.random() - 0.5) * 0.3,
             pos.y + 0.05,
@@ -331,13 +353,13 @@ function spawnDust(pos, scale = 1.0) {
         });
     }
 }
+
 function updateDust(dt) {
     for (let i = footstepDust.length - 1; i >= 0; i--) {
         const d = footstepDust[i];
         d.life -= dt;
         if (d.life <= 0) {
             scene.remove(d.mesh);
-            d.mesh.geometry.dispose();
             d.mesh.material.dispose();
             footstepDust.splice(i, 1);
             continue;

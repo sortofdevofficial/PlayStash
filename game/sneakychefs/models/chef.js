@@ -248,34 +248,61 @@ function createLowPolyChef() {
     return chefGroup;
 }
 
+const CHEF_SIGHT_RANGE = 11.0;
+const CHEF_CLOSE_RANGE = 4.0;
+const CHEF_LOSE_SIGHT_SECONDS = 2.2;
+const CHEF_REALERT_COOLDOWN = 1.0;
+const chefSightRay = new THREE.Raycaster();
+
+// Counters, crates, the fridge and the walls all block the chef's view, so ducking
+// behind one is what actually ends a chase.
+function chefHasLineOfSight(distToMouse) {
+    const eye = chefGroup.position.clone().add(new THREE.Vector3(0, 2.45, 0));
+    const target = mouseGroup.position.clone().add(new THREE.Vector3(0, 0.35, 0));
+    const dir = target.sub(eye);
+    if (dir.lengthSq() < 0.0001) return true;
+    chefSightRay.set(eye, dir.normalize());
+    chefSightRay.far = distToMouse - 0.25;
+    return chefSightRay.intersectObjects(cameraCollisionMeshes, false).length === 0;
+}
+
 function updateChefAI(dt, time) {
     if (typeof chefGroup === 'undefined' || !chefGroup || typeof mouseGroup === 'undefined' || !mouseGroup) return;
 
     const distToMouse = chefGroup.position.distanceTo(mouseGroup.position);
     const playerHiding = (typeof isHiding !== 'undefined' && isHiding);
 
-    // Perception & Chase Toggle
-    if (!playerHiding) {
-        if (distToMouse < 9.0) {
-            const dirToMouse = mouseGroup.position.clone().sub(chefGroup.position).normalize();
-            const chefForward = new THREE.Vector3(Math.sin(chefGroup.rotation.y), 0, Math.cos(chefGroup.rotation.y));
-            const dot = chefForward.dot(dirToMouse);
+    // Perception & Chase Toggle. Nothing sets isHiding in this build, so breaking the
+    // chef's line of sight is what ends a chase — without the lose-sight branch below
+    // he would pursue permanently from the moment he first saw you.
+    if (chefRealertTimer > 0) chefRealertTimer -= dt;
 
-            if (distToMouse < 4.0 || dot > 0.2) {
-                if (typeof chefIsChasing !== 'undefined' && !chefIsChasing) {
-                    chefIsChasing = true;
-                    if (typeof playSound === 'function') playSound('alert');
-                }
-                chefLoseTimer = 0;
-            }
+    let spotted = false;
+    if (!playerHiding && chefRealertTimer <= 0 && distToMouse < CHEF_SIGHT_RANGE) {
+        const dirToMouse = mouseGroup.position.clone().sub(chefGroup.position);
+        dirToMouse.y = 0;
+        if (dirToMouse.lengthSq() > 0.0001) dirToMouse.normalize();
+        const chefForward = new THREE.Vector3(Math.sin(chefGroup.rotation.y), 0, Math.cos(chefGroup.rotation.y));
+
+        if (distToMouse < CHEF_CLOSE_RANGE || chefForward.dot(dirToMouse) > 0.2) {
+            spotted = chefHasLineOfSight(distToMouse);
         }
-    } else {
-        if (typeof chefIsChasing !== 'undefined' && chefIsChasing) {
-            chefLoseTimer += dt;
-            if (chefLoseTimer > 1.8) {
-                chefIsChasing = false;
-                chefLoseTimer = 0;
-            }
+    }
+
+    if (spotted) {
+        chefLoseTimer = 0;
+        if (!chefIsChasing) {
+            chefIsChasing = true;
+            playSound('alert');
+            showToast('Spotted! Get a counter between you and him');
+        }
+    } else if (chefIsChasing) {
+        chefLoseTimer += dt;
+        if (chefLoseTimer > CHEF_LOSE_SIGHT_SECONDS) {
+            chefIsChasing = false;
+            chefLoseTimer = 0;
+            chefRealertTimer = CHEF_REALERT_COOLDOWN;
+            showToast('You lost him — keep rolling');
         }
     }
 

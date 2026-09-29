@@ -50,26 +50,46 @@
             gap: 10px;
             box-shadow: 0 8px 20px rgba(0,0,0,0.4);
         }
+        .hud-label {
+            color: #8b93a8;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+        }
+        #hud-timer { font-variant-numeric: tabular-nums; min-width: 3.2ch; }
+        .pips { display: flex; gap: 7px; }
+        .pip {
+            width: 15px;
+            height: 15px;
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.16);
+            clip-path: polygon(0 100%, 100% 100%, 100% 0);
+            transition: background 0.25s ease, transform 0.25s ease;
+        }
+        .pip.on { background: #ffbe00; transform: scale(1.18); }
 
-        /* Graphics quality toggle */
-        #gfx-toggle {
+        /* Controls hint — fades out once the player is oriented */
+        #hint {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            bottom: 26px;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 10;
             background: rgba(18, 18, 28, 0.75);
             backdrop-filter: blur(8px);
             border: 1px solid rgba(255, 255, 255, 0.15);
-            color: #fff;
-            font-weight: 700;
-            font-size: 0.85rem;
-            padding: 10px 16px;
-            border-radius: 10px;
-            cursor: pointer;
+            color: #c8d0e0;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 0.84rem;
+            font-weight: 600;
+            white-space: nowrap;
+            pointer-events: none;
             box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            transition: opacity 0.8s ease;
         }
-        #gfx-toggle:active { transform: translateY(1px); }
-        #gfx-toggle.low { background: rgba(255, 184, 0, 0.22); border-color: rgba(255, 184, 0, 0.5); }
+        #hint b { color: #ffbe00; font-weight: 700; }
+        #hint.hide { opacity: 0; }
 
         /* Toast Notifications */
         #toast {
@@ -197,13 +217,38 @@
         @media (min-width: 768px) {
             #touch-controls { display: none; }
         }
+        @media (max-width: 767px) {
+            #hint {
+                bottom: 176px;
+                white-space: normal;
+                text-align: center;
+                max-width: 92%;
+                line-height: 1.45;
+            }
+        }
     </style>
 
     <!-- Three.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-    <button id="gfx-toggle">LOW GRAPHICS: OFF</button>
+    <div id="hud">
+        <div class="hud-card">
+            <span class="hud-label">CHEESE</span>
+            <span class="pips" id="cheese-pips"></span>
+            <span id="cheese-count">0/0</span>
+        </div>
+        <div class="hud-card">
+            <span class="hud-label">TIME</span>
+            <span id="hud-timer">0:00</span>
+        </div>
+    </div>
+
+    <div id="hint">
+        Roll all <b>3</b> cheese wheels into the <b>mouse hole</b> to escape &mdash;
+        WASD move &middot; Space jump &middot; Right-drag orbit &middot; Wheel zoom
+    </div>
+
     <div id="toast">Message</div>
 
     <div id="game-over-modal" class="modal">
@@ -234,7 +279,6 @@
     <script src="models/mice.js"></script>
     <script src="models/chef.js"></script>
     <script src="environment.js"></script>
-    <script src="chef-ai.js"></script>
     <script src="mouse-controller.js"></script>
     <script src="index.js"></script>
 </body>

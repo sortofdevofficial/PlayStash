@@ -174,6 +174,9 @@ const CHEESE_PUSH_FACTOR = 1.15;
 function pushCheeseWithBodyWeight() {
     const mouseSpeed = mouseVel.length();
     cheeseCollectibles.forEach(c => {
+        // A wheel already on its way into the hole is out of play
+        if (c.escaping || c.sunk) return;
+
         // Only push things roughly at the same level (don't shove a wheel on the floor
         // because the mouse is jumping past it up near a shelf)
         if (Math.abs(mouseGroup.position.y - c.group.position.y) > CHEESE_HEIGHT + 0.3) return;
