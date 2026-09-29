@@ -1,403 +1,365 @@
 /**
- * Sneaky Chefs: Kitchen Escape - Mouse Controller
+ * Sneaky Chefs: Kitchen Escape - Mouse Input, Movement, Camera, Body Animation
  */
 
-// Camera settings - CAM_DIST_MIN reduced to 0.1 for maximum zoom-in
-CAM_DIST_MIN = 0.1;
-CAM_DIST_MAX = 50.0;
-CAM_ZOOM_STEP = 2.0;
-CAM_COLLISION_MARGIN = 0.1;
-
-GRAVITY_UP = 28.0;
-GRAVITY_DOWN = 48.0;
-JUMP_FORCE = 11.5;
-TERMINAL_VELOCITY = -22.0;
-COYOTE_TIME = 0.12;
-JUMP_BUFFER_TIME = 0.12;
-
-if (typeof isHiding === 'undefined') window.isHiding = false;
-if (typeof hidingBoxMesh === 'undefined') window.hidingBoxMesh = null;
-const HIDING_BOX_POS = new THREE.Vector3(3.5, 0, -4.0);
-const HIDING_INTERACT_RADIUS = 2.0;
-
-let mouseGaitPhase = 0;
-let mouseTurnAngle = 0;
-let idleBehaviorTimer = 0;
-let currentIdleState = 'IDLE_BREATHE';
-let idleTargetHeadRotation = 0;
-let coyoteTimer = 0;
-let jumpBufferTimer = 0;
-let nearFoodItem = null;
-
 function setupInputListeners() {
-    window.addEventListener('keydown', (e) => {
-        if (typeof isGameOver !== 'undefined' && isGameOver) return;
-        switch (e.code) {
-            case 'KeyW': case 'ArrowUp': keys.forward = true; break;
-            case 'KeyS': case 'ArrowDown': keys.backward = true; break;
-            case 'KeyA': case 'ArrowLeft': keys.left = true; break;
-            case 'KeyD': case 'ArrowRight': keys.right = true; break;
-            case 'Space':
-                jumpBufferTimer = JUMP_BUFFER_TIME;
-                break;
-            case 'KeyE':
-                handleInteraction();
-                break;
-        }
-    });
-
-    window.addEventListener('keyup', (e) => {
-        switch (e.code) {
-            case 'KeyW': case 'ArrowUp': keys.forward = false; break;
-            case 'KeyS': case 'ArrowDown': keys.backward = false; break;
-            case 'KeyA': case 'ArrowLeft': keys.left = false; break;
-            case 'KeyD': case 'ArrowRight': keys.right = false; break;
-        }
-    });
-
-    window.addEventListener('mousedown', (e) => { if (e.button === 2) isRightMouseDown = true; });
-    window.addEventListener('mouseup', (e) => { if (e.button === 2) isRightMouseDown = false; });
-    window.addEventListener('mousemove', (e) => {
-        if (isRightMouseDown) {
-            camYaw -= e.movementX * 0.005;
-            camPitch = Math.max(0.02, Math.min(Math.PI / 2.1, camPitch + e.movementY * 0.005));
-        }
-    });
-
-    window.addEventListener('wheel', (e) => {
-        camDistTarget = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, camDistTarget + Math.sign(e.deltaY) * CAM_ZOOM_STEP));
-    });
-
-    const bindTouchBtn = (id, keyName) => {
-        const btn = document.getElementById(id);
-        if (!btn) return;
-        btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
-        btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
+    const handleKey = (e, isDown) => {
+        const k = e.key.toLowerCase();
+        // Stop Space/Enter from activating a focused button (e.g. PLAY AGAIN) mid-game
+        if (k === ' ' || k === 'enter') e.preventDefault();
+        if (k === 'w' || k === 'arrowup') keys.forward = isDown;
+        if (k === 's' || k === 'arrowdown') keys.backward = isDown;
+        if (k === 'a' || k === 'arrowleft') keys.left = isDown;
+        if (k === 'd' || k === 'arrowright') keys.right = isDown;
+        if (k === ' ' && isDown && isGrounded) triggerJump();
     };
 
-    bindTouchBtn('btn-up', 'forward');
-    bindTouchBtn('btn-down', 'backward');
-    bindTouchBtn('btn-left', 'left');
-    bindTouchBtn('btn-right', 'right');
+    window.addEventListener('keydown', e => handleKey(e, true));
+    window.addEventListener('keyup', e => handleKey(e, false));
 
-    const btnJump = document.getElementById('btn-jump');
-    if (btnJump) {
-        btnJump.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            jumpBufferTimer = JUMP_BUFFER_TIME;
-        });
-    }
+    // Right-Click Camera Drag Listeners
+    window.addEventListener('mousedown', (e) => {
+        if (e.button === 2) isRightMouseDown = true;
+    });
 
-    const btnInteract = document.getElementById('btn-interact');
-    if (btnInteract) {
-        btnInteract.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            handleInteraction();
-        });
-    }
+    window.addEventListener('mouseup', (e) => {
+        if (e.button === 2) isRightMouseDown = false;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (isRightMouseDown) {
+            camYaw -= e.movementX * 0.006;
+            camPitch += e.movementY * 0.006;
+            // Clamp pitch to prevent camera flip
+            camPitch = Math.max(0.1, Math.min(Math.PI / 2 - 0.05, camPitch));
+        }
+    });
+
+    // Zoom: mouse wheel, +/- keys, and two-finger pinch on touch screens
+    const zoomBy = d => { camDistTarget = THREE.MathUtils.clamp(camDistTarget + d, CAM_DIST_MIN, CAM_DIST_MAX); };
+    window.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        zoomBy(Math.sign(e.deltaY) * CAM_ZOOM_STEP);
+    }, { passive: false });
+    window.addEventListener('keydown', (e) => {
+        if (e.key === '=' || e.key === '+') zoomBy(-CAM_ZOOM_STEP);
+        if (e.key === '-' || e.key === '_') zoomBy(CAM_ZOOM_STEP);
+    });
+    let pinchStart = 0, pinchStartDist = 0;
+    const touchGap = e => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    window.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) { pinchStart = touchGap(e); pinchStartDist = camDistTarget; }
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && pinchStart > 0) {
+            // fingers apart = zoom in (smaller distance)
+            camDistTarget = THREE.MathUtils.clamp(pinchStartDist * pinchStart / touchGap(e), CAM_DIST_MIN, CAM_DIST_MAX);
+        }
+    }, { passive: true });
+    window.addEventListener('touchend', (e) => { if (e.touches.length < 2) pinchStart = 0; }, { passive: true });
+
+    // Mobile Touch
+    const bindTouch = (id, action) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('touchstart', (e) => { e.preventDefault(); action(true); });
+        el.addEventListener('touchend', (e) => { e.preventDefault(); action(false); });
+    };
+
+    bindTouch('btn-up', v => keys.forward = v);
+    bindTouch('btn-down', v => keys.backward = v);
+    bindTouch('btn-left', v => keys.left = v);
+    bindTouch('btn-right', v => keys.right = v);
+    bindTouch('btn-jump', v => { if (v && isGrounded) triggerJump(); });
+
+    const restartBtn = document.getElementById('restart-btn');
+    restartBtn.setAttribute('tabindex', '-1');
+    restartBtn.addEventListener('click', () => {
+        restartBtn.blur();
+        restartGame();
+    });
 }
 
-function exitCardboardBox() {
-    isHiding = false;
-    jumpVelocity = 5.0;
+function triggerJump() {
+    jumpVelocity = JUMP_FORCE;
     isGrounded = false;
-    if (typeof playSound === 'function') playSound('jump');
+    playSound('jump');
 }
 
-function enterCardboardBox() {
-    isHiding = true;
-    mouseVel.set(0, 0, 0);
-    jumpVelocity = 0;
-    if (typeof playSound === 'function') playSound('collect');
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
+// Movement, jumping/gravity, obstacle collision, footstep dust, cheese pushing
 function updateMouse(dt, time) {
-    mouseGroup.visible = true;
+    // Relative Camera Movement Calculation
+    const rawInputDir = new THREE.Vector3(
+        (keys.right ? 1 : 0) - (keys.left ? 1 : 0),
+        0,
+        (keys.backward ? 1 : 0) - (keys.forward ? 1 : 0)
+    );
 
-    const moveDir = new THREE.Vector3();
-    const forward = new THREE.Vector3(Math.sin(camYaw), 0, Math.cos(camYaw)).negate();
-    const right = new THREE.Vector3(Math.cos(camYaw), 0, -Math.sin(camYaw));
+    if (rawInputDir.length() > 0) rawInputDir.normalize();
 
-    if (keys.forward) moveDir.add(forward);
-    if (keys.backward) moveDir.sub(forward);
-    if (keys.left) moveDir.sub(right);
-    if (keys.right) moveDir.add(right);
+    // Orient movement vector relative to camera yaw angle
+    const inputDir = new THREE.Vector3();
+    inputDir.x = rawInputDir.x * Math.cos(camYaw) + rawInputDir.z * Math.sin(camYaw);
+    inputDir.z = -rawInputDir.x * Math.sin(camYaw) + rawInputDir.z * Math.cos(camYaw);
 
-    const isMoving = moveDir.lengthSq() > 0.001;
-    const currentSpeed = isHiding ? MOVE_SPEED * 0.65 : MOVE_SPEED;
-
-    if (isMoving) {
-        moveDir.normalize();
-        const targetAngle = Math.atan2(moveDir.x, moveDir.z) + Math.PI;
-        let diff = targetAngle - mouseAngle;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-
-        mouseTurnAngle = diff;
-        mouseAngle += diff * dt * 14.0;
-        mouseGroup.rotation.y = mouseAngle;
-
-        mouseVel.x = moveDir.x * currentSpeed;
-        mouseVel.z = moveDir.z * currentSpeed;
-    } else {
-        mouseVel.x = THREE.MathUtils.lerp(mouseVel.x, 0, dt * 12.0);
-        mouseVel.z = THREE.MathUtils.lerp(mouseVel.z, 0, dt * 12.0);
-        mouseTurnAngle = THREE.MathUtils.lerp(mouseTurnAngle, 0, dt * 10.0);
-    }
+    mouseVel.x = THREE.MathUtils.lerp(mouseVel.x, inputDir.x * MOVE_SPEED, dt * 12);
+    mouseVel.z = THREE.MathUtils.lerp(mouseVel.z, inputDir.z * MOVE_SPEED, dt * 12);
 
     mouseGroup.position.x += mouseVel.x * dt;
     mouseGroup.position.z += mouseVel.z * dt;
 
-    if (typeof solveObstacleCollision === 'function') {
-        solveObstacleCollision(mouseGroup.position, 0.35);
+    if (inputDir.length() > 0.1) {
+        // Model's forward (head) axis is -Z at rotation.y = 0, so offset by PI to align
+        // the head — not the tail — with the actual direction of travel.
+        const targetAngle = Math.atan2(inputDir.x, inputDir.z) + Math.PI;
+        let diff = targetAngle - mouseAngle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        mouseAngle += diff * dt * 15;
+        mouseGroup.rotation.y = mouseAngle;
     }
 
-    if (isHiding && hidingBoxMesh) {
-        hidingBoxMesh.position.set(mouseGroup.position.x, 0, mouseGroup.position.z);
-    }
-
-    if (isHiding && jumpBufferTimer > 0) {
-        jumpBufferTimer = 0;
-        exitCardboardBox();
-    }
-
-    const floorY = typeof getFloorY === 'function' ? getFloorY(mouseGroup.position.x, mouseGroup.position.z, mouseGroup.position.y) : 0;
-    const onSolidGround = mouseGroup.position.y <= floorY + 0.01;
-
-    if (onSolidGround) {
-        coyoteTimer = COYOTE_TIME;
-        isGrounded = true;
-    } else {
-        coyoteTimer -= dt;
-        if (coyoteTimer <= 0) isGrounded = false;
-    }
-
-    if (jumpBufferTimer > 0) jumpBufferTimer -= dt;
-
-    if (!isHiding && jumpBufferTimer > 0 && coyoteTimer > 0) {
-        jumpVelocity = JUMP_FORCE;
-        isGrounded = false;
-        coyoteTimer = 0;
-        jumpBufferTimer = 0;
-        landingSquash = -0.35;
-        if (typeof playSound === 'function') playSound('jump');
-        if (typeof spawnDust === 'function') spawnDust(mouseGroup.position, 1.2);
-    }
-
-    if (!isGrounded || mouseGroup.position.y > floorY) {
-        const currentGravity = jumpVelocity > 0 ? GRAVITY_UP : GRAVITY_DOWN;
-        jumpVelocity -= currentGravity * dt;
-        jumpVelocity = Math.max(TERMINAL_VELOCITY, jumpVelocity);
-
+    // Floor under the mouse depends on its feet height: a box taller than the feet can
+    // reach is a wall, not a floor, so it can never yank the mouse up mid-jump.
+    const currentFloorY = getFloorY(mouseGroup.position.x, mouseGroup.position.z, mouseGroup.position.y);
+    const wasAirborne = !isGrounded;
+    if (!isGrounded || mouseGroup.position.y > currentFloorY) {
+        jumpVelocity -= GRAVITY * dt;
         mouseGroup.position.y += jumpVelocity * dt;
 
-        if (mouseGroup.position.y <= floorY) {
-            mouseGroup.position.y = floorY;
-            if (jumpVelocity < -2.0) {
-                landingSquash = Math.min(1.0, Math.abs(jumpVelocity) * 0.05);
-                if (typeof spawnDust === 'function') spawnDust(mouseGroup.position, 0.8);
+        // Only land while falling. Snapping up to a surface while still rising is the
+        // "teleport onto the box" you'd get by spam-jumping against its side.
+        if (jumpVelocity <= 0 && mouseGroup.position.y <= currentFloorY) {
+            mouseGroup.position.y = currentFloorY;
+            if (wasAirborne && jumpVelocity < -4) {
+                landingSquash = 1.0;
+                spawnDust(mouseGroup.position);
             }
             jumpVelocity = 0;
             isGrounded = true;
         }
-    } else {
-        mouseGroup.position.y = floorY;
-        jumpVelocity = 0;
     }
 
-    mouseGroup.position.x = Math.max(-15.2, Math.min(15.2, mouseGroup.position.x));
-    mouseGroup.position.z = Math.max(-15.2, Math.min(15.2, mouseGroup.position.z));
+    // collision radius follows the model size (0.30 at the original S = 0.65)
+    solveObstacleCollision(mouseGroup.position, 0.46 * mouseGroup.userData.scaleFactor);
 
-    if (Math.abs(landingSquash) > 0.01) {
-        landingSquash = THREE.MathUtils.lerp(landingSquash, 0, dt * 10.0);
-        const squashX = 1 + landingSquash * 0.4;
-        const squashY = 1 - landingSquash * 0.5;
-        mouseGroup.scale.set(squashX, squashY, squashX);
+    const speedRatio = Math.min(1.0, mouseVel.length() / MOVE_SPEED);
+    animateMouseBody(dt, time, speedRatio);
+
+    // Footstep dust while grounded and moving
+    if (isGrounded && speedRatio > 0.3 && Math.floor(time * 0.01) % 4 === 0 && Math.floor(time * 0.01) !== lastDustTick) {
+        lastDustTick = Math.floor(time * 0.01);
+        spawnDust(mouseGroup.position, 0.4);
+    }
+    updateDust(dt);
+
+    updateCheeseProps(dt);
+    pushCheeseWithBodyWeight();
+}
+
+// Rolling cheese by body weight: any cheese the mouse overlaps gets a velocity kick
+// along the direction the mouse is pushing into it, scaled by how fast the mouse is
+// actually moving (its "weight" behind the push) — standing still against a wheel
+// doesn't budge it, running into one sends it rolling. Also shoves the mouse back out
+// of the wheel's radius so it can't just sit inside it.
+const MOUSE_PUSH_RADIUS = 0.32;
+const CHEESE_PUSH_FACTOR = 1.15;
+function pushCheeseWithBodyWeight() {
+    const mouseSpeed = mouseVel.length();
+    cheeseCollectibles.forEach(c => {
+        // Only push things roughly at the same level (don't shove a wheel on the floor
+        // because the mouse is jumping past it up near a shelf)
+        if (Math.abs(mouseGroup.position.y - c.group.position.y) > CHEESE_HEIGHT + 0.3) return;
+
+        const dx = c.group.position.x - mouseGroup.position.x;
+        const dz = c.group.position.z - mouseGroup.position.z;
+        const dist = Math.hypot(dx, dz);
+        const minDist = MOUSE_PUSH_RADIUS + CHEESE_RADIUS;
+        if (dist >= minDist || dist < 0.0001) return;
+
+        const nx = dx / dist, nz = dz / dist;
+
+        // Push the cheese along the mouse's own momentum, not just straight away from
+        // the mouse's center — a glancing run-by nudges it sideways, a head-on charge
+        // sends it flying forward, exactly like body weight would.
+        if (mouseSpeed > 0.15) {
+            c.vel.x += (mouseVel.x / mouseSpeed) * mouseSpeed * CHEESE_PUSH_FACTOR * 0.6 + nx * mouseSpeed * CHEESE_PUSH_FACTOR * 0.4;
+            c.vel.z += (mouseVel.z / mouseSpeed) * mouseSpeed * CHEESE_PUSH_FACTOR * 0.6 + nz * mouseSpeed * CHEESE_PUSH_FACTOR * 0.4;
+            c.grounded = true; // a shove keeps it rolling on the ground, not launched up
+        }
+
+        // Separate the overlap so the mouse doesn't sink into the wheel
+        const overlap = minDist - dist;
+        mouseGroup.position.x -= nx * overlap;
+        mouseGroup.position.z -= nz * overlap;
+    });
+}
+
+// Orbit Camera Positioning based on Right Click Yaw/Pitch, with wall/obstacle collision
+// avoidance: raycast from just above the mouse toward the desired camera spot and pull
+// the distance in if something is in the way, so the camera never clips through geometry.
+function updateCamera(dt) {
+    const lookFrom = new THREE.Vector3(mouseGroup.position.x, mouseGroup.position.y + 0.5, mouseGroup.position.z);
+    const desiredDir = new THREE.Vector3(
+        Math.sin(camYaw) * Math.cos(camPitch),
+        Math.sin(camPitch),
+        Math.cos(camYaw) * Math.cos(camPitch)
+    ).normalize();
+
+    // Ease the zoom toward its target so wheel notches feel smooth, not steppy
+    camDist = THREE.MathUtils.lerp(camDist, camDistTarget, Math.min(1, dt * 10));
+
+    let allowedDist = camDist;
+    if (cameraCollisionMeshes.length > 0) {
+        cameraRaycaster.set(lookFrom, desiredDir);
+        cameraRaycaster.far = camDist;
+        const hits = cameraRaycaster.intersectObjects(cameraCollisionMeshes, false);
+        if (hits.length > 0) {
+            allowedDist = Math.max(1.5, hits[0].distance - CAM_COLLISION_MARGIN);
+        }
+    }
+
+    const targetCamPos = new THREE.Vector3().copy(lookFrom).addScaledVector(desiredDir, allowedDist);
+    // Snap in quickly when a wall pushes the camera closer, ease out slowly when it's free again,
+    // so the camera doesn't visibly clip through a wall for a frame while lerping back out.
+    const closingIn = allowedDist < camera.position.distanceTo(lookFrom);
+    camera.position.lerp(targetCamPos, dt * (closingIn ? 16 : 8));
+    camera.lookAt(mouseGroup.position.x, mouseGroup.position.y + 0.5, mouseGroup.position.z);
+}
+
+// ---- Mouse body/leg/tail animation: diagonal trot gait with real hip+knee joints,
+// spine bounce driven by footfall, lean into turns, and tail lag behind body rotation ----
+let gaitPhase = 0; // advances only while moving, so legs don't "walk in place" when idle
+let tailPhase = 0; // runs even when idle so the tail always has a lazy sway
+let mouseTurnRate = 0; // smoothed yaw rate, drives the tail's turn-lag whip
+const TAIL_BASE_X = -Math.PI / 2; // root segment lies horizontal, pointing back
+
+function animateMouseBody(dt, time, speedRatio) {
+    // Advance gait cycle proportional to actual movement speed
+    gaitPhase += dt * (2.2 + speedRatio * 6.0) * (speedRatio > 0.02 ? 1 : 0);
+
+    // Diagonal trot: front-left+rear-right swing together, opposite to front-right+rear-left
+    if (mouseLegJoints && mouseLegJoints.length === 4) {
+        const [fl, fr, rl, rr] = mouseLegJoints;
+        const strideAmp = 0.5 * speedRatio;
+        const kneeAmp = 0.65 * speedRatio;
+
+        const pairAPhase = gaitPhase;
+        const pairBPhase = gaitPhase + Math.PI;
+
+        // Hip swing (forward/back)
+        fl.hip.rotation.x = Math.sin(pairAPhase) * strideAmp;
+        rr.hip.rotation.x = Math.sin(pairAPhase) * strideAmp;
+        fr.hip.rotation.x = Math.sin(pairBPhase) * strideAmp;
+        rl.hip.rotation.x = Math.sin(pairBPhase) * strideAmp;
+
+        // Knee bend: bends most during the "lift/swing forward" half of the stride,
+        // stays nearly straight during the ground-contact/push half — gives a real walking look
+        // instead of a rigid pendulum leg.
+        const kneeCurve = (phase) => {
+            const s = Math.sin(phase);
+            const liftPortion = Math.max(0, s); // only bend while leg is swinging forward/up
+            return liftPortion * liftPortion * kneeAmp;
+        };
+        fl.knee.rotation.x = -kneeCurve(pairAPhase);
+        rr.knee.rotation.x = -kneeCurve(pairAPhase);
+        fr.knee.rotation.x = -kneeCurve(pairBPhase);
+        rl.knee.rotation.x = -kneeCurve(pairBPhase);
+
+        // Idle: legs relax toward neutral rather than freezing mid-stride
+        if (speedRatio < 0.02) {
+            [fl, fr, rl, rr].forEach(j => {
+                j.hip.rotation.x = THREE.MathUtils.lerp(j.hip.rotation.x, 0, dt * 6);
+                j.knee.rotation.x = THREE.MathUtils.lerp(j.knee.rotation.x, 0, dt * 6);
+            });
+        }
+    }
+
+    // Spine bounce: two bounces per full stride cycle (one per diagonal pair touching down),
+    // plus a slight forward pitch when accelerating and lean into turns.
+    if (mouseSpine) {
+        const bounce = Math.abs(Math.sin(gaitPhase)) * 0.035 * speedRatio;
+        mouseSpine.position.y = isGrounded ? bounce : 0;
+
+        // Lean into turns: compare current facing to previous frame's facing
+        let turnDelta = mouseAngle - prevMouseFacingAngle;
+        while (turnDelta < -Math.PI) turnDelta += Math.PI * 2;
+        while (turnDelta > Math.PI) turnDelta -= Math.PI * 2;
+        const turnRate = dt > 0 ? turnDelta / dt : 0;
+        mouseTurnRate = THREE.MathUtils.lerp(mouseTurnRate, turnRate, Math.min(1, dt * 10));
+        const targetLean = THREE.MathUtils.clamp(-turnRate * 0.045, -0.35, 0.35);
+        mouseSpine.rotation.z = THREE.MathUtils.lerp(mouseSpine.rotation.z, targetLean, dt * 8);
+
+        // Slight forward pitch while accelerating/moving fast
+        const targetPitch = speedRatio * 0.08;
+        mouseSpine.rotation.x = THREE.MathUtils.lerp(mouseSpine.rotation.x, targetPitch, dt * 6);
+
+        prevMouseFacingAngle = mouseAngle;
+    }
+
+    // Head bob synced to the same gait cycle, plus head counter-turns slightly less than body lean
+    if (mouseHeadGroup) {
+        // rest height of the head (0.62 * S in mice.js) plus a bob that scales with the mouse
+        const S = mouseGroup.userData.scaleFactor;
+        mouseHeadGroup.position.y = 0.62 * S + Math.abs(Math.sin(gaitPhase)) * 0.028 * S * speedRatio;
+    }
+
+    animateMouseTail(dt, speedRatio);
+
+    // Squash-and-stretch: airborne stretch, landing squash decay (applied to whole mouseGroup,
+    // stacking with spine-level bounce/lean which handles the walking motion)
+    if (!isGrounded) {
+        const stretch = THREE.MathUtils.clamp(1 + Math.abs(jumpVelocity) * 0.012, 1, 1.25);
+        mouseGroup.scale.set(1 / Math.sqrt(stretch), stretch, 1 / Math.sqrt(stretch));
+    } else if (landingSquash > 0) {
+        landingSquash = Math.max(0, landingSquash - dt * 4.5);
+        const squash = 1 - landingSquash * 0.28;
+        mouseGroup.scale.set(1 + landingSquash * 0.16, squash, 1 + landingSquash * 0.16);
     } else {
         mouseGroup.scale.set(1, 1, 1);
-        landingSquash = 0;
     }
-
-    if (typeof updateDust === 'function') updateDust(dt);
-    animateMouseRig(dt, time, isMoving);
-    checkInteractionProximity();
-    updateCamera(dt);
 }
 
-function animateMouseRig(dt, time, isMoving) {
-    const S = mouseGroup.userData.scaleFactor || 0.45;
-    const speedFraction = new THREE.Vector2(mouseVel.x, mouseVel.z).length() / MOVE_SPEED;
+// Tail: a wave that travels root→tip (small lazy sway idle, big swishing when running,
+// tip swinging furthest), lag/whip opposite to turns, lifted while running and raised
+// when airborne, then a droop as you land.
+function animateMouseTail(dt, speedRatio) {
+    tailPhase += dt * (1.6 + speedRatio * 9.0);
+    const n = tailSegments.length;
+    if (n === 0) return;
 
-    if (!isMoving && isGrounded) {
-        idleBehaviorTimer -= dt;
-        if (idleBehaviorTimer <= 0) {
-            idleBehaviorTimer = 2.2 + Math.random() * 3.5;
-            const rand = Math.random();
-            if (rand < 0.4) currentIdleState = 'IDLE_STAND';
-            else if (rand < 0.7) currentIdleState = 'IDLE_LOOK';
-            else if (rand < 0.85) currentIdleState = 'IDLE_GROOM';
-            else currentIdleState = 'IDLE_BREATHE';
-            idleTargetHeadRotation = (Math.random() - 0.5) * 1.3;
-        }
-    } else {
-        currentIdleState = 'IDLE_BREATHE';
-        idleBehaviorTimer = 0;
-    }
+    const airborne = !isGrounded;
+    const rootLift = airborne ? -0.4 : -0.1 * speedRatio;   // negative = up
+    const landDrop = landingSquash * 0.55;                   // positive = down
+    const whip = THREE.MathUtils.clamp(mouseTurnRate * 0.03, -0.9, 0.9);
 
-    let targetSpineRotX = 0, targetSpinePosY = 0, targetHeadRotY = 0, targetHeadRotX = 0;
-    let frontHipX = 0, frontKneeX = 0, rearHipX = 0, rearKneeX = 0;
+    tailSegments.forEach((seg, i) => {
+        const k = i / (n - 1); // 0 at root, 1 at tip
 
-    if (!isGrounded) {
-        targetSpineRotX = jumpVelocity > 0 ? 0.35 : -0.25;
-        targetHeadRotX = jumpVelocity > 0 ? -0.15 : 0.2;
-        frontHipX = -0.5; frontKneeX = 0.6; rearHipX = 0.5; rearKneeX = 0.3;
-    } else if (isMoving) {
-        mouseGaitPhase += dt * speedFraction * 22.0;
-        targetSpinePosY = Math.sin(mouseGaitPhase * 2.0) * 0.035 * S;
-        targetSpineRotX = Math.sin(mouseGaitPhase * 2.0) * 0.06;
-    } else {
-        switch (currentIdleState) {
-            case 'IDLE_STAND':
-                targetSpineRotX = 0.82; targetSpinePosY = 0.35 * S; targetHeadRotX = -0.2;
-                targetHeadRotY = Math.sin(time * 7.0) * 0.18;
-                frontHipX = -1.2; frontKneeX = 1.1; rearHipX = 0.65; rearKneeX = -0.3;
-                break;
-            case 'IDLE_LOOK':
-                targetSpineRotX = 0.12;
-                targetHeadRotY = THREE.MathUtils.lerp(mouseHeadGroup.rotation.y, idleTargetHeadRotation, dt * 6.0);
-                targetHeadRotX = Math.sin(time * 6.0) * 0.06;
-                frontHipX = 0.1; frontKneeX = 0.1; rearHipX = -0.1; rearKneeX = 0.1;
-                break;
-            case 'IDLE_GROOM':
-                targetSpineRotX = 0.25; targetSpinePosY = 0.08 * S; targetHeadRotX = 0.3;
-                frontHipX = -0.9 + Math.sin(time * 18.0) * 0.2; frontKneeX = 1.2 + Math.cos(time * 18.0) * 0.2;
-                rearHipX = 0.2; rearKneeX = 0.1;
-                break;
-            default:
-                targetSpinePosY = Math.sin(time * 3.5) * 0.012 * S; targetSpineRotX = Math.sin(time * 2.5) * 0.02;
-                targetHeadRotX = Math.sin(time * 4.0) * 0.03;
-                frontHipX = 0.0; frontKneeX = 0.0; rearHipX = 0.0; rearKneeX = 0.0;
-                break;
-        }
-    }
+        // Side-to-side: travelling wave, growing toward the tip
+        const swayAmp = (0.07 + 0.2 * speedRatio) * (0.4 + k * 1.1);
+        const sway = Math.sin(tailPhase - i * 0.8) * swayAmp;
+        // Turn lag: body yaws one way, tail trails the other, tip most of all
+        const trail = -whip * (0.25 + k * 0.9);
 
-    mouseSpine.position.y = THREE.MathUtils.lerp(mouseSpine.position.y, targetSpinePosY, dt * 9.0);
-    mouseSpine.rotation.x = THREE.MathUtils.lerp(mouseSpine.rotation.x, targetSpineRotX, dt * 9.0);
-    mouseSpine.rotation.z = THREE.MathUtils.lerp(mouseSpine.rotation.z, -mouseTurnAngle * 0.2, dt * 8.0);
-    mouseHeadGroup.rotation.y = THREE.MathUtils.lerp(mouseHeadGroup.rotation.y, targetHeadRotY, dt * 8.0);
-    mouseHeadGroup.rotation.x = THREE.MathUtils.lerp(mouseHeadGroup.rotation.x, targetHeadRotX, dt * 8.0);
-
-    mouseLegJoints.forEach((joint, idx) => {
-        const isFront = idx < 2;
-        const isLeft = idx % 2 === 0;
-        let hipAngleX = isFront ? frontHipX : rearHipX;
-        let kneeAngleX = isFront ? frontKneeX : rearKneeX;
-
-        if (isGrounded && isMoving) {
-            const offset = (isFront ? (isLeft ? 0 : Math.PI) : (isLeft ? Math.PI : 0));
-            const legPhase = mouseGaitPhase + offset;
-            hipAngleX = Math.sin(legPhase) * 0.85 * speedFraction;
-            kneeAngleX = Math.max(0, Math.cos(legPhase)) * 0.6 * speedFraction;
-        }
-
-        joint.hip.rotation.x = THREE.MathUtils.lerp(joint.hip.rotation.x, hipAngleX, dt * 14.0);
-        joint.knee.rotation.x = THREE.MathUtils.lerp(joint.knee.rotation.x, kneeAngleX, dt * 14.0);
-    });
-
-    tailSegments.forEach((seg, idx) => {
-        let targetTailZ = 0;
-        let targetTailX = (idx === 0 ? -Math.PI / 2.2 : 0);
-
-        if (isMoving) {
-            targetTailZ = Math.sin(mouseGaitPhase - idx * 0.6) * 0.35;
-            targetTailX += Math.cos(mouseGaitPhase - idx * 0.5) * 0.15;
-        } else if (currentIdleState === 'IDLE_STAND') {
-            targetTailX -= 0.6;
-            targetTailZ = Math.sin(time * 3.0 + idx) * 0.08;
+        // Up/down: root lifts as a whole; later segments curl (up in the air, slight droop at rest)
+        let pitch;
+        if (i === 0) {
+            pitch = TAIL_BASE_X + rootLift + landDrop;
         } else {
-            targetTailZ = Math.sin(time * 2.0 + idx * 0.8) * 0.18;
+            pitch = (airborne ? -0.16 : 0.05 * k)
+                  + landDrop * 0.3
+                  + Math.sin(tailPhase - i * 0.8 + 1.2) * 0.05 * speedRatio;
         }
 
-        seg.rotation.z = THREE.MathUtils.lerp(seg.rotation.z, targetTailZ, dt * 8.0);
-        seg.rotation.x = THREE.MathUtils.lerp(seg.rotation.x, targetTailX, dt * 8.0);
+        seg.rotation.z = THREE.MathUtils.lerp(seg.rotation.z, sway + trail, Math.min(1, dt * 12));
+        seg.rotation.x = THREE.MathUtils.lerp(seg.rotation.x, pitch, Math.min(1, dt * 10));
     });
-}
-
-function updateCamera(dt) {
-    camDist = THREE.MathUtils.lerp(camDist, camDistTarget, dt * 8.0);
-
-    const targetPos = mouseGroup.position.clone().add(new THREE.Vector3(0, 0.4, 0));
-    const camOffset = new THREE.Vector3(
-        Math.sin(camYaw) * Math.cos(camPitch) * camDist,
-        Math.sin(camPitch) * camDist,
-        Math.cos(camYaw) * Math.cos(camPitch) * camDist
-    );
-
-    const desiredCamPos = targetPos.clone().add(camOffset);
-
-    const rayDir = camOffset.clone().normalize();
-    cameraRaycaster.set(targetPos, rayDir);
-    const intersects = cameraRaycaster.intersectObjects(cameraCollisionMeshes, false);
-
-    if (intersects.length > 0 && intersects[0].distance < camDist) {
-        const clampedDist = Math.max(0.1, intersects[0].distance - CAM_COLLISION_MARGIN);
-        camera.position.copy(targetPos).add(rayDir.multiplyScalar(clampedDist));
-    } else {
-        camera.position.copy(desiredCamPos);
-    }
-
-    camera.lookAt(targetPos);
-}
-
-function checkInteractionProximity() {
-    nearFoodItem = null;
-    const prompt = document.getElementById('interact-prompt');
-
-    if (typeof foodItems !== 'undefined') {
-        let minDistance = 1.8;
-        foodItems.forEach(item => {
-            if (item.collected) return;
-            const d = mouseGroup.position.distanceTo(item.group.position);
-            if (d < minDistance) {
-                nearFoodItem = item;
-                minDistance = d;
-            }
-        });
-    }
-
-    const boxDist = hidingBoxMesh ? mouseGroup.position.distanceTo(hidingBoxMesh.position) : Infinity;
-
-    if (prompt) {
-        if (isHiding) {
-            prompt.textContent = 'Press [E] or [Space] to Exit Box';
-            prompt.classList.add('show');
-        } else if (boxDist < HIDING_INTERACT_RADIUS) {
-            prompt.textContent = 'Press [E] to Enter Cardboard Box';
-            prompt.classList.add('show');
-        } else if (nearFoodItem) {
-            prompt.textContent = `Press [E] or Tap to Steal ${nearFoodItem.name}`;
-            prompt.classList.add('show');
-        } else {
-            prompt.classList.remove('show');
-        }
-    }
-}
-
-function handleInteraction() {
-    if (isHiding) {
-        exitCardboardBox();
-        return;
-    }
-
-    const boxDist = hidingBoxMesh ? mouseGroup.position.distanceTo(hidingBoxMesh.position) : Infinity;
-    if (boxDist < HIDING_INTERACT_RADIUS) {
-        enterCardboardBox();
-        return;
-    }
-
-    if (nearFoodItem && !nearFoodItem.collected) {
-        if (typeof collectFoodItem === 'function') {
-            collectFoodItem(nearFoodItem);
-        }
-    }
 }

@@ -146,6 +146,12 @@ function collectFoodItem(item) {
         updateInventoryUI(item.type);
     }
 
+    // Stack a visible wedge on the mouse's back for cheese specifically.
+    // Stack a small mesh of whatever was picked up on the mouse's back.
+    if (typeof addCarriedItem === 'function') {
+        addCarriedItem(item.type);
+    }
+
     if (typeof playSound === 'function') playSound('collect');
 
     // Alert chef if close enough when taking food
