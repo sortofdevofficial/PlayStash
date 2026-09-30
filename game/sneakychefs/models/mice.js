@@ -1,4 +1,10 @@
 /**
+ * models/mice.js — mouse rig builders, shared by the player and the base residents.
+ *
+ * createLowPolyMouse returns the group plus the tail/spine/leg joints that actors/mouse.js
+ * and actors/residents.js animate. Geometry only — no behaviour lives here.
+ */
+/**
  * Low-Poly Mouse Model Construction (v6 — faceted materials, white gradient chef hat)
  */
 // Shared with chef.js (loaded after this file): paints a bottom->top colour gradient onto a
@@ -148,7 +154,11 @@ function createLowPolyMouse() {
     hatTop.scale.set(1, 0.85, 1);
     hatTop.position.set(0, HAT_BOTTOM + HAT_BASE_H + 0.14 * S, HAT_Z);
     hatBase.castShadow = hatTop.castShadow = true;
-    headGroup.add(hatBase, hatTop);
+    // Grouped so the hat can be hidden as one unit — NPC mice in the burrow wear no hat,
+    // and picking the meshes out of headGroup by geometry type would also catch the head.
+    const hatGroup = new THREE.Group();
+    hatGroup.add(hatBase, hatTop);
+    headGroup.add(hatGroup);
 
     // ---- Legs: jointed hip+knee, kept simple (single cylinder per segment, no joint spheres) ----
     function makeJointedLeg(upperLen, lowerLen, thickness) {
@@ -196,7 +206,7 @@ function createLowPolyMouse() {
         { hip: rrData.hipPivot, knee: rrData.kneePivot }
     ];
 
-    // ---- Tail: 6 tapered segments; animated per-segment in mouse-controller.js
+    // ---- Tail: 6 tapered segments; animated per-segment in actors/mouse.js
     // (rotation.z = side-to-side sway, rotation.x = lift/droop). Segment 0 lies
     // horizontal (rotation.x = -PI/2) pointing straight back from the rump. ----
     let parentPivot = spine;
@@ -232,8 +242,9 @@ function createLowPolyMouse() {
 
     mouseGroup.userData.spine = spine;
     mouseGroup.userData.headGroup = headGroup;
+    mouseGroup.userData.hatGroup = hatGroup;
     mouseGroup.userData.legJoints = legJoints;
     mouseGroup.userData.scaleFactor = S;
 
-    return { mouseGroup, tailSegments, headGroup, spine, legJoints, scaleFactor: S };
+    return { mouseGroup, tailSegments, headGroup, hatGroup, spine, legJoints, scaleFactor: S };
 }

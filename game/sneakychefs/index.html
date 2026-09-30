@@ -56,17 +56,23 @@
             font-weight: 700;
             letter-spacing: 0.09em;
         }
-        #hud-timer { font-variant-numeric: tabular-nums; min-width: 3.2ch; }
-        .pips { display: flex; gap: 7px; }
-        .pip {
-            width: 15px;
-            height: 15px;
-            display: inline-block;
-            background: rgba(255, 255, 255, 0.16);
-            clip-path: polygon(0 100%, 100% 100%, 100% 0);
-            transition: background 0.25s ease, transform 0.25s ease;
+        #stash-count { font-variant-numeric: tabular-nums; min-width: 2ch; }
+        #hud-area { letter-spacing: 0.06em; font-size: 0.95rem; }
+
+        /* Area change mask — the two rooms are nowhere near each other in the scene */
+        #fade {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0b0a10;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.42s ease;
+            z-index: 50;
         }
-        .pip.on { background: #ffbe00; transform: scale(1.18); }
+        #fade.on { opacity: 1; }
 
         /* Controls hint — fades out once the player is oriented */
         #hint {
@@ -151,9 +157,6 @@
             margin-bottom: 10px;
             color: #ff4757;
         }
-        .modal-card h1.win {
-            color: #2ed573;
-        }
         .modal-card p {
             color: #a4b0be;
             margin-bottom: 25px;
@@ -214,6 +217,20 @@
             background: rgba(255,255,255,0.35);
         }
 
+        /* QA report sink — empty, so invisible, unless the page was opened with ?qa=1 */
+        #qa-out {
+            position: absolute;
+            left: 8px;
+            bottom: 8px;
+            z-index: 60;
+            max-width: 96%;
+            font: 11px/1.45 Consolas, monospace;
+            color: #7ee787;
+            white-space: pre-wrap;
+            word-break: break-all;
+            pointer-events: none;
+        }
+
         @media (min-width: 768px) {
             #touch-controls { display: none; }
         }
@@ -228,26 +245,42 @@
         }
     </style>
 
+    <!--
+      One page, two modes (see README). Opening index.html?qa=1 boots the game as usual and
+      then runs a module audit plus 13 behaviour checks, printing a QA{...} blob into #qa-out.
+      Without the flag none of the rig runs. The error collector has to be installed here,
+      before any module is fetched, to catch a file that fails to parse.
+    -->
+    <script>
+        if (new URLSearchParams(location.search).has('qa')) {
+            window.__qaErrs = [];
+            window.addEventListener('error', e => window.__qaErrs.push(
+                (e.filename || '').split('/').pop() + ':' + e.lineno + ' ' + e.message));
+        }
+    </script>
+
     <!-- Three.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
     <div id="hud">
         <div class="hud-card">
-            <span class="hud-label">CHEESE</span>
-            <span class="pips" id="cheese-pips"></span>
-            <span id="cheese-count">0/0</span>
+            <span class="hud-label">STASH</span>
+            <span id="stash-count">0</span>
         </div>
         <div class="hud-card">
-            <span class="hud-label">TIME</span>
-            <span id="hud-timer">0:00</span>
+            <span class="hud-label">AREA</span>
+            <span id="hud-area">KITCHEN</span>
         </div>
     </div>
 
     <div id="hint">
-        Roll all <b>3</b> cheese wheels into the <b>mouse hole</b> to escape &mdash;
+        The <b>fridge</b> is stocked &mdash; open it and shove the good stuff into the
+        <b>mouse hole</b> to stash it, then walk in to visit the base.
         WASD move &middot; Space jump &middot; Right-drag orbit &middot; Wheel zoom
     </div>
+
+    <div id="fade"></div>
 
     <div id="toast">Message</div>
 
@@ -275,11 +308,404 @@
 
     <canvas id="game-canvas"></canvas>
 
-    <!-- Split Modules (index.js holds shared state + main loop, so it loads last) -->
+    <!--
+      Modules share one global scope (no bundler, so the game is a folder of text files).
+      Load order matters only for core/areas.js, whose AREA_SPAWN reads BURROW_ORIGIN_X and
+      BURROW_BOUND while the file is evaluated, so it must come after world/burrow.js.
+      Everything else is function declarations plus per-module state, safe in any order.
+      See README.md for which file owns what.
+    -->
+    <script src="core/state.js"></script>
     <script src="models/mice.js"></script>
     <script src="models/chef.js"></script>
-    <script src="environment.js"></script>
-    <script src="mouse-controller.js"></script>
-    <script src="index.js"></script>
+    <script src="models/food.js"></script>
+    <script src="world/physics.js"></script>
+    <script src="world/dust.js"></script>
+    <script src="world/mousehole.js"></script>
+    <script src="world/fridge.js"></script>
+    <script src="world/kitchen.js"></script>
+    <script src="world/ingredients.js"></script>
+    <script src="world/burrow.js"></script>
+    <script src="world/scene.js"></script>
+    <script src="actors/mouse.js"></script>
+    <script src="actors/chef.js"></script>
+    <script src="actors/residents.js"></script>
+    <script src="core/audio.js"></script>
+    <script src="core/ui.js"></script>
+    <script src="core/input.js"></script>
+    <script src="core/camera.js"></script>
+    <script src="core/areas.js"></script>
+    <script src="main.js"></script>
+
+    <div id="qa-out"></div>
+    <script>
+    /*
+     * The QA rig: throwaway scaffolding, not game code. Runs only when the page is opened
+     * with ?qa. It reads the module globals by name, which works because every module is a
+     * classic script sharing one global scope.
+     *
+     * Phase 1 audits that each module parsed and each expected global exists — a duplicated
+     * top-level let/const is a SyntaxError that silently kills a whole file, and that is the
+     * failure mode this split is most likely to hit.
+     *
+     * Phase 2 drives the real game through 13 checks: the fridge at rest, opening on
+     * approach, looting butter out of the cavity, resealing, a cheese wheel shoved end to
+     * end down the hole, wall containment, standing inside the fridge, the portal there and
+     * back, the cutaway walls, the residents, and what a capture resets.
+     */
+    (function () {
+        if (!new URLSearchParams(location.search).has('qa')) return;
+
+        const EXPECTED_FUNCTIONS = ['initScene', 'buildKitchenEnvironment', 'buildFridge', 'updateFridge',
+            'buildMouseHole', 'updateMouseHoleGlow', 'spawnIngredients', 'updateIngredientProps', 'resetIngredients',
+            'buildBurrow', 'updateBurrowView', 'addToStash', 'updateBurrowMice', 'createLowPolyMouse',
+            'createLowPolyChef', 'createWarningRing', 'updateChefAI', 'updateMouse', 'pushIngredients',
+            'animateMouseBody', 'animateMouseTail', 'triggerJump', 'updateCamera', 'setupInputListeners',
+            'enterArea', 'travelTo', 'checkHoleCrossing', 'playSound', 'showToast', 'updateStashHud',
+            'getFloorY', 'resetChef', 'resetMouse', 'clearDust', 'buildFreezerGoods', 'fridgeReach',
+            'updateDust', 'spawnDust', 'holeRadius', 'holeDistance', 'clampToArea', 'activeObstacles', 'activeCollision'];
+        const EXPECTED_VARS = ['mouseVel', 'keys', 'ingredients', 'burrowMice', 'stashedIngredients', 'FRIDGE',
+            'fridgeLamp', 'coldPuffs', 'camYaw', 'camDist', 'MOUSE_HOLE', 'BURROW_ORIGIN_X', 'kitchenObstacles',
+            'GRAVITY', 'MOVE_SPEED', 'isTraveling', 'currentArea'];
+
+        window.addEventListener('load', () => {
+            const r = {};
+            const t0 = performance.now();
+            const v3 = (o) => [+o.x.toFixed(2), +o.y.toFixed(2), +o.z.toFixed(2)];
+            const inFridge = (p) => Math.abs(p.x - FRIDGE.x) < FRIDGE.cavityW / 2 && p.z < FRIDGE.mouthZ;
+
+            const varErrs = [];
+            EXPECTED_VARS.forEach(v => { try { eval(v); } catch (e) { varErrs.push(v + ': ' + e.message); } });
+            r.audit = {
+                errors: window.__qaErrs || [],
+                missing: EXPECTED_FUNCTIONS.filter(n => typeof window[n] !== 'function'),
+                varErrs: varErrs
+            };
+
+            // Park the chef out of sight and stop his patrol so these tests measure the
+            // ingredient/fridge/portal mechanics rather than whether he happened to catch us.
+            chefGroup.position.set(13, 0, 13);
+            chefWaypoints.length = 0;
+
+            // Rig-only speedup: under swiftshader the 2048 shadow pass dominates wall clock
+            // and none of these checks depends on shadow quality.
+            const keyLight = scene.children.find(o => o.isDirectionalLight && o.castShadow);
+            if (keyLight) {
+                keyLight.shadow.mapSize.set(512, 512);
+                if (keyLight.shadow.map) { keyLight.shadow.map.dispose(); keyLight.shadow.map = null; }
+            }
+
+            // Rig-only virtual clock, and the reason this page is usable: one frame of this
+            // scene under software GL costs far more than the simulation, headless delivers
+            // frames at a couple per second, and every check below reads simulation state —
+            // positions, door angles, area flags — never pixels. So animate() is stopped from
+            // rescheduling, the draw call is stubbed, and setTimeout becomes a queue keyed to
+            // simulated time so the portal fade and the auto-restart fire in that clock too.
+            // The whole chain then runs synchronously at a fixed dt. Behaviour is verified;
+            // appearance is not — open the page normally to look at it.
+            renderer.render = () => {};
+            window.requestAnimationFrame = () => 0;
+
+            let simTime = 0;
+            let timerId = 0;
+            const timers = [];
+            window.setTimeout = (fn, ms) => {
+                const id = ++timerId;
+                timers.push({ id, at: simTime + Math.max(0, ms || 0), fn });
+                return id;
+            };
+            window.clearTimeout = (id) => {
+                const i = timers.findIndex(t => t.id === id);
+                if (i >= 0) timers.splice(i, 1);
+            };
+            const flushTimers = () => {
+                for (let guard = 0; guard < 200; guard++) {
+                    const due = timers.filter(t => t.at <= simTime).sort((a, b) => a.at - b.at)[0];
+                    if (!due) return;
+                    const i = timers.indexOf(due);
+                    timers.splice(i, 1);
+                    due.fn();
+                }
+            };
+
+            const SIM_DT = 1 / 60;
+            const simFrames = (count) => {
+                for (let i = 0; i < count; i++) {
+                    simTime += SIM_DT * 1000;
+                    // Mirrors animate(), minus the draw call and main.js's DOM-only hint timer.
+                    if (!isGameOver) {
+                        updateMouse(SIM_DT, simTime);
+                        updateCamera(SIM_DT);
+                        if (currentArea === 'burrow') updateBurrowMice(SIM_DT, simTime);
+                        else updateChefAI(SIM_DT, simTime);
+                        checkHoleCrossing();
+                    }
+                    updateMouseHoleGlow(simTime);
+                    updateFridge(SIM_DT);
+                    updateBurrowView(simTime);
+                    flushTimers();
+                }
+            };
+
+            const wait = (pred, limitFrames, onDone) => {
+                for (let n = 0; n < limitFrames; n++) {
+                    if (pred()) return onDone(true);
+                    simFrames(1);
+                }
+                onDone(false);
+            };
+            // Runs the callback once the simulated clock reaches the deadline, advancing the
+            // sim to get there, so rig steps and the game's own timers stay on one clock.
+            const after = (ms, cb) => {
+                let done = false;
+                window.setTimeout(() => { done = true; cb(); }, ms);
+                for (let n = 0; n < 6000 && !done; n++) simFrames(1);
+            };
+
+            const areaLog = [];
+            const rawEnterArea = enterArea;
+            enterArea = function (area) {
+                areaLog.push(area);
+                return rawEnterArea.apply(this, arguments);
+            };
+            r.areaLog = areaLog;
+
+            const crossTo = (area, done) => {
+                wait(() => currentArea === area, 900, done);
+            };
+            const settled = (onDone) => wait(() => !isTraveling && !isGameOver, 900, onDone);
+
+            // A prop shoved down the hole drags the player through with it, so steps that assume
+            // kitchen geometry have to let that settle and then put him back.
+            const backToKitchen = (cb) => after(1500, () => {
+                settled(() => {
+                    if (currentArea === 'kitchen') return cb();
+                    travelTo('kitchen');
+                    crossTo('kitchen', () => settled(cb));
+                });
+            });
+
+            const steps = [];
+
+            // 1. The fridge starts shut: nobody has walked near it yet.
+            r.fridgeShutDoors = fridgeDoorL.rotation.y;
+            r.fridgeShutLamp = fridgeLamp.intensity;
+            steps.push((next) => {
+                r.fridgeGoods = ingredients.filter(i => inFridge(i.group.position)).map(i => i.type);
+                r.fridgeRestsOnLip = ingredients.filter(i => inFridge(i.group.position))
+                    .every(i => Math.abs(i.group.position.y - FRIDGE.lipY) < 0.01);
+                next();
+            });
+
+            // 2. Every ingredient must start resting on the surface under it and within jump reach
+            //    of the mouse, and none may already be sitting in the hole.
+            steps.push((next) => {
+                r.props = ingredients.map(i => ({
+                    type: i.type,
+                    y: +i.group.position.y.toFixed(2),
+                    resting: Math.abs(i.group.position.y - getFloorY(i.group.position.x, i.group.position.z, Infinity, kitchenObstacles)) < 0.01,
+                    nearHole: +kitchenHoleDistance(i.group.position.x, i.group.position.z).toFixed(2)
+                }));
+                r.propCount = r.props.length;
+                r.propsAllResting = r.props.every(p => p.resting);
+                r.propsAllReachable = r.props.every(p => p.y < 1.6);
+                r.propsNonePreStashed = r.props.every(p => p.nearHole > MOUSE_HOLE.radius);
+                next();
+            });
+
+            // 3. Approach the fridge: the doors swing, the lamp comes up, cold air spills out.
+            steps.push((next) => {
+                mouseGroup.position.set(FRIDGE.x, 0, FRIDGE.mouthZ + 1.1);
+                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                wait(() => fridgeOpenK > 0.9, 600, (ok) => {
+                    r.doorsOpened = ok;
+                    r.doorSwing = +Math.abs(fridgeDoorL.rotation.y).toFixed(2);
+                    r.doorSwingR = +Math.abs(fridgeDoorR.rotation.y).toFixed(2);
+                    r.lampOn = +fridgeLamp.intensity.toFixed(2);
+                    r.mistPuffs = coldPuffs.length;
+                    next();
+                });
+            });
+
+            // 4. Shove a block of butter out through the doorway and check the doors let it pass.
+            steps.push((next) => {
+                const butter = ingredients.find(i => i.type === 'butter' && !i.sunk);
+                r.butterStart = v3(butter.group.position);
+                mouseGroup.position.set(butter.group.position.x, FRIDGE.lipY, butter.group.position.z - 0.42);
+                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                keys.backward = true;      // camYaw 0 -> backward drives +Z, out of the cavity
+                wait(() => butter.group.position.z > FRIDGE.mouthZ + 0.4 || butter.stashing, 900, (ok) => {
+                    keys.backward = false;
+                    r.butterEscapedFridge = ok && !butter.stashing;
+                    r.butterAfter = v3(butter.group.position);
+                    next();
+                });
+            });
+
+            // 5. Walk away and the fridge seals itself again.
+            steps.push((next) => {
+                mouseGroup.position.set(2, 0, 6);
+                ingredients.forEach(i => { i.vel.set(0, 0, 0); });
+                wait(() => fridgeOpenK < 0.05, 600, (ok) => {
+                    r.doorsClosed = ok;
+                    r.lampOff = +fridgeLamp.intensity.toFixed(2);
+                    next();
+                });
+            });
+
+            // 6. Body-weight push, end to end: run into a cheese wheel and shove it down the hole,
+            //    checking on the way that it rolls about its axle and never sinks through the floor.
+            steps.push((next) => backToKitchen(() => {
+                const cheese = ingredients.find(i => i.type === 'cheese' && !i.sunk && i.group.position.z < -5);
+                r.cheeseStart = v3(cheese.group.position);
+                mouseGroup.position.set(cheese.group.position.x, 0, cheese.group.position.z + 2.8);
+                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                let peakZ = cheese.group.position.z, spin = 0, minY = 0;
+                keys.forward = true;       // forward drives -Z, toward the wall hole
+                wait(() => {
+                    if (!cheese.sunk) {
+                        peakZ = Math.min(peakZ, cheese.group.position.z);
+                        spin = Math.max(spin, Math.abs(cheese.spinner.rotation.x));
+                        minY = Math.min(minY, cheese.group.position.y);
+                    }
+                    return stashedIngredients.length >= 1;
+                }, 900, (ok) => {
+                    keys.forward = false;
+                    r.pushWorked = ok;
+                    r.cheesePeakZ = +peakZ.toFixed(2);
+                    r.cheeseRolled = +spin.toFixed(2);
+                    r.cheeseStayedAboveFloor = minY >= -0.001;
+                    r.stashHud = document.getElementById('stash-count').textContent;
+                    r.stashClone = stashedIngredients.length ? v3(stashedIngredients[0].position) : null;
+                    r.stashCloneParent = stashedIngredients.length ? stashedIngredients[0].parent === burrowGroup : null;
+                    next();
+                });
+            }));
+
+            // 7. Wall containment, in the kitchen
+            steps.push((next) => backToKitchen(() => {
+                mouseGroup.position.set(14.2, 0, 6);
+                mouseVel.set(0, 0, 0);
+                keys.right = true;
+                wait(() => currentArea === 'kitchen' && mouseGroup.position.x >= 15.34, 600, (ok) => {
+                    keys.right = false;
+                    r.clampX = +mouseGroup.position.x.toFixed(2);
+                    r.clampHeld = ok;
+                    next();
+                });
+            }));
+
+            // 8. The mouse can step onto the sole and stand inside the open fridge
+            steps.push((next) => {
+                mouseGroup.position.set(FRIDGE.x + 0.6, 0, FRIDGE.mouthZ + 0.6);
+                mouseVel.set(0, 0, 0);
+                keys.forward = true;       // walk -Z into the cavity
+                wait(() => inFridge(mouseGroup.position) && mouseGroup.position.y > FRIDGE.lipY - 0.01, 600, (ok) => {
+                    keys.forward = false;
+                    r.enteredFridge = ok;
+                    r.mouseInFridge = v3(mouseGroup.position);
+                    next();
+                });
+            });
+
+            // 9. Walk into the hole -> the base
+            steps.push((next) => {
+                mouseGroup.position.set(0.2, 0, -14.6);
+                mouseVel.set(0, 0, 0);
+                crossTo('burrow', (ok) => { r.enteredBurrow = ok; next(); });
+            });
+            steps.push((next) => settled(() => {
+                r.mouseInBurrow = v3(mouseGroup.position);
+                r.areaHud = document.getElementById('hud-area').textContent;
+                r.chefFrozen = v3(chefGroup.position);
+                r.npcStart = burrowMice.map(m => v3(m.rig.position));
+                r.npcHatless = burrowMice.filter(m => m.rig.userData.hatGroup.visible === false).length;
+                next();
+            }));
+
+            // 10. Camera cutaway: the den is smaller than the orbit radius, so the shell sides the
+            //     camera stands outside of must drop or they fill the frame with their back faces.
+            steps.push((next) => {
+                mouseGroup.position.set(BURROW_ORIGIN_X, 0, 2);
+                camYaw = 0; camPitch = 0.55; camDist = camDistTarget = 13;
+                after(400, () => {
+                    r.camSample = v3(camera.position);
+                    r.hiddenWalls = ['posZ', 'negZ', 'posX', 'negX'].filter(s => burrowWalls[s][0].visible === false);
+                    next();
+                });
+            });
+
+            // 11. Residents are alive
+            steps.push((next) => {
+                wait(() => burrowMice.some(m => Math.hypot(m.rig.position.x - m.home.x, m.rig.position.z - m.home.z) > 0.4), 900, (ok) => {
+                    r.npcAlive = ok;
+                    r.npcAllInRoom = burrowMice.every(m =>
+                        m.rig.position.x > BURROW_ORIGIN_X - BURROW_BOUND && m.rig.position.x < BURROW_ORIGIN_X + BURROW_BOUND &&
+                        Math.abs(m.rig.position.z) < BURROW_BOUND);
+                    next();
+                });
+            });
+
+            // 12. Walk back out -> kitchen, hoard survives, shell restored, fridge still shut
+            steps.push((next) => {
+                mouseGroup.position.set(BURROW_ORIGIN_X + 0.3, 0, BURROW_BOUND - 0.2);
+                mouseVel.set(0, 0, 0);
+                crossTo('kitchen', (ok) => { r.exitedToKitchen = ok; next(); });
+            });
+            steps.push((next) => settled(() => {
+                r.mouseAfterExit = v3(mouseGroup.position);
+                r.stashKept = stashedIngredients.length;
+                r.propsLeftInKitchen = ingredients.filter(i => !i.sunk).length;
+                r.wallsRestored = ['posZ', 'negZ', 'posX', 'negX'].every(s => burrowWalls[s].every(m => m.visible));
+                r.fridgeShutWhileAway = +fridgeOpenK.toFixed(2);
+                next();
+            }));
+
+            // 13. Being caught returns the player to the kitchen and keeps the hoard
+            steps.push((next) => {
+                mouseGroup.position.set(0, 0, 5);
+                triggerGameOver();
+                r.caughtModalShown = document.getElementById('game-over-modal').className.indexOf('show') >= 0;
+                wait(() => !isGameOver, 900, (ok) => {
+                    r.restarted = ok;
+                    r.areaAfterRestart = currentArea;
+                    r.stashAfterRestart = stashedIngredients.length;
+                    r.propsAfterRestart = ingredients.filter(i => !i.sunk && !i.stashing).length;
+                    r.fridgeGoodsBack = ingredients.filter(i => i.type !== 'cheese' && inFridge(i.group.position)).length;
+                    next();
+                });
+            });
+
+            const out = document.getElementById('qa-out');
+            let stepIdx = 0;
+            const publish = () => {
+                r.errors = window.__qaErrs || [];
+                r.step = stepIdx;
+                r.simMs = Math.round(simTime);
+                r.wallMs = Math.round(performance.now() - t0);
+                r.probe = {
+                    openK: +fridgeOpenK.toFixed(3),
+                    reach: fridgeReach(),
+                    area: currentArea,
+                    traveling: isTraveling,
+                    over: isGameOver,
+                    mouse: v3(mouseGroup.position)
+                };
+                out.textContent = 'QA' + JSON.stringify(r);
+            };
+            const runStep = () => {
+                if (stepIdx >= steps.length) return publish();
+                publish();   // a run cut short by the time budget still reports its progress
+                const s = steps[stepIdx++];
+                try { s(runStep); } catch (e) {
+                    out.textContent = 'QA' + JSON.stringify({ fatal: String(e && e.stack || e), step: stepIdx });
+                }
+            };
+            // One call runs the whole chain: every wait and after above advances the simulation
+            // itself, so nothing here depends on how often the browser paints.
+            runStep();
+        });
+    })();
+    </script>
 </body>
 </html>

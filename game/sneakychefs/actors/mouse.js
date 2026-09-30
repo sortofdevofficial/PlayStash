@@ -1,99 +1,25 @@
 /**
- * Sneaky Chefs: Kitchen Escape - Mouse Input, Movement, Camera, Body Animation
+ * actors/mouse.js — the player: movement, jump, pushing, and body/tail animation.
+ *
+ * Reads `keys` from core/input.js and the rig built by models/mice.js, then writes
+ * mouseGroup.position/rotation. Pushing is contact-based: anything within MOUSE_PUSH_RADIUS
+ * that is not heavier than the mouse gets shoved with PUSH_FACTOR of the player's velocity.
+ * Camera framing is deliberately not here — see core/camera.js.
  */
+let tailSegments = [];
+let mouseHeadGroup;
+let mouseSpine;
+let mouseLegJoints = [];
+let prevMouseFacingAngle = 0;
+let landingSquash = 0;
 
-function setupInputListeners() {
-    const handleKey = (e, isDown) => {
-        const k = e.key.toLowerCase();
-        // Stop Space/Enter from activating a focused button (e.g. PLAY AGAIN) mid-game
-        if (k === ' ' || k === 'enter') e.preventDefault();
-        if (k === 'w' || k === 'arrowup') keys.forward = isDown;
-        if (k === 's' || k === 'arrowdown') keys.backward = isDown;
-        if (k === 'a' || k === 'arrowleft') keys.left = isDown;
-        if (k === 'd' || k === 'arrowright') keys.right = isDown;
-        if (k === ' ' && isDown && isGrounded) triggerJump();
-    };
-
-    window.addEventListener('keydown', e => handleKey(e, true));
-    window.addEventListener('keyup', e => handleKey(e, false));
-
-    // Right-Click Camera Drag Listeners
-    window.addEventListener('mousedown', (e) => {
-        if (e.button === 2) isRightMouseDown = true;
-    });
-
-    window.addEventListener('mouseup', (e) => {
-        if (e.button === 2) isRightMouseDown = false;
-    });
-
-    window.addEventListener('mousemove', (e) => {
-        if (isRightMouseDown) {
-            camYaw -= e.movementX * 0.006;
-            camPitch += e.movementY * 0.006;
-            // Clamp pitch to prevent camera flip
-            camPitch = Math.max(0.1, Math.min(Math.PI / 2 - 0.05, camPitch));
-        }
-    });
-
-    // Zoom: mouse wheel, +/- keys, and two-finger pinch on touch screens
-    const zoomBy = d => { camDistTarget = THREE.MathUtils.clamp(camDistTarget + d, CAM_DIST_MIN, CAM_DIST_MAX); };
-    window.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        zoomBy(Math.sign(e.deltaY) * CAM_ZOOM_STEP);
-    }, { passive: false });
-    window.addEventListener('keydown', (e) => {
-        if (e.key === '=' || e.key === '+') zoomBy(-CAM_ZOOM_STEP);
-        if (e.key === '-' || e.key === '_') zoomBy(CAM_ZOOM_STEP);
-    });
-    let pinchStart = 0, pinchStartDist = 0;
-    const touchGap = e => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-    window.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 2) { pinchStart = touchGap(e); pinchStartDist = camDistTarget; }
-    }, { passive: true });
-    window.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && pinchStart > 0) {
-            // fingers apart = zoom in (smaller distance)
-            camDistTarget = THREE.MathUtils.clamp(pinchStartDist * pinchStart / touchGap(e), CAM_DIST_MIN, CAM_DIST_MAX);
-        }
-    }, { passive: true });
-    window.addEventListener('touchend', (e) => { if (e.touches.length < 2) pinchStart = 0; }, { passive: true });
-
-    // Mobile Touch
-    const bindTouch = (id, action) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('touchstart', (e) => { e.preventDefault(); action(true); });
-        el.addEventListener('touchend', (e) => { e.preventDefault(); action(false); });
-    };
-
-    bindTouch('btn-up', v => keys.forward = v);
-    bindTouch('btn-down', v => keys.backward = v);
-    bindTouch('btn-left', v => keys.left = v);
-    bindTouch('btn-right', v => keys.right = v);
-    bindTouch('btn-jump', v => { if (v && isGrounded) triggerJump(); });
-
-    const restartBtn = document.getElementById('restart-btn');
-    restartBtn.setAttribute('tabindex', '-1');
-    restartBtn.addEventListener('click', () => {
-        restartBtn.blur();
-        restartGame();
-    });
-}
-
-function triggerJump() {
-    jumpVelocity = JUMP_FORCE;
-    isGrounded = false;
-    playSound('jump');
-}
-
-function showToast(msg) {
-    const toast = document.getElementById('toast');
-    toast.textContent = msg;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 3000);
-}
-
-// Movement, jumping/gravity, obstacle collision, footstep dust, cheese pushing
+const mouseVel = new THREE.Vector3();
+let mouseAngle = 0;
+let isGrounded = true;
+let jumpVelocity = 0;
+const GRAVITY = 28.0;
+const JUMP_FORCE = 9.5;   // with GRAVITY this gives a ~1.6 apex
+const MOVE_SPEED = 8.5;
 function updateMouse(dt, time) {
     // Relative Camera Movement Calculation
     const rawInputDir = new THREE.Vector3(
@@ -114,6 +40,7 @@ function updateMouse(dt, time) {
 
     mouseGroup.position.x += mouseVel.x * dt;
     mouseGroup.position.z += mouseVel.z * dt;
+    clampToArea(mouseGroup.position);
 
     if (inputDir.length() > 0.1) {
         // Model's forward (head) axis is -Z at rotation.y = 0, so offset by PI to align
@@ -147,6 +74,13 @@ function updateMouse(dt, time) {
         }
     }
 
+    // Anything shorter than STEP_HEIGHT is a ledge the mouse climbs rather than a wall it
+    // clips through — getFloorY will not report anything taller, so this cannot lift him
+    // onto a counter. The fridge sole is the ledge that needs it.
+    if (isGrounded && mouseGroup.position.y < currentFloorY) {
+        mouseGroup.position.y = Math.min(currentFloorY, mouseGroup.position.y + dt * 3.0);
+    }
+
     // collision radius follows the model size (0.30 at the original S = 0.65)
     solveObstacleCollision(mouseGroup.position, 0.46 * mouseGroup.userData.scaleFactor);
 
@@ -160,45 +94,47 @@ function updateMouse(dt, time) {
     }
     updateDust(dt);
 
-    updateCheeseProps(dt);
-    pushCheeseWithBodyWeight();
+    updateIngredientProps(dt);
+    pushIngredients();
 }
 
-// Rolling cheese by body weight: any cheese the mouse overlaps gets a velocity kick
-// along the direction the mouse is pushing into it, scaled by how fast the mouse is
-// actually moving (its "weight" behind the push) — standing still against a wheel
-// doesn't budge it, running into one sends it rolling. Also shoves the mouse back out
-// of the wheel's radius so it can't just sit inside it.
+// Body-weight pushing: any ingredient the mouse overlaps gets a velocity kick along the
+// direction the mouse is pushing into it, scaled by how fast the mouse is actually moving
+// (its "weight" behind the push) — standing still against a wheel doesn't budge it,
+// running into one sends it rolling. Also shoves the mouse back out of the prop's radius
+// so it can't just sit inside it.
 const MOUSE_PUSH_RADIUS = 0.32;
-const CHEESE_PUSH_FACTOR = 1.15;
-function pushCheeseWithBodyWeight() {
+const PUSH_FACTOR = 1.15;
+function pushIngredients() {
     const mouseSpeed = mouseVel.length();
-    cheeseCollectibles.forEach(c => {
-        // A wheel already on its way into the hole is out of play
-        if (c.escaping || c.sunk) return;
+    ingredients.forEach(item => {
+        // A prop already on its way down the hole is out of play
+        if (item.stashing || item.sunk) return;
 
-        // Only push things roughly at the same level (don't shove a wheel on the floor
-        // because the mouse is jumping past it up near a shelf)
-        if (Math.abs(mouseGroup.position.y - c.group.position.y) > CHEESE_HEIGHT + 0.3) return;
+        const pos = item.group.position;
 
-        const dx = c.group.position.x - mouseGroup.position.x;
-        const dz = c.group.position.z - mouseGroup.position.z;
+        // Only push things roughly at the same level (don't shove a carrot across the
+        // floor because the mouse is jumping past it up near a shelf)
+        if (Math.abs(mouseGroup.position.y - pos.y) > item.height + 0.3) return;
+
+        const dx = pos.x - mouseGroup.position.x;
+        const dz = pos.z - mouseGroup.position.z;
         const dist = Math.hypot(dx, dz);
-        const minDist = MOUSE_PUSH_RADIUS + CHEESE_RADIUS;
+        const minDist = MOUSE_PUSH_RADIUS + item.radius;
         if (dist >= minDist || dist < 0.0001) return;
 
         const nx = dx / dist, nz = dz / dist;
 
-        // Push the cheese along the mouse's own momentum, not just straight away from
-        // the mouse's center — a glancing run-by nudges it sideways, a head-on charge
+        // Push the prop along the mouse's own momentum, not just straight away from
+        // the mouse's centre — a glancing run-by nudges it sideways, a head-on charge
         // sends it flying forward, exactly like body weight would.
         if (mouseSpeed > 0.15) {
-            c.vel.x += (mouseVel.x / mouseSpeed) * mouseSpeed * CHEESE_PUSH_FACTOR * 0.6 + nx * mouseSpeed * CHEESE_PUSH_FACTOR * 0.4;
-            c.vel.z += (mouseVel.z / mouseSpeed) * mouseSpeed * CHEESE_PUSH_FACTOR * 0.6 + nz * mouseSpeed * CHEESE_PUSH_FACTOR * 0.4;
-            c.grounded = true; // a shove keeps it rolling on the ground, not launched up
+            item.vel.x += (mouseVel.x / mouseSpeed) * mouseSpeed * PUSH_FACTOR * 0.6 + nx * mouseSpeed * PUSH_FACTOR * 0.4;
+            item.vel.z += (mouseVel.z / mouseSpeed) * mouseSpeed * PUSH_FACTOR * 0.6 + nz * mouseSpeed * PUSH_FACTOR * 0.4;
+            item.grounded = true; // a shove keeps it rolling along the ground, not launched up
         }
 
-        // Separate the overlap so the mouse doesn't sink into the wheel
+        // Separate the overlap so the mouse doesn't sink into the prop
         const overlap = minDist - dist;
         mouseGroup.position.x -= nx * overlap;
         mouseGroup.position.z -= nz * overlap;
@@ -208,37 +144,7 @@ function pushCheeseWithBodyWeight() {
 // Orbit Camera Positioning based on Right Click Yaw/Pitch, with wall/obstacle collision
 // avoidance: raycast from just above the mouse toward the desired camera spot and pull
 // the distance in if something is in the way, so the camera never clips through geometry.
-function updateCamera(dt) {
-    const lookFrom = new THREE.Vector3(mouseGroup.position.x, mouseGroup.position.y + 0.5, mouseGroup.position.z);
-    const desiredDir = new THREE.Vector3(
-        Math.sin(camYaw) * Math.cos(camPitch),
-        Math.sin(camPitch),
-        Math.cos(camYaw) * Math.cos(camPitch)
-    ).normalize();
 
-    // Ease the zoom toward its target so wheel notches feel smooth, not steppy
-    camDist = THREE.MathUtils.lerp(camDist, camDistTarget, Math.min(1, dt * 10));
-
-    let allowedDist = camDist;
-    if (cameraCollisionMeshes.length > 0) {
-        cameraRaycaster.set(lookFrom, desiredDir);
-        cameraRaycaster.far = camDist;
-        const hits = cameraRaycaster.intersectObjects(cameraCollisionMeshes, false);
-        if (hits.length > 0) {
-            allowedDist = Math.max(1.5, hits[0].distance - CAM_COLLISION_MARGIN);
-        }
-    }
-
-    const targetCamPos = new THREE.Vector3().copy(lookFrom).addScaledVector(desiredDir, allowedDist);
-    // Snap in quickly when a wall pushes the camera closer, ease out slowly when it's free again,
-    // so the camera doesn't visibly clip through a wall for a frame while lerping back out.
-    const closingIn = allowedDist < camera.position.distanceTo(lookFrom);
-    camera.position.lerp(targetCamPos, dt * (closingIn ? 16 : 8));
-    camera.lookAt(mouseGroup.position.x, mouseGroup.position.y + 0.5, mouseGroup.position.z);
-}
-
-// ---- Mouse body/leg/tail animation: diagonal trot gait with real hip+knee joints,
-// spine bounce driven by footfall, lean into turns, and tail lag behind body rotation ----
 let gaitPhase = 0; // advances only while moving, so legs don't "walk in place" when idle
 let tailPhase = 0; // runs even when idle so the tail always has a lazy sway
 let mouseTurnRate = 0; // smoothed yaw rate, drives the tail's turn-lag whip
@@ -365,4 +271,27 @@ function animateMouseTail(dt, speedRatio) {
         seg.rotation.z = THREE.MathUtils.lerp(seg.rotation.z, sway + trail, Math.min(1, dt * 12));
         seg.rotation.x = THREE.MathUtils.lerp(seg.rotation.x, pitch, Math.min(1, dt * 10));
     });
+}
+
+function triggerJump() {
+    jumpVelocity = JUMP_FORCE;
+    isGrounded = false;
+    playSound('jump');
+}
+
+
+// Restart hook: main.js calls this instead of poking the player's animation state.
+// Position and velocity are enterArea()'s job; this is what the rig carries between frames.
+function resetMouse() {
+    gaitPhase = 0;
+    mouseAngle = 0;
+    prevMouseFacingAngle = 0;
+    mouseTurnRate = 0;
+    landingSquash = 0;
+    mouseGroup.scale.set(1, 1, 1);
+    mouseGroup.rotation.y = 0;
+    if (mouseSpine) {
+        mouseSpine.position.y = 0;
+        mouseSpine.rotation.set(0, 0, 0);
+    }
 }
