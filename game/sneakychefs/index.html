@@ -348,10 +348,12 @@
      * top-level let/const is a SyntaxError that silently kills a whole file, and that is the
      * failure mode this split is most likely to hit.
      *
-     * Phase 2 drives the real game through 13 checks: the fridge at rest, opening on
+     * Phase 2 drives the real game through 16 checks: the fridge at rest, opening on
      * approach, looting butter out of the cavity, resealing, a cheese wheel shoved end to
      * end down the hole, wall containment, standing inside the fridge, the portal there and
-     * back, the cutaway walls, the residents, and what a capture resets.
+     * back, the cutaway walls, the residents, what a capture resets, the restock loop that
+     * keeps the kitchen supplied (including a chilled good landing back on the fridge lip),
+     * and the cap on the hoard pile that keeps the base from growing forever.
      */
     (function () {
         if (!new URLSearchParams(location.search).has('qa')) return;
@@ -363,10 +365,12 @@
             'animateMouseBody', 'animateMouseTail', 'triggerJump', 'updateCamera', 'setupInputListeners',
             'enterArea', 'travelTo', 'checkHoleCrossing', 'playSound', 'showToast', 'updateStashHud',
             'getFloorY', 'resetChef', 'resetMouse', 'clearDust', 'buildFreezerGoods', 'fridgeReach',
-            'updateDust', 'spawnDust', 'holeRadius', 'holeDistance', 'clampToArea', 'activeObstacles', 'activeCollision'];
+            'updateDust', 'spawnDust', 'holeRadius', 'holeDistance', 'clampToArea', 'activeObstacles',
+            'activeCollision', 'liveProps', 'updateDeliveries', 'deliver', 'onIngredientStashed'];
         const EXPECTED_VARS = ['mouseVel', 'keys', 'ingredients', 'burrowMice', 'stashedIngredients', 'FRIDGE',
             'fridgeLamp', 'coldPuffs', 'camYaw', 'camDist', 'MOUSE_HOLE', 'BURROW_ORIGIN_X', 'kitchenObstacles',
-            'GRAVITY', 'MOVE_SPEED', 'isTraveling', 'currentArea'];
+            'GRAVITY', 'MOVE_SPEED', 'isTraveling', 'currentArea', 'DELIVERY_FLOOR', 'DELIVERY_DROP_Y',
+            'STASH_PILE_CAP'];
 
         window.addEventListener('load', () => {
             const r = {};
@@ -674,6 +678,76 @@
                     r.fridgeGoodsBack = ingredients.filter(i => i.type !== 'cheese' && inFridge(i.group.position)).length;
                     next();
                 });
+            });
+
+            // 14. The restock loop: an empty floor is no longer the end of the game. Sink the
+            //     kitchen below DELIVERY_FLOOR and hoarded goods fall back in, one delivery per
+            //     gap, until there is something to steal again.
+            steps.push((next) => {
+                mouseGroup.position.set(2, 0, 6);
+                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                ingredients.forEach(i => { i.vel.set(0, 0, 0); });
+                const live = liveProps();
+                ingredients.filter(i => !i.sunk && !i.stashing)
+                    .slice(0, Math.max(0, live - 1))
+                    .forEach(i => { i.sunk = true; i.stashing = false; i.group.visible = false; });
+                r.propsStrippedTo = liveProps();
+                r.pileBeforeRestock = stashedIngredients.length;
+
+                let highestFallY = 0;
+                wait(() => {
+                    ingredients.forEach(i => {
+                        if (i.delivering) highestFallY = Math.max(highestFallY, i.group.position.y);
+                    });
+                    return liveProps() >= DELIVERY_FLOOR && !ingredients.some(i => i.delivering);
+                }, 4000, (ok) => {
+                    r.restockRefilled = ok;
+                    r.restockLive = liveProps();
+                    // Sampled above the tiles while falling: proof it came down from the
+                    // ceiling rather than appearing at rest.
+                    r.restockFellFromAir = highestFallY > 1.5;
+                    r.restockHighestY = +highestFallY.toFixed(2);
+                    const inPlay = ingredients.filter(i => !i.sunk && !i.stashing);
+                    r.restockAllSettled = inPlay.every(i => i.grounded && !i.delivering);
+                    r.restockOnSpawns = inPlay.every(i =>
+                        Math.hypot(i.group.position.x - i.spawn.x, i.group.position.z - i.spawn.z) < 0.9);
+                    r.restockAtReachableHeight = inPlay.every(i => i.group.position.y < 1.6);
+                    // A delivery must never drop straight into the chute it came from.
+                    r.restockSelfStashed = stashedIngredients.length - r.pileBeforeRestock;
+                    next();
+                });
+            });
+
+            // 15. A chilled good re-delivered inside the cavity has to land back on the lip.
+            //     This is the whole reason the fridge spawns carry their own dropY: the freezer
+            //     shelf and cavity ceiling sit above them.
+            steps.push((next) => {
+                const good = ingredients.find(i => i.type === 'butter');
+                good.sunk = true; good.stashing = false; good.group.visible = false;
+                deliver(good);
+                wait(() => !good.delivering && good.grounded, 600, (ok) => {
+                    r.lipRestockSettled = ok;
+                    r.lipRestockY = +good.group.position.y.toFixed(2);
+                    r.lipRestockOnLip = Math.abs(good.group.position.y - FRIDGE.lipY) < 0.02;
+                    r.lipRestockInside = inFridge(good.group.position);
+                    next();
+                });
+            });
+
+            // 16. The pile is capped: deliveries make hoarding endless, so the base cannot grow
+            //     forever, and the HUD keeps telling the truth about what is on screen.
+            steps.push((next) => {
+                const src = ingredients.find(i => !i.sunk);
+                const oldest = stashedIngredients[0];
+                const fake = { group: src.group, label: src.label };
+                for (let n = 0; n < STASH_PILE_CAP + 8; n++) onIngredientStashed(fake);
+                r.pileSize = stashedIngredients.length;
+                r.pileAtCap = stashedIngredients.length === STASH_PILE_CAP;
+                r.pileOldestRecycled = !!oldest && stashedIngredients.indexOf(oldest) < 0 && oldest.parent === null;
+                r.pileAllAttached = stashedIngredients.every(p => p.parent === burrowGroup);
+                r.pileHudMatches = document.getElementById('stash-count').textContent === String(stashedIngredients.length);
+                r.pileSourceAlive = src.group.visible && !src.sunk;
+                next();
             });
 
             const out = document.getElementById('qa-out');

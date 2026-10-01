@@ -3,7 +3,9 @@
 You are a mouse in a chef's kitchen at night. There is no timer and no win screen: shove
 ingredients into the mouse hole to build your hoard, then walk into the hole yourself to
 visit the base behind it and see what you have stolen. The fridge in the north-west corner
-is the prize — it opens as you approach, lights up, and holds the chilled goods.
+is the prize — it opens as you approach, lights up, and holds the chilled goods. Steal the
+kitchen down to a handful of props and the chef restocks it, one delivery at a time, so the
+run never dead-ends into an empty floor.
 
 ## Running it
 
@@ -26,14 +28,14 @@ HTML document: the QA rig is a mode of `index.html`, not a second page.
 | `core/camera.js` | orbit camera, zoom limits, raycast pull-in so it never clips through walls |
 | `core/areas.js` | which room the player is in, the fade, the spawn point of each room |
 | `core/ui.js` | HUD counters, area label, toasts |
-| `core/audio.js` | synthesised sfx (jump, collect, alert, portal, door) |
+| `core/audio.js` | synthesised sfx (jump, collect, alert, portal, door, thud) |
 | `world/scene.js` | renderer, scene, fog, lights, resize |
 | `world/physics.js` | floor height, obstacle push-out, area clamps, per-area geometry indirection |
 | `world/kitchen.js` | kitchen floor, walls, counters, pedestals, chef patrol route, the three block helpers |
 | `world/fridge.js` | the fridge: shell, hinged doors, interior lamp, freezer stock, cold mist |
 | `world/mousehole.js` | the portal: arch, floor marker, the two radii (prop drop vs. player walk) |
-| `world/ingredients.js` | spawn table, prop physics (push response, roll, gravity, stash drop) |
-| `world/burrow.js` | the base room: shell, cutaway walls, props, the stash pile |
+| `world/ingredients.js` | spawn table, prop physics (push response, roll, gravity, stash drop), the restock loop |
+| `world/burrow.js` | the base room: shell, cutaway walls, props, the capped stash pile |
 | `world/dust.js` | footstep and landing puffs |
 | `actors/mouse.js` | player movement, jump, pushing, body and tail animation |
 | `actors/chef.js` | chef brain: patrol, line of sight, chase, smash telegraphs, warning rings |
@@ -74,19 +76,29 @@ evaluated, so `core/areas.js` must come after `world/burrow.js`.
   (`actors/chef.js`), `resetMouse()` (`actors/mouse.js`), `clearDust()` (`world/dust.js`)
   and `resetIngredients()` (`world/ingredients.js`). If a module gains new per-run state,
   reset it inside that module's own hook rather than reaching in from `main.js`.
+- **The supply is a loop, not a pile.** `updateIngredientProps` ends by calling
+  `updateDeliveries`, which re-delivers a hoarded prop every `DELIVERY_GAP` seconds once
+  fewer than `DELIVERY_FLOOR` are still in play, dropping it onto its own spawn point from
+  above. Delivered props are *reused*, never duplicated, so the scene holds exactly the ten
+  ingredient groups it booted with however long the run goes. The base side is capped the
+  same way: past `STASH_PILE_CAP` the oldest clone leaves the pile — detach only, because a
+  clone shares its source's geometry and material, so disposing would gut the kitchen props.
 - **Adding an ingredient type** takes three edits: a builder in `models/food.js` wired into
   `buildIngredientModel`, an entry in `INGREDIENT_SPEC` (`label`, `roll`), and a spawn in
   `INGREDIENT_SPAWNS`. Keep spawns on open floor or on the fridge lip — the mouse's jump
-  apex is about 1.6 and a prop on a 2.2 worktop cannot be shoved down from the ground.
+  apex is about 1.6 and a prop on a 2.2 worktop cannot be shoved down from the ground. A
+  spawn that sits *under* art needs its own `dropY` below it, or a re-delivery falls through
+  that geometry: the chilled trio come in at 1.6, under the freezer shelf, instead of from
+  `DELIVERY_DROP_Y`.
 
 ## Verifying changes
 
 The game has no test runner — it has one rig inside `index.html`. Opening the page normally
 plays the game; adding `?qa` runs two phases after the usual boot and prints the result as a
 single `QA{...}` blob into `#qa-out`: an audit of every module (parse errors, expected
-functions, expected globals) and 13 behavioural checks over the fridge, push, portal and
-restart flows. It finishes in a fraction of a second and reports `simMs` (simulation time the
-checks consumed) next to `wallMs`, because it does not use the browser's clock.
+functions, expected globals) and 16 behavioural checks over the fridge, push, portal, restart
+and restock flows. It finishes in a fraction of a second and reports `simMs` (simulation time
+the checks consumed) next to `wallMs`, because it does not use the browser's clock.
 
 ```sh
 "C:/Program Files/Google/Chrome/Application/chrome.exe" \
@@ -105,7 +117,7 @@ loop has to be made in both places** or the rig quietly stops testing what ships
 Read `audit.errors` first after moving code between files: a duplicated top-level
 `let`/`const` across two scripts is a `SyntaxError` that silently kills the whole second
 script, and it surfaces there rather than as a missing function later on. `step` is how far
-the checks got (15 means all of them).
+the checks got (18 means all of them).
 
 Absolute frame rate from a headless or background pane is noise — measure object counts and
 state transitions, not milliseconds.

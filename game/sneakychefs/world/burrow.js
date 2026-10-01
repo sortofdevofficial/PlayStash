@@ -19,6 +19,9 @@ const BURROW_ORIGIN_X = 400;
 const BURROW_BOUND = 9.4;
 const BURROW_EXIT = { x: BURROW_ORIGIN_X, z: BURROW_BOUND, radius: 1.1 };
 const STASH_ANCHOR = { x: BURROW_ORIGIN_X - 4.5, z: -3.5 };
+// The hoard is decoration, and the kitchen restocks forever, so the pile is capped: past
+// this many the oldest item leaves it rather than the base growing without end.
+const STASH_PILE_CAP = 26;
 
 let burrowGroup = null;
 let burrowObstacles = [];
@@ -190,4 +193,9 @@ function addToStash(ingredient) {
     prop.rotation.set(0, Math.random() * Math.PI * 2, 0);
     burrowGroup.add(prop);
     stashedIngredients.push(prop);
+    if (stashedIngredients.length > STASH_PILE_CAP) {
+        // Detach only: a clone shares its source's geometry and material, so disposing here
+        // would gut the very props still sitting on the kitchen floor.
+        burrowGroup.remove(stashedIngredients.shift());
+    }
 }

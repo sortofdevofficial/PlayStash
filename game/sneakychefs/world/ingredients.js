@@ -10,6 +10,15 @@ const PROP_MAX_SPEED = 9.0;
 const PROP_STASH_TIME = 0.45;
 const ROLL_AXIS = new THREE.Vector3(1, 0, 0); // a rolling prop turns about the carrier's X
 
+// The kitchen restocks itself. There is no goal and no clock, so an empty floor would mean
+// the game had quietly ended; once the goods still in play fall below DELIVERY_FLOOR, one
+// sunk item is re-delivered every DELIVERY_GAP seconds, dropping in from above. Sunk items
+// are reused rather than duplicated, so the scene never holds a second copy of a prop.
+const DELIVERY_FLOOR = 5;
+const DELIVERY_GAP = 9.0;
+const DELIVERY_DROP_Y = 5.2;   // over open floor — an enclosed spawn sets its own dropY
+let deliveryTimer = 0;
+
 // Round enough to roll believably; the rest slide and tumble.
 const INGREDIENT_SPEC = {
     cheese: { label: 'Cheese', roll: true },
@@ -32,9 +41,11 @@ const INGREDIENT_SPAWNS = [
     { type: 'banana', x: -11, z: 2 },
     { type: 'banana', x: 11, z: 4 },
     { type: 'carrot', x: 4, z: 11 },
-    { type: 'apple', x: -12.5, z: -14.1 },
-    { type: 'butter', x: -13.2, z: -14.1 },
-    { type: 'milk', x: -11.7, z: -14.1 }
+    // Inside the cavity: the freezer shelf and ceiling sit above these, so a re-delivery
+    // has to start below them and fall the last stretch onto the lip.
+    { type: 'apple', x: -12.5, z: -14.1, dropY: 1.6 },
+    { type: 'butter', x: -13.2, z: -14.1, dropY: 1.6 },
+    { type: 'milk', x: -11.7, z: -14.1, dropY: 1.6 }
 ];
 
 function spawnIngredients() {
@@ -84,6 +95,7 @@ function spawnIngredients() {
             spawn,
             stashing: false,
             sunk: false,
+            delivering: false,
             stashT: 0,
             stashFrom: new THREE.Vector3()
         });
@@ -145,6 +157,50 @@ function updateIngredientProps(dt) {
             onIngredientStashed(item);
         }
     });
+
+    updateDeliveries(dt);
+}
+
+// How many goods are still in play on the kitchen floor.
+function liveProps() {
+    return ingredients.filter(i => !i.sunk && !i.stashing).length;
+}
+
+function updateDeliveries(dt) {
+    // A delivery is done the moment it settles on the tiles: dust, a knock, and it is back
+    // in play as an ordinary prop.
+    ingredients.forEach(item => {
+        if (item.delivering && item.grounded) {
+            item.delivering = false;
+            spawnDust(item.group.position, 1.6);
+            playSound('thud');
+        }
+    });
+
+    if (deliveryTimer > 0) { deliveryTimer -= dt; return; }
+    // No point dropping groceries where the player cannot see them land.
+    if (currentArea !== 'kitchen' || liveProps() >= DELIVERY_FLOOR) return;
+
+    const gone = ingredients.filter(i => i.sunk);
+    if (!gone.length) return;
+    deliver(gone[Math.floor(Math.random() * gone.length)]);
+    deliveryTimer = DELIVERY_GAP;
+}
+
+function deliver(item) {
+    item.sunk = false;
+    item.stashing = false;
+    item.stashT = 0;
+    item.delivering = true;
+    item.group.visible = true;
+    item.group.scale.set(1, 1, 1);
+    item.group.position.set(item.spawn.x, item.spawn.dropY || DELIVERY_DROP_Y, item.spawn.z);
+    item.carrier.rotation.set(0, 0, 0);
+    item.spinner.rotation.set(0, 0, 0);
+    item.vel.set(0, 0, 0);
+    item.velY = 0;
+    item.grounded = false;
+    showToast(item.label + ' delivered — the chef restocked');
 }
 
 function animateIngredientStash(item, dt) {
@@ -164,11 +220,14 @@ function animateIngredientStash(item, dt) {
 }
 
 function resetIngredients() {
+    deliveryTimer = 0;
     ingredients.forEach(item => {
-        // Once it is home it stays home — respawning it here would put a second copy in
-        // the kitchen while its clone is still sitting in the base pile.
+        // A caught mouse keeps his hoard: the clone stays in the base pile, so restarting
+        // must not put a second copy in the kitchen. The restock loop is what brings a
+        // hoarded prop back, and it does that one delivery at a time.
         if (item.sunk) return;
         item.stashing = false;
+        item.delivering = false;
         item.stashT = 0;
         item.group.visible = true;
         item.group.scale.set(1, 1, 1);

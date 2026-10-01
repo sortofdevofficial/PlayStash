@@ -53,5 +53,14 @@ function playSound(type) {
         gain.gain.linearRampToValueAtTime(0.01, now + 0.32);
         osc.start(now);
         osc.stop(now + 0.32);
+    } else if (type === 'thud') {
+        // A delivery hitting the floor: a soft low knock, well behind the alert sounds.
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.exponentialRampToValueAtTime(46, now + 0.16);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+        osc.start(now);
+        osc.stop(now + 0.18);
     }
 }
