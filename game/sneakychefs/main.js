@@ -38,6 +38,7 @@ window.addEventListener('load', () => {
     createWarningRing();
     spawnIngredients();
     updateStashHud();
+    updateCarryHud();
     setupInputListeners();
     animate(0);
 });

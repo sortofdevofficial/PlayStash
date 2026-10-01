@@ -4,6 +4,8 @@
  * Reads `keys` from core/input.js and the rig built by models/mice.js, then writes
  * mouseGroup.position/rotation. Pushing is contact-based: anything within MOUSE_PUSH_RADIUS
  * that is not heavier than the mouse gets shoved with PUSH_FACTOR of the player's velocity.
+ * E (or the GRAB button) hoists the nearest prop instead of shoving it, and paws hold
+ * exactly one at a time.
  * Camera framing is deliberately not here — see core/camera.js.
  */
 let tailSegments = [];
@@ -12,6 +14,7 @@ let mouseSpine;
 let mouseLegJoints = [];
 let prevMouseFacingAngle = 0;
 let landingSquash = 0;
+let carryPoseT = 0;         // 0 = four on the floor, 1 = paws up holding a load
 
 const mouseVel = new THREE.Vector3();
 let mouseAngle = 0;
@@ -35,8 +38,9 @@ function updateMouse(dt, time) {
     inputDir.x = rawInputDir.x * Math.cos(camYaw) + rawInputDir.z * Math.sin(camYaw);
     inputDir.z = -rawInputDir.x * Math.sin(camYaw) + rawInputDir.z * Math.cos(camYaw);
 
-    mouseVel.x = THREE.MathUtils.lerp(mouseVel.x, inputDir.x * MOVE_SPEED, dt * 12);
-    mouseVel.z = THREE.MathUtils.lerp(mouseVel.z, inputDir.z * MOVE_SPEED, dt * 12);
+    const speed = carriedItem ? MOVE_SPEED * CARRY_SPEED : MOVE_SPEED;
+    mouseVel.x = THREE.MathUtils.lerp(mouseVel.x, inputDir.x * speed, dt * 12);
+    mouseVel.z = THREE.MathUtils.lerp(mouseVel.z, inputDir.z * speed, dt * 12);
 
     mouseGroup.position.x += mouseVel.x * dt;
     mouseGroup.position.z += mouseVel.z * dt;
@@ -96,6 +100,7 @@ function updateMouse(dt, time) {
 
     updateIngredientProps(dt);
     pushIngredients();
+    updateCarry(dt, time);
 }
 
 // Body-weight pushing: any ingredient the mouse overlaps gets a velocity kick along the
@@ -103,13 +108,14 @@ function updateMouse(dt, time) {
 // (its "weight" behind the push) — standing still against a wheel doesn't budge it,
 // running into one sends it rolling. Also shoves the mouse back out of the prop's radius
 // so it can't just sit inside it.
-const MOUSE_PUSH_RADIUS = 0.32;
-const PUSH_FACTOR = 1.15;
+const MOUSE_PUSH_RADIUS = 0.45;
+const PUSH_FACTOR = 1.35;
 function pushIngredients() {
     const mouseSpeed = mouseVel.length();
     ingredients.forEach(item => {
-        // A prop already on its way down the hole is out of play
-        if (item.stashing || item.sunk) return;
+        // A prop already on its way down the hole, or sitting in the mouse's own paws, is
+        // out of play
+        if (item.stashing || item.sunk || item.carried) return;
 
         const pos = item.group.position;
 
@@ -139,6 +145,92 @@ function pushIngredients() {
         mouseGroup.position.x -= nx * overlap;
         mouseGroup.position.z -= nz * overlap;
     });
+}
+
+// Hoisting is the other half of pushing. A wheel wedged against a counter leg will not roll
+// out no matter how hard you lean on it, and carrying is the only way to take a load through
+// the hole on your own back. Paws hold exactly one prop, so a second pickup is refused.
+// The hold point is overhead on purpose: the goods are sized for a chef's counter, so a
+// cheese wheel stands twice as tall as this mouse and holding one at chest height hides him.
+const CARRY_REACH = 1.05;
+const CARRY_LIFT = 0.35;    // his own head height, roughly
+const CARRY_SHARE = 0.9;    // plus most of the prop's radius, so it clears that head
+const CARRY_OUT = 0.26;     // a little forward, so it is not balanced on his ears
+const CARRY_SPEED = 0.86;   // a load slows him: rolling a wheel is faster, carrying is surer
+const CARRY_SLIDE = new THREE.Vector3();   // scratch: the hold-point solver wants a velocity
+
+function toggleCarry() {
+    if (carriedItem) dropCarry();
+    else pickUp();
+}
+
+function nearestCarryable() {
+    let best = null, bestD = CARRY_REACH;
+    const mp = mouseGroup.position;
+    ingredients.forEach(item => {
+        if (item.sunk || item.stashing || item.carried) return;
+        const p = item.group.position;
+        if (Math.abs(p.y - mp.y) > 1.2) return;     // nothing on a worktop, nothing in a fall
+        const d = Math.hypot(p.x - mp.x, p.z - mp.z);
+        if (d < bestD) { bestD = d; best = item; }
+    });
+    return best;
+}
+
+function pickUp() {
+    if (isGameOver || isTraveling) return;
+    // Two arms, one cargo. Refusing here keeps the invariant true for every caller, not just
+    // the toggle above — dropping is always a deliberate second press.
+    if (carriedItem) { showToast('Paws are full — ' + carriedItem.label + ' first'); return; }
+    const item = nearestCarryable();
+    if (!item) { showToast('Nothing close enough to hoist'); return; }
+    carriedItem = item;
+    item.carried = true;
+    item.vel.set(0, 0, 0);
+    item.velY = 0;
+    item.spinner.rotation.set(0, 0, 0);   // off the floor, so it stops rolling
+    playSound('grab');
+    showToast(item.label + ' hoisted — paws carry one at a time');
+    updateCarryHud();
+}
+
+function dropCarry() {
+    const item = carriedItem;
+    if (!item) return;
+    const p = item.group.position;
+    const fx = -Math.sin(mouseAngle), fz = -Math.cos(mouseAngle);
+    p.x = mouseGroup.position.x + fx * 0.55;
+    p.z = mouseGroup.position.z + fz * 0.55;
+    p.y = getFloorY(p.x, p.z, p.y + 0.4, kitchenObstacles);
+    item.carried = false;
+    item.grounded = true;
+    carriedItem = null;
+    playSound('thud');
+    updateCarryHud();
+}
+
+// The load rides above the head and follows him through a jump. Bigger goods sit higher, so
+// whatever he is carrying he can still see out from under.
+function updateCarry(dt, time) {
+    const item = carriedItem;
+    if (!item) return;
+    const p = item.group.position;
+    const fx = -Math.sin(mouseAngle), fz = -Math.cos(mouseAngle);
+    const out = CARRY_OUT + item.radius * 0.55;
+    const lift = CARRY_LIFT + item.radius * CARRY_SHARE + Math.sin(time * 0.007) * 0.03;
+    const hold = new THREE.Vector3(mouseGroup.position.x + fx * out,
+        mouseGroup.position.y + lift, mouseGroup.position.z + fz * out);
+    // A load pressed against a counter belongs in front of it, not inside it. The solver's
+    // velocity argument is unused here — the hold point is placed, never thrown.
+    CARRY_SLIDE.set(0, 0, 0);
+    solvePropCollision(hold, CARRY_SLIDE, item.radius, activeObstacles());
+    clampToArea(hold);
+    // Horizontal is placed, not followed: a lerped hold point trails about half a unit at a
+    // run, which is the mouse's own body — the wheel ends up dragging at his feet.
+    p.x = hold.x;
+    p.z = hold.z;
+    p.y += (hold.y - p.y) * Math.min(1, dt * 14);   // eased: the hoist reads as a lift
+    item.carrier.rotation.y += dt * 0.9;  // turning slowly in the light
 }
 
 // Orbit Camera Positioning based on Right Click Yaw/Pitch, with wall/obstacle collision
@@ -189,6 +281,16 @@ function animateMouseBody(dt, time, speedRatio) {
                 j.knee.rotation.x = THREE.MathUtils.lerp(j.knee.rotation.x, 0, dt * 6);
             });
         }
+
+        // Paws up to the load. A prop hovering in front of four straight legs reads as a
+        // tractor beam, not a hoist, so the front pair holds it from below.
+        carryPoseT += ((carriedItem ? 1 : 0) - carryPoseT) * Math.min(1, dt * 8);
+        if (carryPoseT > 0.01) {
+            [fl, fr].forEach(j => {
+                j.hip.rotation.x = THREE.MathUtils.lerp(j.hip.rotation.x, 1.2, carryPoseT);
+                j.knee.rotation.x = THREE.MathUtils.lerp(j.knee.rotation.x, 1.0, carryPoseT);
+            });
+        }
     }
 
     // Spine bounce: two bounces per full stride cycle (one per diagonal pair touching down),
@@ -218,6 +320,7 @@ function animateMouseBody(dt, time, speedRatio) {
         // rest height of the head (0.62 * S in mice.js) plus a bob that scales with the mouse
         const S = mouseGroup.userData.scaleFactor;
         mouseHeadGroup.position.y = 0.62 * S + Math.abs(Math.sin(gaitPhase)) * 0.028 * S * speedRatio;
+        mouseHeadGroup.rotation.x = carryPoseT * 0.4;   // eyes on the load above his paws
     }
 
     animateMouseTail(dt, speedRatio);
@@ -288,8 +391,10 @@ function resetMouse() {
     prevMouseFacingAngle = 0;
     mouseTurnRate = 0;
     landingSquash = 0;
+    carryPoseT = 0;
     mouseGroup.scale.set(1, 1, 1);
     mouseGroup.rotation.y = 0;
+    if (mouseHeadGroup) mouseHeadGroup.rotation.x = 0;
     if (mouseSpine) {
         mouseSpine.position.y = 0;
         mouseSpine.rotation.set(0, 0, 0);

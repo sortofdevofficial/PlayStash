@@ -1,12 +1,17 @@
 /**
  * core/ui.js — the DOM the player reads.
  *
- * HUD counters, the area label, transient toasts. Only main.js and world/ingredients.js
- * call in here, so the DOM stays out of the simulation.
+ * HUD counters, the area label, transient toasts. main.js, world/ingredients.js and
+ * actors/mouse.js are the only callers, so the DOM stays out of the simulation.
  */
 // Hoard bookkeeping: every ingredient pushed down the hole turns up in the base.
 function updateStashHud() {
     document.getElementById('stash-count').textContent = stashedIngredients.length;
+}
+
+// What is in the paws right now. One label, because paws hold one thing.
+function updateCarryHud() {
+    document.getElementById('carry-name').textContent = carriedItem ? carriedItem.label : 'empty';
 }
 
 function showToast(msg) {

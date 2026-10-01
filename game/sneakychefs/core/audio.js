@@ -54,7 +54,8 @@ function playSound(type) {
         osc.start(now);
         osc.stop(now + 0.32);
     } else if (type === 'thud') {
-        // A delivery hitting the floor: a soft low knock, well behind the alert sounds.
+        // Something hitting the tiles: a delivery, or a load set down. A soft low knock,
+        // well behind the alert sounds.
         osc.type = 'sine';
         osc.frequency.setValueAtTime(120, now);
         osc.frequency.exponentialRampToValueAtTime(46, now + 0.16);
@@ -62,5 +63,14 @@ function playSound(type) {
         gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
         osc.start(now);
         osc.stop(now + 0.18);
+    } else if (type === 'grab') {
+        // Paws closing on a wheel and lifting: a short scuff that climbs.
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(90, now);
+        osc.frequency.exponentialRampToValueAtTime(240, now + 0.09);
+        gain.gain.setValueAtTime(0.07, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+        osc.start(now);
+        osc.stop(now + 0.12);
     }
 }

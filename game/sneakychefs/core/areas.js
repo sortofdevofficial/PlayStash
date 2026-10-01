@@ -53,11 +53,11 @@ function travelTo(area) {
 }
 
 // The hole works both ways: walk into it and you are in the base, walk back out and you
-// are in the kitchen.
+// are in the kitchen. Anything in the paws goes into the pile at the door.
 function checkHoleCrossing() {
     if (isTraveling) return;
     const pos = mouseGroup.position;
-    if (holeDistance(pos.x, pos.z) < holeRadius()) {
-        travelTo(currentArea === 'burrow' ? 'kitchen' : 'burrow');
-    }
+    if (holeDistance(pos.x, pos.z) >= holeRadius()) return;
+    if (currentArea !== 'burrow') stowCarried();
+    travelTo(currentArea === 'burrow' ? 'kitchen' : 'burrow');
 }

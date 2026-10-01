@@ -21,6 +21,10 @@ let cameraCollisionMeshes = [];   // meshes the orbit camera must not pass throu
 // The hoard — spawned and driven by world/ingredients.js
 let ingredients = [];
 
+// Paws — actors/mouse.js hoists exactly one prop at a time; world/ingredients.js leaves a
+// carried prop alone instead of running its physics.
+let carriedItem = null;
+
 // Game flow — core/areas.js and main.js
 let currentArea = 'kitchen';   // 'kitchen' | 'burrow'
 let isGameOver = false;

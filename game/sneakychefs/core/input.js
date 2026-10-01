@@ -2,9 +2,10 @@
  * core/input.js — every human input, converted to state that other modules read.
  *
  * WASD/arrows write `keys`, right-drag writes camYaw/camPitch/camDistTarget, the wheel
- * zooms, Space jumps, and the on-screen dpad feeds the same `keys`. Nothing here moves the
- * player; that happens in actors/mouse.js on the next frame. Also blocks the browser's
- * dev-tools and context-menu shortcuts, since the game is meant to be played, not poked.
+ * zooms, Space jumps, E hoists whatever is under the paws, and the on-screen dpad and GRAB
+ * button feed the same state. Nothing here moves the player; that happens in
+ * actors/mouse.js on the next frame. Also blocks the browser's dev-tools and context-menu
+ * shortcuts, since the game is meant to be played, not poked.
  */
 const keys = { forward: false, backward: false, left: false, right: false };
 // Disable Right-Click Menu & Developer Console Shortcuts
@@ -34,6 +35,9 @@ function setupInputListeners() {
         if (k === 'a' || k === 'arrowleft') keys.left = isDown;
         if (k === 'd' || k === 'arrowright') keys.right = isDown;
         if (k === ' ' && isDown && isGrounded) triggerJump();
+        // e.repeat is true for every auto-repeat keydown, and paws toggle: without this
+        // guard holding E would hoist and drop the same prop several times a second.
+        if (k === 'e' && isDown && !e.repeat) toggleCarry();
     };
 
     window.addEventListener('keydown', e => handleKey(e, true));
@@ -93,6 +97,7 @@ function setupInputListeners() {
     bindTouch('btn-left', v => keys.left = v);
     bindTouch('btn-right', v => keys.right = v);
     bindTouch('btn-jump', v => { if (v && isGrounded) triggerJump(); });
+    bindTouch('btn-grab', v => { if (v) toggleCarry(); });
 
     const restartBtn = document.getElementById('restart-btn');
     restartBtn.setAttribute('tabindex', '-1');

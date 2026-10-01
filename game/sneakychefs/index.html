@@ -58,6 +58,7 @@
         }
         #stash-count { font-variant-numeric: tabular-nums; min-width: 2ch; }
         #hud-area { letter-spacing: 0.06em; font-size: 0.95rem; }
+        #carry-name { font-size: 0.95rem; min-width: 8ch; }
 
         /* Area change mask — the two rooms are nowhere near each other in the scene */
         #fade {
@@ -247,7 +248,7 @@
 
     <!--
       One page, two modes (see README). Opening index.html?qa=1 boots the game as usual and
-      then runs a module audit plus 13 behaviour checks, printing a QA{...} blob into #qa-out.
+      then runs a module audit plus 20 behaviour checks, printing a QA{...} blob into #qa-out.
       Without the flag none of the rig runs. The error collector has to be installed here,
       before any module is fetched, to catch a file that fails to parse.
     -->
@@ -272,12 +273,16 @@
             <span class="hud-label">AREA</span>
             <span id="hud-area">KITCHEN</span>
         </div>
+        <div class="hud-card">
+            <span class="hud-label">PAWS</span>
+            <span id="carry-name">empty</span>
+        </div>
     </div>
 
     <div id="hint">
-        The <b>fridge</b> is stocked &mdash; open it and shove the good stuff into the
-        <b>mouse hole</b> to stash it, then walk in to visit the base.
-        WASD move &middot; Space jump &middot; Right-drag orbit &middot; Wheel zoom
+        The <b>fridge</b> is stocked &mdash; open it and take the good stuff: shove it into
+        the <b>mouse hole</b>, or hoist it with <b>E</b> and carry it home, one at a time.
+        WASD move &middot; Space jump &middot; E hoist &middot; Right-drag orbit &middot; Wheel zoom
     </div>
 
     <div id="fade"></div>
@@ -302,6 +307,7 @@
             <div class="touch-btn" id="btn-right">►</div>
         </div>
         <div class="action-btns">
+            <div class="touch-btn" id="btn-grab" style="width:75px; height:75px; background:rgba(79,195,255,0.4);">GRAB</div>
             <div class="touch-btn" id="btn-jump" style="width:75px; height:75px; background:rgba(255,71,87,0.4);">JUMP</div>
         </div>
     </div>
@@ -348,12 +354,16 @@
      * top-level let/const is a SyntaxError that silently kills a whole file, and that is the
      * failure mode this split is most likely to hit.
      *
-     * Phase 2 drives the real game through 16 checks: the fridge at rest, opening on
+     * Phase 2 drives the real game through 20 checks: the fridge at rest, opening on
      * approach, looting butter out of the cavity, resealing, a cheese wheel shoved end to
-     * end down the hole, wall containment, standing inside the fridge, the portal there and
-     * back, the cutaway walls, the residents, what a capture resets, the restock loop that
-     * keeps the kitchen supplied (including a chilled good landing back on the fridge lip),
-     * and the cap on the hoard pile that keeps the base from growing forever.
+     * end down the hole, wall containment, moving around inside the fridge — to the back
+     * panel, across the width and a hop — the portal there and back, the cutaway walls, the
+     * residents, what a capture resets, the restock loop that keeps the kitchen supplied
+     * (including a chilled good landing back on the fridge lip), the cap on the hoard pile,
+     * two on prop contact — a wheel skidding along a counter face instead of grinding into
+     * it, and two props shoving each other apart instead of merging — and two on hoisting:
+     * the paws take one prop only, ride it along at a slowed pace, and hand it back when
+     * told, and a load carried to the arch is stowed in the base by the portal itself.
      */
     (function () {
         if (!new URLSearchParams(location.search).has('qa')) return;
@@ -366,11 +376,14 @@
             'enterArea', 'travelTo', 'checkHoleCrossing', 'playSound', 'showToast', 'updateStashHud',
             'getFloorY', 'resetChef', 'resetMouse', 'clearDust', 'buildFreezerGoods', 'fridgeReach',
             'updateDust', 'spawnDust', 'holeRadius', 'holeDistance', 'clampToArea', 'activeObstacles',
-            'activeCollision', 'liveProps', 'updateDeliveries', 'deliver', 'onIngredientStashed'];
+            'activeCollision', 'liveProps', 'updateDeliveries', 'deliver', 'onIngredientStashed',
+            'collideProps', 'solvePropCollision', 'clampPropToRect', 'toggleCarry', 'pickUp',
+            'dropCarry', 'nearestCarryable', 'updateCarry', 'stowCarried', 'updateCarryHud'];
         const EXPECTED_VARS = ['mouseVel', 'keys', 'ingredients', 'burrowMice', 'stashedIngredients', 'FRIDGE',
             'fridgeLamp', 'coldPuffs', 'camYaw', 'camDist', 'MOUSE_HOLE', 'BURROW_ORIGIN_X', 'kitchenObstacles',
             'GRAVITY', 'MOVE_SPEED', 'isTraveling', 'currentArea', 'DELIVERY_FLOOR', 'DELIVERY_DROP_Y',
-            'STASH_PILE_CAP'];
+            'STASH_PILE_CAP', 'BODY_BOUNCE', 'MOUSE_PUSH_RADIUS', 'PUSH_FACTOR',
+            'carriedItem', 'CARRY_REACH', 'CARRY_LIFT', 'CARRY_SHARE', 'CARRY_OUT', 'CARRY_SPEED'];
 
         window.addEventListener('load', () => {
             const r = {};
@@ -599,16 +612,74 @@
                 });
             }));
 
-            // 8. The mouse can step onto the sole and stand inside the open fridge
+            // 8. The cavity is sized for a mouse, not only for stock. Every panel here inflates
+            //    by the mouse's own push-out radius (0.46), so what reads as a roomy shelf can
+            //    still be a cupboard he cannot turn around in. Park the goods that stand in the
+            //    walk line, then make him reach the back panel, cross the full width and hop.
             steps.push((next) => {
-                mouseGroup.position.set(FRIDGE.x + 0.6, 0, FRIDGE.mouthZ + 0.6);
-                mouseVel.set(0, 0, 0);
-                keys.forward = true;       // walk -Z into the cavity
-                wait(() => inFridge(mouseGroup.position) && mouseGroup.position.y > FRIDGE.lipY - 0.01, 600, (ok) => {
+                const goods = ingredients.filter(i => inFridge(i.group.position));
+                goods.forEach(i => { i.sunk = true; i.stashing = false; i.group.visible = false; });
+                r.fridgeGoodsParked = goods.length;
+
+                camYaw = 0;               // forward is -Z, strafe is X
+                mouseGroup.position.set(FRIDGE.x + 1.0, 0, FRIDGE.mouthZ + 0.9);
+                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+
+                keys.forward = true;
+                wait(() => mouseGroup.position.z <= FRIDGE.backZ + 0.8, 600, (backOk) => {
                     keys.forward = false;
-                    r.enteredFridge = ok;
-                    r.mouseInFridge = v3(mouseGroup.position);
-                    next();
+                    r.reachedBackPanel = backOk && inFridge(mouseGroup.position);
+                    r.backPanelZ = +mouseGroup.position.z.toFixed(2);
+
+                    // The panels inflate by the mouse's own push-out radius, so that is the
+                    // only free space he really gets — measure it rather than assume it.
+                    const radius = 0.46 * mouseGroup.userData.scaleFactor;
+                    const wall = radius + 0.08;
+                    r.cavityFreeWidth = +(FRIDGE.cavityW - 2 * radius).toFixed(2);
+                    r.cavityFreeDepth = +Math.abs(FRIDGE.mouthZ - (FRIDGE.backZ + radius)).toFixed(2);
+                    let minX = mouseGroup.position.x, maxX = minX;
+                    keys.left = true;
+                    wait(() => {
+                        minX = Math.min(minX, mouseGroup.position.x);
+                        maxX = Math.max(maxX, mouseGroup.position.x);
+                        return mouseGroup.position.x <= FRIDGE.x - FRIDGE.cavityW / 2 + wall;
+                    }, 600, (leftOk) => {
+                        keys.left = false;
+                        keys.right = true;
+                        wait(() => {
+                            minX = Math.min(minX, mouseGroup.position.x);
+                            maxX = Math.max(maxX, mouseGroup.position.x);
+                            return mouseGroup.position.x >= FRIDGE.x + FRIDGE.cavityW / 2 - wall;
+                        }, 600, (rightOk) => {
+                            keys.right = false;
+                            r.crossedWidth = leftOk && rightOk && inFridge(mouseGroup.position);
+                            r.widthTravel = +(maxX - minX).toFixed(2);
+                            r.cavityRoomy = r.widthTravel > 2.5 && r.cavityFreeWidth > 2.5 &&
+                                r.cavityFreeDepth > 2;
+                            r.stoodOnLip = Math.abs(mouseGroup.position.y - FRIDGE.lipY) < 0.02;
+
+                            let peakY = mouseGroup.position.y;
+                            triggerJump();
+                            wait(() => {
+                                peakY = Math.max(peakY, mouseGroup.position.y);
+                                return isGrounded && peakY > mouseGroup.position.y + 0.3;
+                            }, 300, (hopOk) => {
+                                r.hoppedInside = hopOk && peakY > FRIDGE.lipY + 0.8;
+                                r.hopPeakY = +peakY.toFixed(2);
+                                r.landedBackOnLip = Math.abs(mouseGroup.position.y - FRIDGE.lipY) < 0.02;
+                                r.stayedInCavity = inFridge(mouseGroup.position);
+                                r.enteredFridge = r.reachedBackPanel && r.crossedWidth &&
+                                    r.stayedInCavity && r.cavityRoomy;
+                                r.mouseInFridge = v3(mouseGroup.position);
+
+                                goods.forEach(i => deliver(i));
+                                wait(() => goods.every(i => i.grounded && !i.delivering), 300, (ok) => {
+                                    r.fridgeGoodsRestored = ok && goods.every(i => inFridge(i.group.position));
+                                    next();
+                                });
+                            });
+                        });
+                    });
                 });
             });
 
@@ -749,6 +820,195 @@
                 r.pileSourceAlive = src.group.visible && !src.sunk;
                 next();
             });
+
+            // 17. Contact with a counter. Moving the prop out of the box used to be the whole
+            //     response, which left its speed aimed straight at the face: the next frame
+            //     walked it back in, so a shove into a counter read as the prop seizing up.
+            //     Now the normal component is reflected and the tangential one is kept.
+            steps.push((next) => backToKitchen(() => {
+                const island = kitchenObstacles.find(o => o.w === 8 && o.d === 3);
+                const wheel = ingredients.find(i => !i.sunk && !i.stashing && !i.delivering);
+                mouseGroup.position.set(-12, 0, 12);   // past the chef's sight: props alone
+                mouseVel.set(0, 0, 0);
+
+                const faceZ = island.z - island.d / 2;              // the counter's near face
+                const restZ = faceZ - wheel.radius;                 // centre while just touching
+                wheel.group.position.set(island.x - 2, 0, restZ - 0.03);
+                wheel.vel.set(3.0, 0, 4.0);                         // along the face, into it
+                wheel.velY = 0; wheel.grounded = true;
+
+                simFrames(1);
+                r.contactInwardSpeed = +wheel.vel.z.toFixed(2);     // negative = thrown back out
+                r.contactAlongSpeed = +wheel.vel.x.toFixed(2);      // tangential speed survives
+                r.contactPoppedOut = Math.abs(wheel.group.position.z - restZ) < 0.01;
+
+                const startX = wheel.group.position.x;
+                const startZ = wheel.group.position.z;
+                let embedded = false;
+                wait(() => {
+                    embedded = embedded || kitchenObstacles.some(o =>
+                        wheel.group.position.y < o.h - STEP_HEIGHT &&
+                        Math.abs(wheel.group.position.x - o.x) < o.w / 2 + wheel.radius - 0.08 &&
+                        Math.abs(wheel.group.position.z - o.z) < o.d / 2 + wheel.radius - 0.08);
+                    return wheel.stashing || Math.hypot(wheel.group.position.x - startX,
+                        wheel.group.position.z - startZ) > 1.5 ||
+                        (wheel.grounded && wheel.vel.lengthSq() === 0);
+                }, 300, () => {
+                    r.slidAlongFace = wheel.group.position.x - startX > 1.0;
+                    r.slideX = +(wheel.group.position.x - startX).toFixed(2);
+                    r.leftTheFace = wheel.group.position.z < restZ - 0.3;
+                    r.neverEmbedded = !embedded;
+                    r.slideStayedInRoom = Math.abs(wheel.group.position.x) < KITCHEN_BOUND &&
+                        Math.abs(wheel.group.position.z) < KITCHEN_BOUND;
+                    wheel.sunk = true; wheel.group.visible = false;   // don't litter the floor
+                    next();
+                });
+            }));
+
+            // 18. Props never touched each other at all, so two wheels ran into the same
+            //     counter face and welded there. Equal masses: the shove changes hands.
+            steps.push((next) => {
+                const pair = ingredients.filter(i => !i.sunk && !i.stashing && !i.delivering).slice(0, 2);
+                const [a, b] = pair;
+                const reach = a.radius + b.radius;
+                a.group.position.set(-6, 0, 8);
+                b.group.position.set(-6 + reach * 0.5, 0, 8);        // deliberately overlapped
+                [a, b].forEach(i => { i.vel.set(0, 0, 0); i.velY = 0; i.grounded = true; });
+                a.vel.x = 4.0;
+                r.propPairOverlap = +(reach - (b.group.position.x - a.group.position.x)).toFixed(2);
+
+                simFrames(1);
+                r.propPairSeparated = (b.group.position.x - a.group.position.x) >= reach - 0.01;
+                r.momentumHandoff = b.vel.x > 1.0;                   // the parked one rolls off
+                r.pusherSlowed = a.vel.x < 4.0 * 0.98;
+
+                let deep = false;
+                wait(() => {
+                    deep = deep || Math.hypot(b.group.position.x - a.group.position.x,
+                        b.group.position.z - a.group.position.z) < reach * 0.6;
+                    return (a.grounded && b.grounded && a.vel.lengthSq() === 0 && b.vel.lengthSq() === 0) ||
+                        a.stashing || b.stashing;
+                }, 300, () => {
+                    r.propsNeverMerged = !deep;
+                    r.propsApart = +Math.hypot(b.group.position.x - a.group.position.x,
+                        b.group.position.z - a.group.position.z).toFixed(2);
+                    r.pairOutWalls = [a, b].every(it => !kitchenObstacles.some(o =>
+                        Math.abs(it.group.position.x - o.x) < o.w / 2 + it.radius - 0.08 &&
+                        Math.abs(it.group.position.z - o.z) < o.d / 2 + it.radius - 0.08));
+                    r.pairBothOnFloor = [a, b].every(it => it.grounded && !it.stashing);
+                    next();
+                });
+            });
+
+            // 19. Hoisting. A wheel wedged against a counter leg will not roll out however hard
+            //     you lean on it, so the paws have to take one prop, hold it off the floor while
+            //     you walk, and give it back when asked. Two arms, one cargo: a second hoist is
+            //     refused rather than allowed to swap what is already carried.
+            steps.push((next) => backToKitchen(() => {
+                const live = ingredients.filter(i => !i.sunk && !i.stashing && !i.delivering);
+                const [wheel, spare] = live;
+                mouseGroup.position.set(-6, 0, 8);      // a clear lane: the island stops at x -4
+                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                camYaw = 0;
+                simFrames(2);                           // let the facing settle before we place
+                const fx = -Math.sin(mouseAngle), fz = -Math.cos(mouseAngle);
+                const place = (item, side, ahead) => {
+                    item.group.position.set(mouseGroup.position.x + fx * ahead + side, 0,
+                        mouseGroup.position.z + fz * ahead);
+                    item.vel.set(0, 0, 0); item.velY = 0; item.grounded = true;
+                    item.spinner.rotation.set(0, 0, 0);
+                };
+                place(wheel, 0, 0.8);                   // nearest, so pickUp must choose it
+                place(spare, 0.55, 0.78);               // also in reach — and still refused
+
+                const newestBefore = stashedIngredients[stashedIngredients.length - 1];
+                pickUp();
+                r.hoisted = carriedItem === wheel && wheel.carried === true;
+                r.hoistStoppedRolling = wheel.spinner.rotation.x === 0 && wheel.vel.lengthSq() === 0;
+                r.pawsHud = document.getElementById('carry-name').textContent;
+
+                pickUp();
+                r.pawsHoldOne = carriedItem === wheel && ingredients.filter(i => i.carried).length === 1;
+                r.secondPropLeftDown = spare.carried === false;
+
+                keys.forward = true;                    // camYaw 0 -> -Z, away from both props
+                wait(() => mouseGroup.position.z < 6.0, 240, (walked) => {
+                    simFrames(30);                      // until the speed lerp settles, so the
+                    keys.forward = false;               // loaded pace is a steady measurement
+                    const gap = Math.hypot(wheel.group.position.x - mouseGroup.position.x,
+                        wheel.group.position.z - mouseGroup.position.z);
+                    r.carriedWhileWalking = walked;
+                    r.carryGap = +gap.toFixed(2);
+                    r.carryHoldOut = +(CARRY_OUT + wheel.radius * 0.55).toFixed(2);
+                    r.carryRidesWithMouse = Math.abs(gap - r.carryHoldOut) < 0.12;
+                    r.carrySpeed = +mouseVel.length().toFixed(2);
+                    r.carryLoadSlowsHim = mouseVel.length() < MOVE_SPEED * 0.95;
+                    r.carryHoldY = +wheel.group.position.y.toFixed(2);
+                    r.carryOffFloor = wheel.group.position.y > 0.1;
+                    r.carryNotRolling = Math.abs(wheel.spinner.rotation.x) < 0.2;
+                    r.carryStayedInRoom = Math.abs(wheel.group.position.x) < KITCHEN_BOUND &&
+                        Math.abs(wheel.group.position.z) < KITCHEN_BOUND;
+                    r.carryNeverFellDownChute =
+                        stashedIngredients[stashedIngredients.length - 1] === newestBefore;
+
+                    toggleCarry();
+                    r.pawsReleased = carriedItem === null && wheel.carried === false;
+                    r.pawsHudAfterDrop = document.getElementById('carry-name').textContent;
+                    wait(() => wheel.grounded && wheel.vel.lengthSq() === 0, 240, (settled) => {
+                        r.droppedPropSettled = settled;
+                        r.dropRestsOnFloor = Math.abs(wheel.group.position.y -
+                            getFloorY(wheel.group.position.x, wheel.group.position.z, Infinity,
+                                kitchenObstacles)) < 0.03;
+                        r.dropBackInPlay = !wheel.sunk && !wheel.stashing && wheel.group.visible;
+                        next();
+                    });
+                });
+            }));
+
+            // 20. The reason to hoist anything: the arch stows the load in the base pile as you
+            //     step through, so one trip home brings back what a shove left in the kitchen.
+            //     The prop starts well clear of the chute, so the only way it can get hoarded is
+            //     on his back. Deliveries are parked for the trip: the restock loop reclaims any
+            //     sunk prop at random, and with the floor already thin it would hand this one
+            //     back to the kitchen during the portal fade and make the stow unreadable.
+            steps.push((next) => backToKitchen(() => {
+                const load = ingredients.find(i => !i.sunk && !i.stashing && !i.delivering);
+                deliveryTimer = 1e6;
+                mouseGroup.position.set(0.4, 0, -13.1);   // 2.2 from the arch, outside his own
+                                                          // trigger radius: he has to walk in
+                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                camYaw = 0;
+                simFrames(2);
+                const fx = -Math.sin(mouseAngle), fz = -Math.cos(mouseAngle);
+                load.group.position.set(mouseGroup.position.x + fx * 0.8, 0,
+                    mouseGroup.position.z + fz * 0.8);
+                load.vel.set(0, 0, 0); load.velY = 0; load.grounded = true;
+
+                const chuteGap = kitchenHoleDistance(load.group.position.x, load.group.position.z);
+                r.carryClearOfChute = +chuteGap.toFixed(2);
+                r.carryStartedOffChute = chuteGap > MOUSE_HOLE.radius;
+                const newestBefore = stashedIngredients[stashedIngredients.length - 1];
+                pickUp();
+                r.carryLoadedForTrip = carriedItem === load;
+
+                keys.forward = true;                    // straight at the arch
+                wait(() => currentArea === 'burrow', 400, (ok) => {
+                    keys.forward = false;
+                    r.carryCrossedHome = ok;
+                    // The pile is already at STASH_PILE_CAP from step 16, so growth here reads
+                    // as the newest entry being replaced, not as a longer array.
+                    r.carryPushedPileForward = stashedIngredients[stashedIngredients.length - 1] !== newestBefore;
+                    r.carryPawsEmptied = carriedItem === null && load.carried === false;
+                    r.carryPawsHud = document.getElementById('carry-name').textContent;
+                    r.carryLoadOffFloor = load.sunk && !load.group.visible;
+                    r.carryStashHudMatches = document.getElementById('stash-count').textContent ===
+                        String(stashedIngredients.length);
+                    r.carryClone = stashedIngredients.length ?
+                        v3(stashedIngredients[stashedIngredients.length - 1].position) : null;
+                    r.carryLandedBurrow = v3(mouseGroup.position);
+                    next();
+                });
+            }));
 
             const out = document.getElementById('qa-out');
             let stepIdx = 0;

@@ -3,6 +3,9 @@
  *
  * getFloorY              the highest surface under a point, reachable within STEP_HEIGHT.
  * solveObstacleCollision min-axis push-out from { x, z, w, d, h } boxes.
+ * solvePropCollision     the same push-out for a rolling prop, plus the velocity fix that
+ *                        keeps it sliding along a face instead of grinding into it.
+ * clampPropToRect        the room bounds for a prop, killing speed aimed at a wall.
  * clampToRect/clampToArea the rect that seals whichever room the player is in.
  * activeObstacles / activeCollision / areaRect pick the kitchen's or the base's geometry
  * from `currentArea`, which is why one scene can hold two unrelated rooms.
@@ -75,6 +78,48 @@ function solveObstacleCollision(pos, radius, obstacles = activeObstacles()) {
             else if (minDist === dzMax) pos.z = maxZ;
         }
     }
+}
+
+const BODY_BOUNCE = 0.34;
+
+// A rolling prop needs the velocity corrected along with the position. Relocating it out of
+// a counter and leaving its speed pointing into the counter is what made props "stick": the
+// next frame moved them straight back in, so they ground to a halt against the face instead
+// of skidding along it. The normal component is reflected, the tangential one is kept.
+function solvePropCollision(pos, vel, radius, obstacles = activeObstacles()) {
+    for (const obs of obstacles) {
+        if (pos.y >= obs.h - STEP_HEIGHT) continue;
+        const hx = obs.w / 2 + radius, hz = obs.d / 2 + radius;
+        const dx = pos.x - obs.x, dz = pos.z - obs.z;
+        if (Math.abs(dx) >= hx || Math.abs(dz) >= hz) continue;
+
+        // Leave through whichever face is crossed least deeply, the way a round body would.
+        const ox = hx - Math.abs(dx), oz = hz - Math.abs(dz);
+        let nx = 0, nz = 0;
+        if (ox < oz) {
+            nx = dx > 0 ? 1 : -1;
+            pos.x = obs.x + nx * hx;
+        } else {
+            nz = dz > 0 ? 1 : -1;
+            pos.z = obs.z + nz * hz;
+        }
+
+        const into = vel.x * nx + vel.z * nz;      // negative while still aimed at the box
+        if (into < 0) {
+            vel.x -= nx * into * (1 + BODY_BOUNCE);
+            vel.z -= nz * into * (1 + BODY_BOUNCE);
+        }
+    }
+}
+
+// The room's own bounds, for a prop. No rebound here: the mouse hole is set into this wall,
+// so a wheel that reaches it has to stay put rather than be thrown back into the room.
+function clampPropToRect(pos, vel, originX, bound) {
+    const min = originX - bound, max = originX + bound;
+    if (pos.x < min) { pos.x = min; if (vel.x < 0) vel.x = 0; }
+    else if (pos.x > max) { pos.x = max; if (vel.x > 0) vel.x = 0; }
+    if (pos.z < -bound) { pos.z = -bound; if (vel.z < 0) vel.z = 0; }
+    else if (pos.z > bound) { pos.z = bound; if (vel.z > 0) vel.z = 0; }
 }
 
 // Particle dust puffs sharing geometry and material to prevent GC stuttering
