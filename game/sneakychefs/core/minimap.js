@@ -1,17 +1,18 @@
 /**
  * core/minimap.js — the house map in the corner of the screen.
  *
- * Seven rooms in one scene means the player can be anywhere, and a doorway you walked
- * through ten seconds ago is not a landmark you can see from here. So the whole house is
- * drawn to scale: every room from the registry, a line through each pair of matching doors,
- * the goods still loose in the room you are standing in, the chef if he shares it, and you.
+ * A connected floorplan is easy to get lost in, and a doorway you walked through ten seconds
+ * ago is not a landmark you can see from here. So the plan is drawn to scale: every room from
+ * the registry, a tick in the wall wherever a pair of doors faces through, one long line for
+ * the gate that still jumps, the goods loose in the room you are standing in, the chef if he
+ * shares it, and you.
  *
- * Nothing here is authored — the view is fitted to the registry at boot, so adding a room
- * to map/rooms.js rescales the map around it.
+ * Nothing here is authored — the view is fitted to the registry at boot, so adding a room to
+ * map/rooms.js rescales the map around it.
  */
 const MAP_W = 210;
-// The house is two rows of rooms: ~938 units across and only ~335 deep, so the card is wide
-// and short. The fit below is uniform, which is what makes a square room look square.
+// The plan is two rows of rooms about 150 units across and 60 deep, so the card is wide and
+// short. The fit below is uniform, which is what makes a square room look square.
 const MAP_H = 96;
 const MAP_PAD = 12;      // breathing room between the outermost wall and the card's edge
 
@@ -31,8 +32,12 @@ function initMinimap() {
     mapCtx = canvas.getContext('2d');
     mapCtx.scale(dpr, dpr);
 
+    // Only the rooms you can walk between are fitted. The base keeps a rect clamp precisely
+    // because it is not part of the plan — it sits hundreds of units off to one side, and if it
+    // were in these bounds the whole house would shrink to a smear to make room for it.
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     roomOrder.forEach(r => {
+        if (r.clamp) return;
         minX = Math.min(minX, r.ox - r.hx); maxX = Math.max(maxX, r.ox + r.hx);
         minZ = Math.min(minZ, r.oz - r.hz); maxZ = Math.max(maxZ, r.oz + r.hz);
     });
@@ -40,13 +45,29 @@ function initMinimap() {
     mapView = { scale, cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2 };
 }
 
-// World to map. Screen Y runs down and world +Z runs "south", so no flip is needed: north
-// (the kitchen's mouse-hole wall) is the top of the card, which is how the house is laid out.
+// World to map, pinned to the card. Screen Y runs down and world +Z runs "south", so no flip
+// is needed: north (the kitchen's mouse-hole wall) is the top of the card, which is how the
+// house is laid out. Anything off the fitted plan — the base, for one — lands on the edge,
+// which reads as "somewhere that way, past the map" instead of vanishing.
 function mapPoint(x, z) {
     return [
-        MAP_W / 2 + (x - mapView.cx) * mapView.scale,
-        MAP_H / 2 + (z - mapView.cz) * mapView.scale
+        THREE.MathUtils.clamp(MAP_W / 2 + (x - mapView.cx) * mapView.scale, 3, MAP_W - 3),
+        THREE.MathUtils.clamp(MAP_H / 2 + (z - mapView.cz) * mapView.scale, 3, MAP_H - 3)
     ];
+}
+
+// Each pair of doors that face each other, once rather than once per side. A pair between the
+// same two rooms at two different points is two links, which is why the dedupe is per portal
+// and not per room pair.
+function houseLinks() {
+    const out = [];
+    roomOrder.forEach(r => r.portals.forEach(p => {
+        if (r.id >= p.to) return;                    // ... and only from one of the two sides
+        const far = roomById(p.to);
+        const back = far && far.portals.find(q => q.to === r.id);
+        if (back) out.push({ a: p, b: back, from: r, to: far });
+    }));
+    return out;
 }
 
 function drawMinimap() {
@@ -54,29 +75,33 @@ function drawMinimap() {
     const ctx = mapCtx;
     const room = activeRoom();
     ctx.clearRect(0, 0, MAP_W, MAP_H);
+    const links = houseLinks();
+    const isLive = l => l.from === room || l.to === room;
 
-    // Doorways first, so each room is drawn over the ends of the lines meeting it. Both
-    // halves of a pair are in the registry, so a link is drawn once and only if the far door
-    // exists — a door to a room that was never registered would show up as a stub.
-    const linked = {};
-    roomOrder.forEach(r => r.portals.forEach(p => {
-        const key = r.id < p.to ? r.id + '|' + p.to : p.to + '|' + r.id;
-        if (linked[key]) return;
-        linked[key] = true;
-        const back = roomById(p.to) && roomById(p.to).portals.find(q => q.to === r.id);
-        if (!back) return;
-        const [ax, ay] = mapPoint(p.x, p.z);
-        const [bx, by] = mapPoint(back.x, back.z);
-        const live = r === room || roomById(p.to) === room;
+    // The gate that jumps: its two doors are hundreds of units apart, so it is the only link
+    // with a line to draw. It goes under the rooms, and ends in a dot at the edge of the card —
+    // the base is off this map, and that is the way to it.
+    links.forEach(l => {
+        if (Math.hypot(l.b.x - l.a.x, l.b.z - l.a.z) < 1) return;
+        const out = l.from.clamp ? l.a : l.b;        // ... and the end that is not on the plan
+        const [ax, ay] = mapPoint(l.a.x, l.a.z);
+        const [bx, by] = mapPoint(l.b.x, l.b.z);
+        const [ox, oy] = mapPoint(out.x, out.z);
+        const live = isLive(l);
         ctx.strokeStyle = live ? 'rgba(255,190,0,0.75)' : 'rgba(200,210,230,0.22)';
         ctx.lineWidth = live ? 1.4 : 1;
         ctx.beginPath();
         ctx.moveTo(ax, ay);
         ctx.lineTo(bx, by);
         ctx.stroke();
-    }));
+        ctx.fillStyle = live ? 'rgba(255,190,0,0.9)' : 'rgba(200,210,230,0.35)';
+        ctx.beginPath();
+        ctx.arc(ox, oy, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+    });
 
     roomOrder.forEach(r => {
+        if (r.clamp) return;                 // the base is not on the plan; see the link above
         const [x, z] = mapPoint(r.ox - r.hx, r.oz - r.hz);
         const w = r.hx * 2 * mapView.scale, h = r.hz * 2 * mapView.scale;
         const here = r === room;
@@ -91,6 +116,20 @@ function drawMinimap() {
         ctx.strokeStyle = here ? '#ffbe00' : 'rgba(255,255,255,0.18)';
         ctx.lineWidth = here ? 1.6 : 1;
         ctx.strokeRect(x + 0.5, z + 0.5, w - 1, h - 1);
+    });
+
+    // Doorways last, over the walls they cut: a pair of doors that face each other at the same
+    // point is an opening, so it gets a tick drawn across the masonry it goes through.
+    links.forEach(l => {
+        if (Math.hypot(l.b.x - l.a.x, l.b.z - l.a.z) >= 1) return;
+        const [x, y] = mapPoint(l.a.x, l.a.z);
+        const wallRunsX = l.a.side === 'north' || l.a.side === 'south';
+        ctx.strokeStyle = isLive(l) ? 'rgba(255,190,0,0.95)' : 'rgba(226,236,252,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(wallRunsX ? x : x - 2.2, wallRunsX ? y - 2.2 : y);
+        ctx.lineTo(wallRunsX ? x : x + 2.2, wallRunsX ? y + 2.2 : y);
+        ctx.stroke();
     });
 
     // Only the room being stood in gets its goods drawn: at this scale the whole house's

@@ -2,9 +2,9 @@
  * core/camera.js — the orbit camera that follows the mouse.
  *
  * Right-drag yaws and pitches, the wheel zooms (both handled in core/input.js), and a
- * raycast against activeCollision() pulls the camera in before it clips through geometry.
- * core/areas.js snaps it straight to its orbit position on a room change instead of
- * letting it lerp 400 units across empty scene.
+ * raycast against `worldCollisionMeshes` pulls the camera in before it clips through
+ * geometry. Since the house is one connected plan the camera only ever jumps across empty
+ * scene when a bespoke portal teleports the player — core/areas.js snaps it in that case.
  */
 let isRightMouseDown = false;
 let camYaw = 0;
@@ -28,7 +28,7 @@ function updateCamera(dt) {
     camDist = THREE.MathUtils.lerp(camDist, camDistTarget, Math.min(1, dt * 10));
 
     let allowedDist = camDist;
-    const collision = activeCollision();
+    const collision = worldCollisionMeshes;
     if (collision.length > 0) {
         cameraRaycaster.set(lookFrom, desiredDir);
         cameraRaycaster.far = camDist;

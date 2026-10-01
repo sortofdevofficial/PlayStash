@@ -5,27 +5,18 @@
  * solveObstacleCollision min-axis push-out from { x, z, w, d, h } boxes.
  * solvePropCollision     the same push-out for a rolling prop, plus the velocity fix that
  *                        keeps it sliding along a face instead of grinding into it.
- * clampPropToRect        the room bounds for a prop, killing speed aimed at a wall.
- * clampToRect/clampToArea the rect that seals whichever room the player is in.
- * activeObstacles / activeCollision read the room record the registry keeps for
- * `currentArea`, which is why one scene can hold a whole house of unrelated rooms.
+ * clampPropToRect/clampToRect the invisible rect that seals one room — only for rooms that
+ *                        ask for it, which since the house became walkable is just the base.
  *
- * Walls are camera geometry, not obstacles, so the clamp — not the walls — contains the
- * player. Obstacle sets are filled by world/rooms.js from map/rooms.js, plus the two
- * bespoke builders world/fridge.js and world/burrow.js.
+ * Everything else is real geometry. The house is one connected floorplan, so a mouse stops
+ * at a wall because there is a wall there, not because a clamp said so: world/rooms.js
+ * merges every room's furniture and the whole house's masonry into `worldObstacles` and its
+ * camera-dressing meshes into `worldCollisionMeshes`, and both are the default argument here.
  */
 const STEP_HEIGHT = 0.12;
 
-function activeObstacles() {
-    return activeRoom().obstacles;
-}
-
-function activeCollision() {
-    return activeRoom().collision;
-}
-
-// A room is the rect (ox ± hx, oz ± hz). Walls sit just outside it, so the clamp stops the
-// mouse at the wall's inner face rather than in the middle of the masonry.
+// A room is the rect (ox ± hx, oz ± hz). Walls straddle the rect edge, so the clamp stops
+// the mouse at the wall's inner face rather than in the middle of the masonry.
 function clampToRect(vec, room) {
     if (vec.x < room.ox - room.hx) vec.x = room.ox - room.hx;
     else if (vec.x > room.ox + room.hx) vec.x = room.ox + room.hx;
@@ -33,14 +24,16 @@ function clampToRect(vec, room) {
     else if (vec.z > room.oz + room.hz) vec.z = room.oz + room.hz;
 }
 
-// Walls are visual/camera geometry, not obstacles, so without this the mouse would
-// simply walk out of the room (and, in the burrow, out through the exit arch).
+// Most rooms are bounded by real masonry, so there is nothing to clamp: the exception is the
+// base, whose cutaway shell is drawn rather than built, and which therefore has no obstacles
+// to walk into. Rooms declare `clamp: true` in map/rooms.js to opt back in.
 function clampToArea(vec) {
-    clampToRect(vec, activeRoom());
+    const room = activeRoom();
+    if (room.clamp) clampToRect(vec, room);
 }
 
 
-function getFloorY(px, pz, feetY = Infinity, obstacles = activeObstacles()) {
+function getFloorY(px, pz, feetY = Infinity, obstacles = worldObstacles) {
     let maxY = 0;
     for (const obs of obstacles) {
         if (Math.abs(px - obs.x) < obs.w / 2 && Math.abs(pz - obs.z) < obs.d / 2) {
@@ -50,7 +43,7 @@ function getFloorY(px, pz, feetY = Infinity, obstacles = activeObstacles()) {
     return maxY;
 }
 
-function solveObstacleCollision(pos, radius, obstacles = activeObstacles()) {
+function solveObstacleCollision(pos, radius, obstacles = worldObstacles) {
     for (const obs of obstacles) {
         const minX = obs.x - obs.w / 2 - radius;
         const maxX = obs.x + obs.w / 2 + radius;
@@ -78,7 +71,7 @@ const BODY_BOUNCE = 0.34;
 // a counter and leaving its speed pointing into the counter is what made props "stick": the
 // next frame moved them straight back in, so they ground to a halt against the face instead
 // of skidding along it. The normal component is reflected, the tangential one is kept.
-function solvePropCollision(pos, vel, radius, obstacles = activeObstacles()) {
+function solvePropCollision(pos, vel, radius, obstacles = worldObstacles) {
     for (const obs of obstacles) {
         if (pos.y >= obs.h - STEP_HEIGHT) continue;
         const hx = obs.w / 2 + radius, hz = obs.d / 2 + radius;
@@ -104,8 +97,8 @@ function solvePropCollision(pos, vel, radius, obstacles = activeObstacles()) {
     }
 }
 
-// The prop's own room bounds. No rebound here: the mouse hole is set into the kitchen's
-// wall, so a wheel that reaches it has to stay put rather than be thrown back into the room.
+// The rect bounds for a prop in a clamped room. No rebound here: the base's exit arch is set
+// into the shell, so a load that reaches it has to stay put rather than be thrown back inside.
 function clampPropToRect(pos, vel, room) {
     const minX = room.ox - room.hx, maxX = room.ox + room.hx;
     const minZ = room.oz - room.hz, maxZ = room.oz + room.hz;

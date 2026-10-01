@@ -52,11 +52,14 @@ function animate(time) {
 
     if (!isGameOver) {
         updateMouse(dt, time);
+        // Before anything that asks which room he is in: the camera, the chef's lamps, the
+        // minimap and the portals all read the area his feet are actually standing in.
+        updateAreaFromPosition();
         updateCamera(dt);
 
-        // Every brain ticks in every room. Each one guards itself: the chef is clamped to
-        // the kitchen and 300 units is far outside his sight range, so he cools off the
-        // chase on his own; the residents only move while you are actually home.
+        // Every brain ticks in every room. Each one guards itself: the chef is clamped to his
+        // own kitchen and the masonry stops his sight through anything but an open doorway, so
+        // he cannot follow you into the hall; the residents only move while you are home.
         updateChefAI(dt, time);
         updateBurrowMice(dt, time);
 

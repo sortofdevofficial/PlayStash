@@ -1,11 +1,42 @@
 /**
  * core/areas.js — which room the player is in, and how they change it.
  *
- * Walking into any doorway registered for the room flips `currentArea`, fades the screen,
- * and re-spawns the mouse just inside the door it came through. Everything it needs — the
- * spawn points, the labels, the arrival toasts, the doors themselves — comes from the room
- * records that world/rooms.js built out of map/rooms.js, so nothing here knows the layout.
+ * Rooms tile one continuous floorplan, so an ordinary doorway is a gap in the masonry you
+ * simply walk through: `updateAreaFromPosition` asks the registry which rect the mouse's feet
+ * are in, and when that changes it re-labels the HUD, switches the lamps and shows the
+ * arrival toast. Nothing is repositioned and the screen never fades.
+ *
+ * Two gates still jump, because they lead somewhere that is not next door: the mouse hole's
+ * chute and the base's exit arch, with the den sitting 400 units away in the same scene. Those
+ * are the `bespoke` portals, they keep a trigger radius and the fade, and `travelTo`/
+ * `enterArea` below exist only for them.
  */
+
+// Claim a room the mouse has walked into. His own walking put him here, so this moves nothing.
+function setArea(room) {
+    currentArea = room.id;
+    document.getElementById('hud-area').textContent = room.label;
+    lightActiveRoom();
+    showToast(room.arrive);
+}
+
+// Only an entry once the point is clear of the masonry on that edge: walls are built ON the
+// rect boundary and straddle it, so the threshold is half a wall's thickness inside it. Without
+// the dead band, standing mid-doorway would flip the label, the lamps and the minimap's
+// highlight every few frames — and each lamp switch recompiles every material in the scene.
+function roomEntered(room, x, z) {
+    const t = room.spec.wall ? room.spec.wall.thickness : 0;
+    return Math.abs(x - room.ox) <= room.hx - t / 2 && Math.abs(z - room.oz) <= room.hz - t / 2;
+}
+
+function updateAreaFromPosition() {
+    if (isTraveling || isGameOver) return;
+    const pos = mouseGroup.position;
+    const here = roomAt(pos.x, pos.z);
+    if (here.id === currentArea) return;
+    if (!roomEntered(here, pos.x, pos.z)) return;
+    setArea(here);
+}
 
 function enterArea(area, fromId) {
     currentArea = area;
@@ -51,16 +82,17 @@ function travelTo(area, fromId) {
     }, 450);
 }
 
-// Every door in the room the player is standing in is live at once, and the nearest one
-// within its own trigger radius wins. Only the way home takes the load off your back:
-// a doorway between two rooms upstairs is not the base's front door, so carrying a wheel
-// through it has to keep working.
+// The two gates that jump. An ordinary doorway has no trigger radius at all — you cross it by
+// walking, and updateAreaFromPosition notices — so only the bespoke portals are checked here.
+// Taking the load off your back belongs to the way home alone: a doorway between two rooms
+// upstairs is not the base's front door, so carrying a wheel through one must keep working.
 function checkPortalCrossing() {
     if (isTraveling) return;
     const room = activeRoom();
     const pos = mouseGroup.position;
 
     for (const p of room.portals) {
+        if (!p.bespoke) continue;
         if (Math.hypot(pos.x - p.x, pos.z - p.z) >= p.radius + PORTAL_ENTER_MARGIN) continue;
         if (p.to === 'burrow') stowCarried();
         travelTo(p.to, room.id);

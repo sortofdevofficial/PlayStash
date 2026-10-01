@@ -2,9 +2,11 @@
  * actors/chef.js — the chef's brain: patrol, sight, chase, smash telegraphs.
  *
  * The geometry is models/chef.js; this file drives it. Line of sight is a real raycast
- * against cameraCollisionMeshes, so counters block his view. Capture is delegated to
- * main.js through triggerGameOver(), and the only UI this module touches is core/ui.js's
- * toast. main.js never mutates the chef's state directly — it calls resetChef().
+ * against `worldCollisionMeshes`, so counters block his view — and since the house is one
+ * connected plan now, so do its walls: he can see you through an open doorway and nowhere
+ * else. Capture is delegated to main.js through triggerGameOver(), and the only UI this
+ * module touches is core/ui.js's toast. main.js never mutates the chef's state directly —
+ * it calls resetChef().
  */
 let chefWaypoints = [];      // patrol route, laid out by world/kitchen.js
 let chefIsChasing = false;
@@ -56,8 +58,11 @@ const CHEF_SIGHT_RANGE = 11.0;
 const CHEF_CLOSE_RANGE = 4.0;
 const CHEF_LOSE_SIGHT_SECONDS = 2.2;
 const CHEF_REALERT_COOLDOWN = 1.0;
-// How far off the walls he turns. The kitchen's half-extent minus this is the old ±14.5.
-const CHEF_WALL_INSET = 0.85;
+// How far off the walls he turns: half a kitchen wall's thickness (the masonry straddles the
+// rect boundary) plus his own body radius, which is exactly where the obstacle push-out would
+// leave him anyway. It has to be this far because the doorways are gaps in that masonry with no
+// box in front of them — the clamp is the only thing keeping him out of them.
+const CHEF_WALL_INSET = 0.5 + 0.7;
 const chefSightRay = new THREE.Raycaster();
 
 // Counters, crates, the fridge and the walls all block the chef's view, so ducking
@@ -69,7 +74,7 @@ function chefHasLineOfSight(distToMouse) {
     if (dir.lengthSq() < 0.0001) return true;
     chefSightRay.set(eye, dir.normalize());
     chefSightRay.far = distToMouse - 0.25;
-    return chefSightRay.intersectObjects(cameraCollisionMeshes, false).length === 0;
+    return chefSightRay.intersectObjects(worldCollisionMeshes, false).length === 0;
 }
 
 function updateChefAI(dt, time) {
@@ -186,8 +191,9 @@ function updateChefAI(dt, time) {
                 chefGroup.position.x += Math.sin(chefGroup.rotation.y) * moveSpeed * dt;
                 chefGroup.position.z += Math.cos(chefGroup.rotation.y) * moveSpeed * dt;
 
-                // Walls are camera geometry, not obstacles, so the clamp is what keeps him
-                // in his own kitchen instead of strolling through the wall after the mouse.
+                // The masonry blocks him everywhere except an open doorway, and it is this rect
+                // that keeps him out of those gaps instead of strolling into the hall after
+                // the mouse.
                 const room = roomById('kitchen');
                 const lo = { x: room.ox - room.hx + CHEF_WALL_INSET, z: room.oz - room.hz + CHEF_WALL_INSET };
                 const hi = { x: room.ox + room.hx - CHEF_WALL_INSET, z: room.oz + room.hz - CHEF_WALL_INSET };
@@ -200,7 +206,7 @@ function updateChefAI(dt, time) {
     chefGroup.position.y = 0;
 
     if (typeof solveObstacleCollision === 'function') {
-        solveObstacleCollision(chefGroup.position, 0.7, roomById('kitchen').obstacles);
+        solveObstacleCollision(chefGroup.position, 0.7);
     }
 
     // Animation updates

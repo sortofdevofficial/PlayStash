@@ -113,10 +113,11 @@ const PUSH_FACTOR = 1.35;
 function pushIngredients() {
     const mouseSpeed = mouseVel.length();
     ingredients.forEach(item => {
-        // A prop already on its way down the hole, or sitting in the mouse's own paws, is
-        // out of play — and so is anything belonging to another room, since the whole house
-        // shares one scene and the rest are hundreds of units away.
-        if (item.stashing || item.sunk || item.carried || item.room !== currentArea) return;
+        // A prop already on its way down the hole, or sitting in the mouse's own paws, is out
+        // of play. Everything else is fair game wherever the mouse reaches it — including a
+        // wheel in the next room, which he can shove through an open doorway. Only the base is
+        // out of range, and 400 units of distance takes care of that by itself.
+        if (item.stashing || item.sunk || item.carried) return;
 
         const pos = item.group.position;
 
@@ -169,7 +170,7 @@ function nearestCarryable() {
     let best = null, bestD = CARRY_REACH;
     const mp = mouseGroup.position;
     ingredients.forEach(item => {
-        if (item.sunk || item.stashing || item.carried || item.room !== currentArea) return;
+        if (item.sunk || item.stashing || item.carried) return;
         const p = item.group.position;
         if (Math.abs(p.y - mp.y) > 1.2) return;     // nothing on a worktop, nothing in a fall
         const d = Math.hypot(p.x - mp.x, p.z - mp.z);
@@ -202,12 +203,13 @@ function dropCarry() {
     const fx = -Math.sin(mouseAngle), fz = -Math.cos(mouseAngle);
     p.x = mouseGroup.position.x + fx * 0.55;
     p.z = mouseGroup.position.z + fz * 0.55;
-    p.y = getFloorY(p.x, p.z, p.y + 0.4, activeObstacles());
+    p.y = getFloorY(p.x, p.z, p.y + 0.4);
     item.carried = false;
     item.grounded = true;
     carriedItem = null;
     // Put down in the pantry, it is a pantry prop now: its own walls bound it and its own
-    // floor holds it up. Otherwise the next frame would yank it home 300 units away.
+    // floor holds it up. Otherwise the restock loop would keep dropping it back on the spot
+    // map/rooms.js authored for it, in whichever room that is.
     rehomeIngredient(item);
     playSound('thud');
     updateCarryHud();
@@ -224,10 +226,12 @@ function updateCarry(dt, time) {
     const lift = CARRY_LIFT + item.radius * CARRY_SHARE + Math.sin(time * 0.007) * 0.03;
     const hold = new THREE.Vector3(mouseGroup.position.x + fx * out,
         mouseGroup.position.y + lift, mouseGroup.position.z + fz * out);
-    // A load pressed against a counter belongs in front of it, not inside it. The solver's
-    // velocity argument is unused here — the hold point is placed, never thrown.
+    // A load pressed against a counter or a wall belongs in front of it, not inside it — which
+    // is also what shepherds a carried prop through a doorway rather than into the masonry
+    // beside it. The solver's velocity argument is unused here: the hold point is placed,
+    // never thrown.
     CARRY_SLIDE.set(0, 0, 0);
-    solvePropCollision(hold, CARRY_SLIDE, item.radius, activeObstacles());
+    solvePropCollision(hold, CARRY_SLIDE, item.radius);
     clampToArea(hold);
     // Horizontal is placed, not followed: a lerped hold point trails about half a unit at a
     // run, which is the mouse's own body — the wheel ends up dragging at his feet.

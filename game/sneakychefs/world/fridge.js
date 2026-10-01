@@ -13,8 +13,8 @@
 
 const FRIDGE = {
     x: -12.5,              // centre of the cavity
-    mouthZ: -12.6,         // front plane the doors hang on
-    backZ: -15.1,          // interior back wall, hard against the kitchen wall
+    mouthZ: -11.95,        // front plane the doors hang on
+    backZ: -14.45,         // interior back wall — its far side meets the kitchen wall's inner face
     depth: 2.5,            // usable interior depth behind the doors (mouthZ - backZ)
     panel: 0.4,            // thickness of the shell panels
     cavityW: 3.6,          // interior width between the side panels

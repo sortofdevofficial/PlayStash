@@ -5,10 +5,16 @@
  * loop. Where the goods start is data: map/rooms.js authors each room's `loot` and its
  * `restock` rule. Body-weight pushing and carrying live in actors/mouse.js; everything
  * after the shove happens here — friction, gravity, obstacle collisions, prop-vs-prop
- * contact, rolling, and the drop into the mouse hole. Every prop belongs to a room, and
- * that room's walls and floors are the ones it is measured against. A prop in the paws is
- * skipped by all of it, and `stowCarried` is what turns a load carried through the hole
- * into part of the pile.
+ * contact, rolling, and the drop into the mouse hole.
+ *
+ * The house is one connected floorplan, so a prop is measured against `worldObstacles` —
+ * every wall and counter in it — and the room it belongs to is derived from where it is
+ * standing each frame rather than from wherever it was spawned. That tag is not containment,
+ * it is bookkeeping: it decides which room's restock loop counts it, which floor the HUD and
+ * the minimap draw it on, and whose authored spot a restart returns it to. Shove a wheel
+ * through a doorway and it becomes that room's problem, walls and all.
+ *
+ * `stowCarried` is what turns a load carried into the mouse hole into part of the pile.
  */
 const PROP_FRICTION = 1.6;
 const PROP_MAX_SPEED = 9.0;
@@ -39,8 +45,8 @@ const INGREDIENT_SPEC = {
 // Where the hoard starts comes from map/rooms.js: each room authors its own `loot` in local
 // coordinates and this resolves it to the scene. Two records per prop, because they answer
 // different questions — `home` is the authored spot a restart returns to and never changes,
-// while `spawn` is where the next delivery drops and `room` is whose floor it belongs to,
-// both of which move when the mouse hauls a load through a doorway.
+// while `spawn` is where the next delivery drops and `room` is whose floor it belongs to, both
+// of which follow the prop through a doorway however it got there — hoisted or shoved.
 function spawnIngredients() {
     ingredients = [];
 
@@ -52,11 +58,11 @@ function spawnIngredients() {
             dropY: l.dropY,
             room: room.id
         };
-        ingredients.push(buildIngredient(spawn, room));
+        ingredients.push(buildIngredient(spawn));
     }));
 }
 
-function buildIngredient(spawn, room) {
+function buildIngredient(spawn) {
     const model = buildIngredientModel(spawn.type);
 
     // Models stand on their own origin, so the box gives the size used for pushing and
@@ -83,7 +89,7 @@ function buildIngredient(spawn, room) {
 
     const group = new THREE.Group();
     group.add(carrier);
-    group.position.set(spawn.x, getFloorY(spawn.x, spawn.z, Infinity, room.obstacles), spawn.z);
+    group.position.set(spawn.x, getFloorY(spawn.x, spawn.z, Infinity), spawn.z);
     scene.add(group);
 
     return {
@@ -125,14 +131,19 @@ function updateIngredientProps(dt) {
         }
         if (item.vel.lengthSq() > PROP_MAX_SPEED * PROP_MAX_SPEED) item.vel.setLength(PROP_MAX_SPEED);
 
-        const room = roomById(item.room);
         const prevX = pos.x, prevZ = pos.z;
         pos.x += item.vel.x * dt;
         pos.z += item.vel.z * dt;
-        clampPropToRect(pos, item.vel, room);
-        solvePropCollision(pos, item.vel, item.radius, room.obstacles);
 
-        const restY = getFloorY(pos.x, pos.z, pos.y + 0.05, room.obstacles);
+        // Whichever room it has ended up in is the one it belongs to now. The clamp only
+        // exists for the base, whose cutaway shell is drawn rather than built; everywhere
+        // else in the house the masonry is the thing that stops a wheel.
+        const room = roomAt(pos.x, pos.z);
+        if (room.clamp) clampPropToRect(pos, item.vel, room);
+        solvePropCollision(pos, item.vel, item.radius);
+        item.room = room.id;
+
+        const restY = getFloorY(pos.x, pos.z, pos.y + 0.05);
         if (pos.y > restY + 0.001) {
             item.grounded = false;
             item.velY -= GRAVITY * dt;
@@ -183,9 +194,6 @@ function collideProps() {
         for (let j = i + 1; j < ingredients.length; j++) {
             const b = ingredients[j];
             if (b.sunk || b.stashing || b.carried) continue;
-            // Different rooms are hundreds of units apart in the same scene, so they can
-            // never touch; saying it here keeps the loop below about neighbours only.
-            if (a.room !== b.room) continue;
 
             const pa = a.group.position, pb = b.group.position;
             // Only things standing on the same surface can touch: the chilled goods are a
@@ -194,8 +202,11 @@ function collideProps() {
 
             const dx = pb.x - pa.x, dz = pb.z - pa.z;
             const reach = a.radius + b.radius;
-            const dist = Math.hypot(dx, dz);
-            if (dist >= reach || dist < 1e-4) continue;
+            // The house is connected now, so every live prop is a candidate and this runs on
+            // all of them — reject on squared distance and only take the root for a real hit.
+            const dd = dx * dx + dz * dz;
+            if (dd >= reach * reach || dd < 1e-8) continue;
+            const dist = Math.sqrt(dd);
 
             const nx = dx / dist, nz = dz / dist;
             const half = (reach - dist) / 2;
@@ -298,7 +309,7 @@ function resetIngredients() {
         item.group.scale.set(1, 1, 1);
         item.group.position.set(
             item.spawn.x,
-            getFloorY(item.spawn.x, item.spawn.z, Infinity, roomById(item.room).obstacles),
+            getFloorY(item.spawn.x, item.spawn.z, Infinity),
             item.spawn.z
         );
         item.carrier.rotation.set(0, 0, 0);
@@ -317,9 +328,10 @@ function resetIngredients() {
 // back down in its own room is left alone — hoisting something and putting it down again
 // should not quietly rewrite where the restock loop drops it next.
 function rehomeIngredient(item) {
-    if (item.room === currentArea) return;
-    item.room = currentArea;
     const p = item.group.position;
+    const here = roomAt(p.x, p.z);
+    if (item.room === here.id) return;
+    item.room = here.id;
     item.spawn = { type: item.type, x: p.x, z: p.z, room: item.room };
 }
 

@@ -6,21 +6,35 @@
  * connect two rooms, give each of them a door naming the other. world/rooms.js reads the
  * array and builds it.
  *
- * A room is a rectangle: centre (ox, oz) in the shared scene, half-extents hx and hz. Rooms
- * live in one THREE.Scene, so they hide from each other by distance alone — fog and
- * camera.far (100) mean nothing further than ~60 units is visible. Keep every pair at least
- * HOUSE_SPACING apart or the player will see the next room through the wall.
+ * A room is a rectangle: centre (ox, oz) in the shared scene, half-extents hx and hz. The
+ * house is these rectangles tiled edge to edge — rooms share their walls, and a wall between
+ * two of them is drawn and collision-tested once, not twice, because world/rooms.js merges
+ * every room edge that falls on the same line. So placing a room is placing a tile, and the
+ * plan as it stands is: the pantry is west of the kitchen, the hall runs along the south side
+ * of both of them, the dining room is west of the hall, the sitting room east
+ * of it, and the garden east of the sitting room. Nothing here is a grid: the rooms are all
+ * different sizes, they do not have to line up, and an edge with no neighbour behind it is
+ * simply an exterior wall. Two rules do have to hold, and the ?qa rig checks both:
+ *   1. no two rects may OVERLAP. Each room's furniture, lights and loot are placed in its own
+ *      local frame, and two floors in the same place fight for the pixels.
+ *   2. two doors that name each other must land on the SAME point. Each room puts its doors on
+ *      its own edge, at `at` along that edge from its centre; a pair only lines up if
+ *      ox ± hx (or oz ± hz) coincide and the two `at` values resolve to the same world
+ *      coordinate. That is the doorway the wall builder cuts a single gap in.
  *
  * Everything except doors is in LOCAL coordinates, relative to the room's centre:
  *   spawn     where a restart or a room with no door back drops the player
- *   arrive    the toast shown on entry
+ *   arrive    the toast shown when you walk in through a doorway
  *   brain     which actor module runs here: 'chef' (hunter) or 'residents' (family)
  *   build     a global function for the parts only this room has (fridge, burrow shell)
+ *   clamp     seal the rect with an invisible wall as well as masonry. Only the base sets this:
+ *             its cutaway shell is drawn by world/burrow.js and is not a registry obstacle.
  *   patrol    the chef's route, as local [x, z] pairs
  *   floor     { a, b, tile, rough } — a two-tone checker, `tile` units per tile
- *   wall      { color, height, thickness, trim } — doorways are cut automatically
+ *   wall      { color, height, thickness, trim } — doorways are cut automatically. Where two
+ *             rooms share an edge, the taller wall spec wins both sides of it.
  *   furniture pieces, see below
- *   lights    { color, intensity, distance, x, y, z } — only the active room's are lit
+ *   lights    { color, intensity, distance, x, y, z } — only the lit rooms' are on
  *   loot      { type, x, z } — where the hoard starts
  *   restock   { floor, gap } — refill to `floor` live props, one drop every `gap` seconds
  *
@@ -41,14 +55,13 @@
  * This file is evaluated after the world modules, because a spec quotes their globals:
  * kitchenObstacles and cameraCollisionMeshes (core/state.js), MOUSE_HOLE (world/mousehole.js),
  * and burrowObstacles, burrowCollision, BURROW_ORIGIN_X, BURROW_BOUND and BURROW_EXIT
- * (world/burrow.js). DELIVERY_FLOOR and DELIVERY_GAP are defined here, below.
+ * (world/burrow.js). The numbers this file defines for itself are all above ROOMS:
+ * KITCHEN_BOUND, SOUTH_EDGE, DELIVERY_FLOOR and DELIVERY_GAP.
  */
 
-// The kitchen has always been 15.35 half-units; the clamp rect and the walls are built off it.
+// The kitchen has always been 15.35 half-units; its walls and the mouse hole cut in the north
+// one are all built off this number.
 const KITCHEN_BOUND = 15.35;
-// The minimum gap between two room centres. Fog hides a room past ~60 units, and the largest
-// room reaches ~22 from its centre, so 150 leaves nothing but wall-to-wall darkness between.
-const HOUSE_SPACING = 150;
 
 // Restock defaults, quoted by the `restock` rule below. `floor` is how many props a room
 // keeps in play before it starts refilling; `gap` is the seconds between two deliveries.
@@ -56,6 +69,12 @@ const HOUSE_SPACING = 150;
 // quieter larders that only need a few things on the floor to be worth a trip.
 const DELIVERY_FLOOR = 5;
 const DELIVERY_GAP = 9.0;
+
+// The line every ground-floor room's south wall — and the hall's north wall — is built on.
+// Each room's centre is written as that line plus its own half-extent, or as its neighbour's
+// edge plus its own half-width, so two rooms that share a wall land on it by construction
+// rather than by arithmetic done somewhere else. Change one number and both sides move.
+const SOUTH_EDGE = KITCHEN_BOUND;
 
 const ROOMS = [
     // ---------------------------------------------------------------- the heist happens here
@@ -85,11 +104,14 @@ const ROOMS = [
             { kind: 'counter', w: 1.6, h: 1.6, d: 1.6, x: 1.8, z: 3.5, color: 0x8b5a2b }
         ],
         doors: [
-            // The mouse hole is drawn by world/mousehole.js, so it is handed over rather than
-            // built: `hole` says take the position and radius from there and leave the wall solid.
-            { side: 'north', at: 0, to: 'burrow', label: 'HOME', hole: MOUSE_HOLE },
-            { side: 'south', at: -3, to: 'hall', label: 'HALL' },
-            { side: 'west', at: 4, to: 'pantry', label: 'PANTRY' }
+            // The mouse hole is the one gate left that still jumps: it is a chute through the
+            // north wall into the base, which stays 400 units away in the same scene. `hole`
+            // hands its position and trigger radius to world/mousehole.js, and `gap` cuts the
+            // opening the arch is painted in, so a wheel can roll into the mouth instead of
+            // bouncing off the masonry. Every other door here is just a hole in the wall.
+            { side: 'north', at: 0, to: 'burrow', hole: MOUSE_HOLE, gap: MOUSE_HOLE.arch * 2 },
+            { side: 'south', at: -3, to: 'hall' },
+            { side: 'west', at: 4, to: 'pantry' }
         ],
         // Everything on open floor or inside the fridge: the mouse's jump apex can't clear a
         // 2.2 counter and a prop up there can't be shoved down, so a worktop spawn would be
@@ -103,9 +125,9 @@ const ROOMS = [
             { type: 'banana', x: -11, z: 2 },
             { type: 'banana', x: 11, z: 4 },
             { type: 'carrot', x: 4, z: 11 },
-            { type: 'apple', x: -13.5, z: -13.6, dropY: 1.6 },
-            { type: 'butter', x: -12.5, z: -14.5, dropY: 1.6 },
-            { type: 'milk', x: -11.5, z: -13.6, dropY: 1.6 }
+            { type: 'apple', x: -13.5, z: -12.95, dropY: 1.6 },
+            { type: 'butter', x: -12.5, z: -13.85, dropY: 1.6 },
+            { type: 'milk', x: -11.5, z: -12.95, dropY: 1.6 }
         ],
         restock: { floor: DELIVERY_FLOOR, gap: DELIVERY_GAP }
     },
@@ -114,40 +136,47 @@ const ROOMS = [
     {
         id: 'pantry',
         label: 'PANTRY',
-        ox: -300, oz: 0, hx: 10, hz: 12,
+        // West of the kitchen, sharing its north and south wall lines so the house has one
+        // continuous outside wall along the top and one internal wall along the bottom.
+        ox: -(KITCHEN_BOUND + 10), oz: 0, hx: 10, hz: KITCHEN_BOUND,
         spawn: { x: 0, z: 8 },
         arrive: 'The pantry — shelves, sacks and a crate staircase',
         floor: { a: '#4a4438', b: '#3e382c', tile: 3, rough: 0.85 },
         wall: { color: 0x3a3327, height: 6, thickness: 1, trim: 0x7a5c3a },
         lights: [{ color: 0xffd9a0, intensity: 0.9, distance: 24, x: 0, y: 4.2, z: 0 }],
         furniture: [
-            { kind: 'counter', w: 8, h: 1.0, d: 1.8, x: 0, z: -10.4, color: 0x7a5c3a },
-            { kind: 'counter', w: 8, h: 1.0, d: 1.8, x: 0, z: 10.4, color: 0x7a5c3a },
-            { kind: 'counter', w: 1.8, h: 1.0, d: 9, x: -8.6, z: -2, color: 0x7a5c3a },
+            // Against the two wall lines it shares with the kitchen and the hall.
+            { kind: 'counter', w: 8, h: 1.0, d: 1.8, x: 0, z: -13.8, color: 0x7a5c3a },
+            { kind: 'counter', w: 8, h: 1.0, d: 1.8, x: 0, z: 13.8, color: 0x7a5c3a },
+            { kind: 'counter', w: 1.8, h: 1.0, d: 12, x: -8.6, z: -1, color: 0x7a5c3a },
             // Two tall cupboards: too high to climb, so they are landmarks rather than routes.
-            { kind: 'solid', w: 1.4, h: 2.8, d: 1.4, x: 8.4, z: 10.2, color: 0x5f472c },
-            { kind: 'solid', w: 1.4, h: 2.8, d: 1.4, x: 8.4, z: -10.2, color: 0x5f472c },
+            { kind: 'solid', w: 1.4, h: 2.8, d: 1.4, x: 8.4, z: 13.6, color: 0x5f472c },
+            { kind: 'solid', w: 1.4, h: 2.8, d: 1.4, x: 8.4, z: -13.6, color: 0x5f472c },
             // A crate staircase up the west shelving: 0.55, 1.05, 1.45 — three climbs to a vantage.
             { kind: 'solid', w: 1.7, h: 0.55, d: 1.7, x: -3, z: -3, color: 0x8a6a3a },
             { kind: 'solid', w: 1.7, h: 1.05, d: 1.7, x: -3, z: -5.4, color: 0x8a6a3a },
             { kind: 'solid', w: 1.5, h: 1.45, d: 1.5, x: 2.5, z: 4.5, color: 0x8a6a3a },
             { kind: 'solid', shape: 'cyl', rt: 0.7, rb: 0.6, h: 1.15, segments: 10, x: 5.5, z: -6.5, color: 0x6b4a2a, rough: 0.8 },
             { kind: 'solid', shape: 'cyl', rt: 0.7, rb: 0.6, h: 1.15, segments: 10, x: 7.2, z: -5.4, color: 0x7a5730, rough: 0.8 },
+            { kind: 'solid', shape: 'cyl', rt: 0.7, rb: 0.6, h: 1.15, segments: 10, x: 6.6, z: 8.5, color: 0x6b4a2a, rough: 0.8 },
             // Slumped sacks: decoration, because a body would walk through the visual anyway.
             { kind: 'deco', shape: 'sphere', r: 0.6, x: -6.5, z: 6.5, color: 0x9a8a63, rough: 0.95 },
-            { kind: 'deco', shape: 'sphere', r: 0.5, x: -5.4, z: 7.2, color: 0x8d7c58, rough: 0.95 }
+            { kind: 'deco', shape: 'sphere', r: 0.5, x: -5.4, z: 7.2, color: 0x8d7c58, rough: 0.95 },
+            { kind: 'deco', shape: 'sphere', r: 0.55, x: -6.8, z: 11, color: 0x9a8a63, rough: 0.95 }
         ],
-        doors: [{ side: 'east', at: 0, to: 'kitchen', label: 'KITCHEN' }],
+        // `at` is measured from this room's centre, so it has to be the number the kitchen's
+        // west door uses too — both rooms put a doorway on the same point of the same wall.
+        doors: [{ side: 'east', at: 4, to: 'kitchen' }],
         loot: [
-            { type: 'milk', x: -2, z: -10.4 },
-            { type: 'butter', x: 1.5, z: -10.4 },
+            { type: 'milk', x: -2, z: -13.8 },
+            { type: 'butter', x: 1.5, z: -13.8 },
             { type: 'jam', x: -8.6, z: -3 },
-            { type: 'bread', x: 0, z: 10.4 },
+            { type: 'bread', x: 0, z: 13.8 },
             { type: 'cheese', x: 2.5, z: 4.5 },     // on top of the tallest crate
             { type: 'carrot', x: -3, z: -5.4 },
             { type: 'apple', x: 6, z: 2 },
-            { type: 'tomato', x: -1, z: 6 },
-            { type: 'tomato', x: 7.5, z: 8 }
+            { type: 'tomato', x: -1, z: 9 },
+            { type: 'tomato', x: 7.5, z: 11.5 }
         ],
         restock: { floor: 3, gap: DELIVERY_GAP }
     },
@@ -156,7 +185,8 @@ const ROOMS = [
     {
         id: 'hall',
         label: 'HALL',
-        ox: 0, oz: 300, hx: 20, hz: 8,
+        // South of the kitchen and the pantry, wide enough to reach past both of them.
+        ox: 0, oz: SOUTH_EDGE + 8, hx: 20, hz: 8,
         spawn: { x: 0, z: 0 },
         arrive: 'The hall — three doors and a long runner',
         floor: { a: '#5b4636', b: '#4d3a2b', tile: 4, rough: 0.75 },
@@ -177,13 +207,14 @@ const ROOMS = [
             { kind: 'solid', w: 1.4, h: 1.45, d: 1.4, x: 17.6, z: -3.0, color: 0x8a6a3a },
             { kind: 'solid', shape: 'cyl', rt: 0.16, rb: 0.22, h: 2.2, segments: 8, x: -16.5, z: 6.6, color: 0x5a4632 },
             { kind: 'solid', shape: 'sphere', r: 0.55, x: -18.6, z: -6.4, color: 0x3f5f3a, rough: 0.9 },
-            { kind: 'visual', w: 1.4, h: 0.9, d: 0.12, x: -4, y: 2.4, z: 7.9, color: 0x8fa0b8, rough: 0.4 },
-            { kind: 'visual', w: 1.4, h: 0.9, d: 0.12, x: 4, y: 2.4, z: 7.9, color: 0xa88f6a, rough: 0.4 }
+            // Hung on the wall's inner face — the wall itself is now built on the room's edge.
+            { kind: 'visual', w: 1.4, h: 0.9, d: 0.12, x: -4, y: 2.4, z: 7.35, color: 0x8fa0b8, rough: 0.4 },
+            { kind: 'visual', w: 1.4, h: 0.9, d: 0.12, x: 4, y: 2.4, z: 7.35, color: 0xa88f6a, rough: 0.4 }
         ],
         doors: [
-            { side: 'north', at: 0, to: 'kitchen', label: 'KITCHEN' },
-            { side: 'west', at: 0, to: 'dining', label: 'DINING' },
-            { side: 'east', at: 0, to: 'living', label: 'SITTING ROOM' }
+            { side: 'north', at: -3, to: 'kitchen' },
+            { side: 'west', at: 0, to: 'dining' },
+            { side: 'east', at: 0, to: 'living' }
         ],
         loot: [
             { type: 'banana', x: -11, z: -6.6 },
@@ -199,7 +230,9 @@ const ROOMS = [
     {
         id: 'dining',
         label: 'DINING ROOM',
-        ox: -300, oz: 300, hx: 16, hz: 15,
+        // West of the hall, its north edge on the same wall line as the kitchen's and the
+        // pantry's, so the whole south face of that band is one continuous internal wall.
+        ox: -(20 + 16), oz: SOUTH_EDGE + 15, hx: 16, hz: 15,
         spawn: { x: 0, z: 10 },
         arrive: 'The dining room — eight chairs and one long table',
         floor: { a: '#6a4a30', b: '#5b3f28', tile: 4.5, rough: 0.7 },
@@ -226,7 +259,7 @@ const ROOMS = [
             { kind: 'solid', w: 1.6, h: 0.6, d: 1.6, x: 13.4, z: 11.4, color: 0x8a6a3a },
             { kind: 'solid', w: 1.5, h: 1.15, d: 1.5, x: 13.4, z: 9.2, color: 0x8a6a3a }
         ],
-        doors: [{ side: 'north', at: 0, to: 'hall', label: 'HALL' }],
+        doors: [{ side: 'east', at: -7, to: 'hall' }],
         loot: [
             { type: 'cheese', x: -2.5, z: 0 },      // both of these stand on the table
             { type: 'bread', x: 2.5, z: 0.6 },
@@ -244,7 +277,9 @@ const ROOMS = [
     {
         id: 'living',
         label: 'SITTING ROOM',
-        ox: 300, oz: 300, hx: 17, hz: 16,
+        // East of the hall, on its east wall line. The room is deeper than the hall, so its
+        // south face sticks out below the hall's north wall: the house is an L here, not a grid.
+        ox: 20 + 17, oz: SOUTH_EDGE + 8, hx: 17, hz: 16,
         spawn: { x: 0, z: 0 },
         arrive: 'The sitting room — check the hearth and under the drape',
         floor: { a: '#4d4038', b: '#42372f', tile: 4, rough: 0.8 },
@@ -286,8 +321,8 @@ const ROOMS = [
             { kind: 'visual', shape: 'cyl', rt: 0.55, rb: 0.35, h: 0.5, segments: 10, x: 14.5, y: 2.0, z: 11, color: 0xf0dca8, rough: 0.9 }
         ],
         doors: [
-            { side: 'west', at: 0, to: 'hall', label: 'HALL' },
-            { side: 'east', at: -4, to: 'garden', label: 'GARDEN' }
+            { side: 'west', at: 0, to: 'hall' },
+            { side: 'east', at: -4, to: 'garden' }
         ],
         loot: [
             { type: 'cheese', x: -11.4, z: -13.9 }, // in the hearth, behind the log
@@ -305,7 +340,9 @@ const ROOMS = [
     {
         id: 'garden',
         label: 'GARDEN',
-        ox: 600, oz: 300, hx: 22, hz: 20,
+        // East of the sitting room, on its east wall line: the hall's east face at x=20, the
+        // sitting room's full width, then half of this one.
+        ox: 20 + 17 * 2 + 22, oz: SOUTH_EDGE + 8, hx: 22, hz: 20,
         spawn: { x: -14, z: 0 },
         arrive: 'The garden — a shed, a pond and somewhere to hide',
         floor: { a: '#3c5a30', b: '#354f2a', tile: 2.8, rough: 0.95 },
@@ -375,8 +412,12 @@ const ROOMS = [
         arrive: 'Home sweet home — the chef cannot follow in here',
         brain: 'residents',
         build: 'buildBurrow',
+        // The base is the only room that still has an invisible rect clamp. Its cutaway shell is
+        // drawn by world/burrow.js rather than built from this spec, so those meshes are not
+        // registry obstacles — without the clamp the mouse would simply walk out of the den.
+        clamp: true,
         // The whole den — floor, walls, props, residents — is bespoke, so this spec carries
         // no floor, wall or furniture of its own; only the exit arch is registered here.
-        doors: [{ side: 'south', at: 0, to: 'kitchen', label: 'KITCHEN', exit: BURROW_EXIT }]
+        doors: [{ side: 'south', at: 0, to: 'kitchen', exit: BURROW_EXIT }]
     }
 ];

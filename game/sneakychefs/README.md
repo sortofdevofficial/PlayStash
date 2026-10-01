@@ -8,11 +8,14 @@ is the prize — it opens as you approach, lights up, holds the chilled goods, a
 enough to climb into and walk around. Steal the kitchen down to a handful of props and the
 chef restocks it, one delivery at a time, so the run never dead-ends into an empty floor.
 
-And the kitchen is only one room of seven. Glowing doorways lead out into a pantry, a hall,
-a dining room, a sitting room and a garden, each with its own furniture to climb, its own
-loot to steal and its own restock rule; the minimap in the corner draws the whole house and
-keeps track of which room you are standing in. The chef never leaves his kitchen, so every
-other room is a free trip — the risk is the walk back.
+And the kitchen is only one room of seven. The house is a single floorplan: the pantry, the
+hall, the dining room, the sitting room and the garden are built edge to edge against each
+other, and their doorways are real gaps in real walls you walk through — no fade, no loading,
+no jump. Each room has its own furniture to climb, its own loot to steal and its own restock
+rule, and the minimap in the corner draws the whole plan. The only gate that still carries you
+somewhere is the mouse hole's chute into the base, because the den is not next door. The chef
+cannot follow you through a doorway — his patrol stops at his own walls — but an open door is a
+line of sight, so the risk is standing in the frame.
 
 ## Running it
 
@@ -34,13 +37,13 @@ HTML document: the QA rig is a mode of `index.html`, not a second page.
 | `core/state.js` | every shared global: stage objects, actor rigs, geometry registries, game flags |
 | `core/input.js` | keyboard, mouse-drag, wheel and touch buttons → `keys` and camera targets |
 | `core/camera.js` | orbit camera, zoom limits, raycast pull-in so it never clips through walls |
-| `core/areas.js` | which room the player is in, the fade, arrival points read from the registry, stowing a carried load at the way home |
+| `core/areas.js` | which room the player is standing in, read from his position; the fade and arrival insets for the two gates that jump, and stowing a carried load at the way home |
 | `core/minimap.js` | the house map in the corner: rooms, door links, the active room's loot, the chef, you |
 | `core/ui.js` | HUD counters, area label, paws chip, toasts |
 | `core/audio.js` | synthesised sfx (jump, collect, alert, portal, door, thud, grab) |
 | `world/scene.js` | renderer, scene, fog, lights, resize, the one key light that follows the player |
-| `world/physics.js` | floor height, obstacle push-out (body and prop variants), the per-room clamp, obstacle sets read from the registry |
-| `world/rooms.js` | the room registry and the generic builder: floors, walls with door gaps, furniture, door dressing, lights |
+| `world/physics.js` | floor height, obstacle push-out (body and prop variants) against the whole house's merged sets, and the rect clamp for the one room that still needs it |
+| `world/rooms.js` | the room registry and the generic builder: floors, the house's merged masonry with door gaps cut through it, thresholds, furniture, door dressing, lights |
 | `world/kitchen.js` | the kitchen's own furniture and block helpers, plus the chef's patrol read from the map |
 | `world/fridge.js` | the fridge: shell with a walk-in cavity, hinged doors, interior lamp, freezer stock, cold mist |
 | `world/mousehole.js` | the portal: arch, floor marker, the two radii (prop drop vs. player walk); registers itself as the kitchen's way home |
@@ -65,14 +68,22 @@ so it has to come after the world modules that define them and before anything t
 
 ## Things worth knowing before editing
 
-- **Seven rooms, one scene.** Every room is a rectangle placed hundreds of units from every
-  other — the kitchen at the origin, the base at `x = 400`, the rest on two rows at `z = 300`
-  and beyond. `FogExp2` at 0.025 with `camera.far = 100` means nothing further than about 60
-  units is visible, so no room can ever be seen from another and there is no level teardown
-  path. `HOUSE_SPACING` is the floor on how close two room centres may come; the `?qa` rig
-  measures the nearest pair and fails if it drops. `world/physics.js` reads the obstacle and
-  camera-collision sets of whichever room `currentArea` names, and one shared key light moves
-  with the player so only the room you are standing in pays for shadows.
+- **Seven rooms, one floorplan.** The rooms are rectangles tiled edge to edge — the pantry is
+  west of the kitchen, the hall runs along the south side of both, the dining room west of the
+  hall, the sitting room east of it, the garden east of that — and the base is the one
+  exception, parked at `x = 400` with its own cutaway shell because it is a den under the
+  floorboards, not a room upstairs. `world/rooms.js` lays every room edge onto the line it
+  falls on, merges the copies and builds each run **once**, as an obstacle with a gap cut
+  wherever two doors face each other: two rooms describing the same wall from opposite sides
+  used to leave a hairline the mouse wedged into and a camera raycast that got two hits at the
+  same distance. `collectSolidGeometry()` then folds every room's furniture plus the masonry
+  into `worldObstacles` / `worldCollisionMeshes`, and `world/physics.js`, `core/camera.js` and
+  `actors/chef.js` all read those, so nothing asks "which room is this" before it decides
+  whether a body fits. `FogExp2` and `camera.far` still hide the far end of the house, and one
+  shared key light follows the player so only the room you are standing in pays for shadows.
+  Two rules replace the old spacing floor, and the `?qa` rig checks both: no two rects may
+  overlap (abutting is fine, sharing a floor is not), and a pair of doors that name each other
+  must land on the same point on a wall line each of them actually owns.
 - **The level is data.** `map/rooms.js` is the only file you edit to change the house. A room
   spec is a rect (`ox`, `oz`, `hx`, `hz`), a `floor` and `wall` palette, a `spawn`, an `arrive`
   toast, optional `brain` / `build` / `patrol` hooks, `lights`, `furniture`, `doors`, `loot`
@@ -82,17 +93,27 @@ so it has to come after the world modules that define them and before anything t
   shelves, mantels, tabletops, chair backs) and `deco` (nothing). Shapes are box by default or
   `shape: 'cyl'` / `'sphere'`. Two heights matter: anything you want climbed must top out under
   the jump apex (~1.69), and anything you want stolen must rest under `y = 1.6` for the same
-  reason. A door is `{ side, at, to, label }`; `world/rooms.js` cuts the gap in the wall,
-  dresses the opening and computes where you arrive (`ARRIVE_INSET` inside it, clear of its own
-  trigger). Give every door a door back or the rig fails the map: `arrivalFor` would otherwise
-  drop the player on the far room's spawn. The kitchen and the base predate the registry and
-  hand their own global obstacle arrays over instead of being built from data.
+  reason. A door is `{ side, at, to }` and nothing more: `world/rooms.js` cuts the gap in the
+  wall on that edge, dresses the opening and lays a threshold slab across the band of masonry
+  it punches, and you walk through it — an ordinary door has no arrival point, because it never
+  moves you. A door that *does* jump is authored with a `hole` or `exit` record, and that is
+  what gives it a trigger radius, an `ARRIVE_INSET` arrival point clear of its own trigger and
+  the fade; the mouse hole and the base's arch are the only two. Give every door a door back or
+  the rig fails the map: `arrivalFor` would otherwise drop the player on the far room's spawn.
+  The kitchen and the base predate the registry and hand their own global obstacle arrays over
+  instead of being built from data.
 - **The obstacle contract.** Anything that should block bodies is an `{ x, z, w, d, h }`
-  column on its room's registry record — authored furniture gets there through
-  `addRoomBlock` / `addRoomSolid`, camera-only geometry through `addRoomVisual`; the kitchen
-  and the base keep their older global arrays (`kitchenObstacles`, `burrowObstacles`) and the
-  `addKitchen*` wrappers in `world/kitchen.js` feed the kitchen's. A box only blocks a body
-  whose feet are below `h - STEP_HEIGHT`, which
+  column — authored furniture gets onto its room's registry record through
+  `addRoomBlock` / `addRoomSolid`, camera-only geometry through `addRoomVisual`, and the whole
+  house's masonry is appended to the same `worldObstacles` list by `collectSolidGeometry`. The
+  lintel over a doorway is deliberately the exception: camera geometry only, because an
+  obstacle is a column with no underside and registering the block above an opening would seal
+  it. The kitchen and the base predate the registry and keep their older global arrays
+  (`kitchenObstacles`, `burrowObstacles`), and the `addKitchen*` wrappers in
+  `world/kitchen.js` feed the kitchen's. Because containment is now geometry, `clampToArea` is
+  inert everywhere except the base, whose cutaway shell is *drawn* by `world/burrow.js` rather
+  than registered — that one room still sets `clamp: true` or its residents would be found
+  three gardens away. A box only blocks a body whose feet are below `h - STEP_HEIGHT`, which
   is what makes a shelf overhead a walk-under. The same `STEP_HEIGHT` gate is what
   `getFloorY` reports as floor, and `updateMouse` climbs to it — that pair makes the fridge's
   0.1 sole a step rather than a wall the mouse slides through. Note that push-out inflates
@@ -130,8 +151,10 @@ so it has to come after the world modules that define them and before anything t
   is slower than a shove, but it cannot jam. `carryPoseT` blends the front legs and head into
   the hold pose, and `resetMouse()` clears it with the rest of the animation state.
 - **Only the way home stows the load.** `checkPortalCrossing` walks the portals registered on
-  the room you are standing in and takes the nearest one whose trigger you are inside; if that
-  door leads to the base it calls `stowCarried()` before travelling, so walking home carrying
+  the room you are standing in and ignores every ordinary doorway — you cross those by walking,
+  and `updateAreaFromPosition` notices from his feet — so what it looks for is one of the two
+  gates that jump, and the nearest trigger you are inside. If that gate leads to the base it
+  calls `stowCarried()` before travelling, so walking home carrying
   something puts it in the pile instead of leaving it at the door. A doorway between two other
   rooms is not the base's front door, so a load rides through it in your paws and belongs to
   whichever room you put it down in (`rehomeIngredient`). The stow goes through
@@ -166,13 +189,17 @@ so it has to come after the world modules that define them and before anything t
 The game has no test runner — it has one rig inside `index.html`. Opening the page normally
 plays the game; adding `?qa` runs two phases after the usual boot and prints the result as a
 single `QA{...}` blob into `#qa-out`: an audit of every module (parse errors, expected
-functions, expected globals) and 24 behavioural checks — the fridge, including walking around
-inside it, push, portal, restart, restock, prop collision and carrying flows, plus two over
-the house itself: the map in `map/rooms.js` audited against the rules a level has to obey
-(doors resolve both ways, rooms stay `HOUSE_SPACING` apart, loot is known and inside its own
-room, every spawn and arrival point stands clear of furniture and outside its own door
-trigger), and a walk out through three rooms and back proving the doors work in both
-directions and that the chef stays in his kitchen. It
+functions, expected globals) and the behavioural checks — the fridge, including walking around
+inside it, push, portal, restart, restock, prop collision and carrying flows, plus three over
+the house itself: the map in `map/rooms.js` audited against the rules a connected floorplan has
+to obey (doors resolve both ways, no two rects share a floor, every doorway pair meets on a wall
+line with the gap clear of furniture, loot is known and inside its own room, every standing
+point is clear of furniture and outside its own door trigger, the card the minimap fitted itself
+to is big enough for the plan), a walk out through four rooms and back — which asserts that no
+fade appeared and `isTraveling` was never set, so the only thing that can have moved him is his
+own feet crossing a wall line — and the hunter's sight ray fired twice from six units apart,
+once through the masonry and once through the open door, with the blocker named so the check is
+measuring a wall and not a crate. It
 finishes in a fraction of a second and reports `simMs` (simulation time the checks consumed)
 next to `wallMs`, because it does not use the browser's clock.
 
@@ -193,7 +220,7 @@ loop has to be made in both places** or the rig quietly stops testing what ships
 Read `audit.errors` first after moving code between files: a duplicated top-level
 `let`/`const` across two scripts is a `SyntaxError` that silently kills the whole second
 script, and it surfaces there rather than as a missing function later on. `step` is how far
-the checks got (24 means all of them — 22 numbered checks, two of which settle in a second
+the checks got (25 means all of them — 23 numbered checks, a few of which settle in a second
 step).
 
 Absolute frame rate from a headless or background pane is noise — measure object counts and
