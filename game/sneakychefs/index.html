@@ -423,7 +423,8 @@
             'collideProps', 'solvePropCollision', 'clampPropToRect', 'toggleCarry', 'pickUp',
             'dropCarry', 'nearestCarryable', 'updateCarry', 'stowCarried', 'updateCarryHud',
             'rehomeIngredient', 'buildIngredient', 'buildHouse', 'registerRoom', 'buildRoom', 'roomById',
-            'roomAt', 'activeRoom', 'arrivalFor', 'lightActiveRoom', 'linkPortalGlow', 'updatePortalGlows',
+            'roomAt', 'activeRoom', 'arrivalFor', 'lightActiveRoom', 'updateKeyLight', 'placeKeyLight',
+            'linkPortalGlow', 'updatePortalGlows',
             'buildMasonry', 'houseWallLines', 'houseDoorways', 'wallPanel', 'buildDoorway', 'buildThreshold',
             'collectSolidGeometry',
             'buildRoomFloor', 'buildRoomPiece', 'addRoomBlock',
@@ -431,6 +432,7 @@
             'mapPoint', 'setArea', 'roomEntered', 'updateAreaFromPosition'];
         const EXPECTED_VARS = ['mouseVel', 'keys', 'ingredients', 'burrowMice', 'stashedIngredients', 'FRIDGE',
             'fridgeLamp', 'coldPuffs', 'camYaw', 'camDist', 'MOUSE_HOLE', 'BURROW_ORIGIN_X', 'BURROW_BOUND',
+            'keyGoal',
             'kitchenObstacles',
             'GRAVITY', 'MOVE_SPEED', 'isTraveling', 'currentArea', 'DELIVERY_FLOOR', 'DELIVERY_DROP_Y',
             'STASH_PILE_CAP', 'BODY_BOUNCE', 'MOUSE_PUSH_RADIUS', 'PUSH_FACTOR',
@@ -525,6 +527,7 @@
                     if (!isGameOver) {
                         updateMouse(SIM_DT, simTime);
                         updateAreaFromPosition();
+                        updateKeyLight(SIM_DT);
                         updateCamera(SIM_DT);
                         updateChefAI(SIM_DT, simTime);
                         updateBurrowMice(SIM_DT, simTime);
@@ -1372,6 +1375,12 @@
                     r.walkHomeArrival = v2(doorTo('kitchen', 'burrow').enter);
                     r.walkHomeLanded = r.walkHomeAt.join() === r.walkHomeArrival.join();
                     r.walkHomeHud = document.getElementById('hud-area').textContent === k.label;
+                    // The arch out of the base is one of the two gates that still fade, and the den
+                    // is hundreds of units from his new room: that light has to arrive with him
+                    // rather than start walking after him. Walked doors ease, jumped ones cut.
+                    r.lightSnappedOnJump = Math.abs(keyLight.position.x - keyGoal.x) < 1e-6 &&
+                        Math.abs(keyLight.position.z - keyGoal.z) < 1e-6 &&
+                        Math.abs(keyLight.shadow.camera.right - keyGoal.d) < 1e-6;
 
                     walkThrough('hall', (okHall) => {
                         const hall = roomById('hall');
@@ -1381,6 +1390,17 @@
                         r.walkHallHud = document.getElementById('hud-area').textContent === hall.label;
                         r.walkHallHasGoods = liveProps('hall') > 0;
                         r.walkKitchenEmptyOfPlayer = currentArea !== 'kitchen';
+
+                        // A doorway crossed is not a lighting cue. The hall's lamps came on this
+                        // frame, but the key light is still over the kitchen with 23 units to walk,
+                        // and it has to walk them: moving it in one frame is what made the room
+                        // behind him let go of its shadows as he stepped through.
+                        r.lightGlides = keyGoal.z - keyLight.position.z > 10;
+                        r.lampsFollowRoom = hall.lights.every(l => l.visible) &&
+                            k.lights.every(l => !l.visible);
+                        simFrames(90);
+                        r.lightSettlesOverHall = Math.abs(keyLight.position.z - keyGoal.z) < 0.01 &&
+                            Math.abs(keyLight.shadow.camera.right - keyGoal.d) < 0.01;
 
                         // Prop physics on a room's own obstacle set: shoved toward the centre so
                         // the check measures the room, not how close to a wall it happened to sit.

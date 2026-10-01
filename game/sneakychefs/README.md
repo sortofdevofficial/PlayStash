@@ -81,6 +81,11 @@ so it has to come after the world modules that define them and before anything t
   `actors/chef.js` all read those, so nothing asks "which room is this" before it decides
   whether a body fits. `FogExp2` and `camera.far` still hide the far end of the house, and one
   shared key light follows the player so only the room you are standing in pays for shadows.
+  It travels rather than cuts: it used to be dropped on the new room's centre the instant a
+  doorway flipped, 23 units in one frame, and everything it left behind stopped casting — which
+  read as the room behind you letting go of its shadows. `lightActiveRoom()` now only sets a
+  goal and `updateKeyLight(dt)` walks the lamp, its aim and the shadow frustum to it over about
+  half a second; the two gates that fade still snap, since the black is what hides a cut there.
   Two rules replace the old spacing floor, and the `?qa` rig checks both: no two rects may
   overlap (abutting is fine, sharing a floor is not), and a pair of doors that name each other
   must land on the same point on a wall line each of them actually owns.
@@ -197,11 +202,13 @@ line with the gap clear of furniture, loot is known and inside its own room, eve
 point is clear of furniture and outside its own door trigger, the card the minimap fitted itself
 to is big enough for the plan), a walk out through four rooms and back — which asserts that no
 fade appeared and `isTraveling` was never set, so the only thing that can have moved him is his
-own feet crossing a wall line — and the hunter's sight ray fired twice from six units apart,
+own feet crossing a wall line, that on the frame a doorway flips the key light is still over the
+room he left and has to walk the rest of the way, and that the arch out of the base still snaps it
+in a single frame — and the hunter's sight ray fired twice from six units apart,
 once through the masonry and once through the open door, with the blocker named so the check is
-measuring a wall and not a crate. It
-finishes in a fraction of a second and reports `simMs` (simulation time the checks consumed)
-next to `wallMs`, because it does not use the browser's clock.
+measuring a wall and not a crate. It finishes in a fraction of a second and reports `simMs`
+(simulation time the checks consumed) next to `wallMs`, because it does not use the browser's
+clock.
 
 ```sh
 "C:/Program Files/Google/Chrome/Application/chrome.exe" \

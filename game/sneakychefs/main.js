@@ -55,6 +55,10 @@ function animate(time) {
         // Before anything that asks which room he is in: the camera, the chef's lamps, the
         // minimap and the portals all read the area his feet are actually standing in.
         updateAreaFromPosition();
+        // The key light follows the room he is standing in, and it has to travel there rather
+        // than jump: a doorway crossed is 23 units of shadow frustum, and it takes about half a
+        // second to slide that rather than teleporting the dark onto the room he just left.
+        updateKeyLight(dt);
         updateCamera(dt);
 
         // Every brain ticks in every room. Each one guards itself: the chef is clamped to his

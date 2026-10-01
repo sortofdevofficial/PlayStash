@@ -12,7 +12,9 @@
  * `enterArea` below exist only for them.
  */
 
-// Claim a room the mouse has walked into. His own walking put him here, so this moves nothing.
+// Claim a room the mouse has walked into. His own feet put him here, so nothing is
+// repositioned: the HUD relabels, the lamps swap over, the toast shows, and the one key light
+// starts walking toward the new room instead of being dropped on it.
 function setArea(room) {
     currentArea = room.id;
     document.getElementById('hud-area').textContent = room.label;
@@ -62,7 +64,7 @@ function enterArea(area, fromId) {
     camera.lookAt(at.x, mouseGroup.position.y + 0.5, at.z);
 
     document.getElementById('hud-area').textContent = room.label;
-    lightActiveRoom();
+    lightActiveRoom(true);
 }
 
 function travelTo(area, fromId) {

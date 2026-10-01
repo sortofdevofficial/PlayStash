@@ -132,7 +132,7 @@ function buildHouse() {
     // After every room exists: a wall two rooms share has to be built once, for both of them.
     buildMasonry();
     collectSolidGeometry();
-    lightActiveRoom();
+    lightActiveRoom(true);
     // Raycasts read matrixWorld without refreshing it, and every wall and counter now lives
     // inside a group rather than the scene root. Refresh once so the chef's line of sight and
     // the camera's collision test see real world positions from the first frame.
@@ -491,17 +491,44 @@ function arrivalFor(room, fromId) {
 // only ever as wide as the room being lit, and only that room's own lamps are switched on.
 // Seven rooms of point lights in every fragment shader is the difference between this and a
 // slideshow on a phone.
-function lightActiveRoom() {
+//
+// Which room it stands over is a goal rather than a jump. The rooms are next door to each
+// other now, so putting the light straight on the new room's centre used to move it 23 units
+// in one frame at a doorway — and everything the frustum left behind stopped casting at all,
+// which read as the room behind you letting go of its shadows. `updateKeyLight` walks it there
+// over about half a second instead, at roughly the pace of the doorway you are crossing. The two
+// gates that fade still snap, because the black cover is what hides the cut there.
+const keyGoal = { x: 12, y: 20, z: 10, tx: 0, tz: 0, d: 24 };
+
+function lightActiveRoom(snap) {
     const room = activeRoom();
     roomOrder.forEach(r => r.lights.forEach(l => { l.visible = r === room; }));
     if (!keyLight) return;
 
-    keyLight.position.set(room.ox + 12, 20, room.oz + 10);
-    keyLight.target.position.set(room.ox, 0, room.oz);
+    keyGoal.x = room.ox + 12; keyGoal.y = 20; keyGoal.z = room.oz + 10;
+    keyGoal.tx = room.ox; keyGoal.tz = room.oz;
+    keyGoal.d = Math.max(room.hx, room.hz) + 6;
+    if (snap) placeKeyLight(1);
+}
+
+// Called every frame from main.js, and with dt = 1 by the snap above.
+function updateKeyLight(dt) {
+    placeKeyLight(Math.min(1, dt * 6));
+}
+
+function placeKeyLight(k) {
+    const shadow = keyLight.shadow.camera;
+    const pos = keyLight.position, aim = keyLight.target.position;
+    const gap = Math.max(Math.abs(keyGoal.x - pos.x), Math.abs(keyGoal.z - pos.z),
+        Math.abs(keyGoal.tx - aim.x), Math.abs(keyGoal.tz - aim.z), Math.abs(keyGoal.d - shadow.right));
+    if (gap < 0.004) return;                 // parked over the room it belongs to
+
+    const to = (from, goal) => gap < 0.02 ? goal : from + (goal - from) * k;
+    pos.set(to(pos.x, keyGoal.x), keyGoal.y, to(pos.z, keyGoal.z));
+    aim.set(to(aim.x, keyGoal.tx), 0, to(aim.z, keyGoal.tz));
     keyLight.target.updateMatrixWorld();
 
-    const d = Math.max(room.hx, room.hz) + 6;
-    const shadow = keyLight.shadow.camera;
+    const d = to(shadow.right, keyGoal.d);
     shadow.left = -d; shadow.right = d; shadow.top = d; shadow.bottom = -d;
     shadow.updateProjectionMatrix();
 }
