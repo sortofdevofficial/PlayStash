@@ -46,8 +46,10 @@ function addBurrowBox(w, h, d, x, z, color, y = 0) {
 function buildBurrow() {
     burrowGroup = new THREE.Group();
     scene.add(burrowGroup);
-    burrowObstacles = [];
-    burrowCollision = [];
+    // Cleared in place, not reassigned: map/rooms.js hands these two arrays to the room
+    // registry, and a fresh array here would leave the registry pointing at the old ones.
+    burrowObstacles.length = 0;
+    burrowCollision.length = 0;
 
     // Packed-earth floor, warmer than the kitchen tiles. Deliberately much wider than the
     // room: the orbit camera ends up outside the shell (see burrowWalls), and a floor that
@@ -99,6 +101,7 @@ function buildBurrow() {
     burrowGlowMesh.rotation.x = -Math.PI / 2;
     burrowGlowMesh.position.set(BURROW_EXIT.x, 0.02, BURROW_EXIT.z);
     burrowGroup.add(burrowGlowMesh);
+    linkPortalGlow('burrow', 'kitchen', burrowGlowMesh);
 
     buildBurrowProps();
     spawnBurrowMice();
@@ -150,20 +153,20 @@ function buildBurrowProps() {
     lamp.position.set(O - 1.5, 3.5, -6);
     burrowGroup.add(lamp);
 
-    // Warm fill so the base reads as somewhere safe to be
+    // Warm fill so the base reads as somewhere safe to be. Handed to the registry, which
+    // switches every room's own lamps off except the one the player is standing in.
+    const room = roomById('burrow');
     const glow = new THREE.PointLight(0xffc178, 1.15, 26, 2);
     glow.position.set(O - 1.5, 3.4, -5);
     burrowGroup.add(glow);
     const fill = new THREE.PointLight(0xffb066, 0.55, 30, 2);
     fill.position.set(O + 3, 4.5, 4);
     burrowGroup.add(fill);
+    room.lights.push(glow, fill);
 }
 
 
-function updateBurrowView(time) {
-    if (burrowGlowMesh) {
-        burrowGlowMesh.material.opacity = 0.14 + Math.abs(Math.sin(time * 0.0018)) * 0.14;
-    }
+function updateBurrowView() {
     if (!burrowWalls) return;
 
     const inside = currentArea === 'burrow';

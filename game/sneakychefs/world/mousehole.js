@@ -1,19 +1,17 @@
 /**
- * world/mousehole.js — the portal between the two rooms.
+ * world/mousehole.js — the arch between the kitchen and the base.
  *
- * A semicircular arch cut into the kitchen's north wall (the wall the player faces on
+ * A semicircular hole cut into the kitchen's north wall (the wall the player faces on
  * spawn, so the way home is visible from the first frame). It is both a chute and a door:
- * props only fall through the painted mouth, while the player gets HOLE_ENTER_MARGIN more
- * radius so walking into the arch reads as an obvious doorway. core/areas.js decides which
- * end of the portal the player is crossing.
+ * props only fall through the painted mouth, which is MOUSE_HOLE.radius, while the player
+ * gets PORTAL_ENTER_MARGIN more so walking into the arch reads as an obvious doorway.
+ * core/areas.js owns the crossing; this file only draws the arch and measures the chute.
+ *
+ * The hole is a bespoke portal: map/rooms.js hands MOUSE_HOLE to the registry so the
+ * doorway's position and trigger radius come from here, and no gap is cut in the wall —
+ * the arch is painted onto it instead.
  */
-
-// The doorway: a semicircular hole cut into the base of the north wall — the wall the
-// player faces on spawn, so the way home is visible from the first frame. It doubles as
-// the chute: any ingredient pushed inside MOUSE_HOLE.radius drops into the burrow stash,
-// and the mouse itself passes through a slightly wider circle (see HOLE_ENTER_MARGIN).
 const MOUSE_HOLE = { x: 0, z: -15.35, radius: 0.95, arch: 1.0 };
-const HOLE_ENTER_MARGIN = 0.4;
 let holeGlowMesh = null;
 
 function buildMouseHole() {
@@ -42,27 +40,10 @@ function buildMouseHole() {
     holeGlowMesh.rotation.x = Math.PI / 2;
     holeGlowMesh.position.set(MOUSE_HOLE.x, 0.02, MOUSE_HOLE.z);
     scene.add(holeGlowMesh);
+    linkPortalGlow('kitchen', 'burrow', holeGlowMesh);
 }
 
-function updateMouseHoleGlow(time) {
-    if (!holeGlowMesh) return;
-    holeGlowMesh.material.opacity = 0.13 + Math.abs(Math.sin(time * 0.0022)) * 0.16;
-}
-
-
+// The chute, not the doorway: a prop is only swallowed once it is inside the painted mouth.
 function kitchenHoleDistance(x, z) {
     return Math.hypot(x - MOUSE_HOLE.x, z - MOUSE_HOLE.z);
-}
-
-function holeDistance(x, z) {
-    return currentArea === 'burrow'
-        ? Math.hypot(x - BURROW_EXIT.x, z - BURROW_EXIT.z)
-        : kitchenHoleDistance(x, z);
-}
-
-// Props only drop through the painted mouth of the hole; the player gets a wider circle
-// so walking into the arch reads as an obvious, unmissable doorway.
-function holeRadius() {
-    const hole = currentArea === 'burrow' ? BURROW_EXIT : MOUSE_HOLE;
-    return hole.radius + HOLE_ENTER_MARGIN;
 }

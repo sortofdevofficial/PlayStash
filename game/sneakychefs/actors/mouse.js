@@ -114,8 +114,9 @@ function pushIngredients() {
     const mouseSpeed = mouseVel.length();
     ingredients.forEach(item => {
         // A prop already on its way down the hole, or sitting in the mouse's own paws, is
-        // out of play
-        if (item.stashing || item.sunk || item.carried) return;
+        // out of play — and so is anything belonging to another room, since the whole house
+        // shares one scene and the rest are hundreds of units away.
+        if (item.stashing || item.sunk || item.carried || item.room !== currentArea) return;
 
         const pos = item.group.position;
 
@@ -168,7 +169,7 @@ function nearestCarryable() {
     let best = null, bestD = CARRY_REACH;
     const mp = mouseGroup.position;
     ingredients.forEach(item => {
-        if (item.sunk || item.stashing || item.carried) return;
+        if (item.sunk || item.stashing || item.carried || item.room !== currentArea) return;
         const p = item.group.position;
         if (Math.abs(p.y - mp.y) > 1.2) return;     // nothing on a worktop, nothing in a fall
         const d = Math.hypot(p.x - mp.x, p.z - mp.z);
@@ -201,10 +202,13 @@ function dropCarry() {
     const fx = -Math.sin(mouseAngle), fz = -Math.cos(mouseAngle);
     p.x = mouseGroup.position.x + fx * 0.55;
     p.z = mouseGroup.position.z + fz * 0.55;
-    p.y = getFloorY(p.x, p.z, p.y + 0.4, kitchenObstacles);
+    p.y = getFloorY(p.x, p.z, p.y + 0.4, activeObstacles());
     item.carried = false;
     item.grounded = true;
     carriedItem = null;
+    // Put down in the pantry, it is a pantry prop now: its own walls bound it and its own
+    // floor holds it up. Otherwise the next frame would yank it home 300 units away.
+    rehomeIngredient(item);
     playSound('thud');
     updateCarryHud();
 }

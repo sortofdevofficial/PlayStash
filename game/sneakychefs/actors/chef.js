@@ -56,6 +56,8 @@ const CHEF_SIGHT_RANGE = 11.0;
 const CHEF_CLOSE_RANGE = 4.0;
 const CHEF_LOSE_SIGHT_SECONDS = 2.2;
 const CHEF_REALERT_COOLDOWN = 1.0;
+// How far off the walls he turns. The kitchen's half-extent minus this is the old ±14.5.
+const CHEF_WALL_INSET = 0.85;
 const chefSightRay = new THREE.Raycaster();
 
 // Counters, crates, the fridge and the walls all block the chef's view, so ducking
@@ -184,8 +186,13 @@ function updateChefAI(dt, time) {
                 chefGroup.position.x += Math.sin(chefGroup.rotation.y) * moveSpeed * dt;
                 chefGroup.position.z += Math.cos(chefGroup.rotation.y) * moveSpeed * dt;
 
-                chefGroup.position.x = Math.max(-14.5, Math.min(14.5, chefGroup.position.x));
-                chefGroup.position.z = Math.max(-14.5, Math.min(14.5, chefGroup.position.z));
+                // Walls are camera geometry, not obstacles, so the clamp is what keeps him
+                // in his own kitchen instead of strolling through the wall after the mouse.
+                const room = roomById('kitchen');
+                const lo = { x: room.ox - room.hx + CHEF_WALL_INSET, z: room.oz - room.hz + CHEF_WALL_INSET };
+                const hi = { x: room.ox + room.hx - CHEF_WALL_INSET, z: room.oz + room.hz - CHEF_WALL_INSET };
+                chefGroup.position.x = THREE.MathUtils.clamp(chefGroup.position.x, lo.x, hi.x);
+                chefGroup.position.z = THREE.MathUtils.clamp(chefGroup.position.z, lo.z, hi.z);
             }
         }
     }
@@ -193,7 +200,7 @@ function updateChefAI(dt, time) {
     chefGroup.position.y = 0;
 
     if (typeof solveObstacleCollision === 'function') {
-        solveObstacleCollision(chefGroup.position, 0.7);
+        solveObstacleCollision(chefGroup.position, 0.7, roomById('kitchen').obstacles);
     }
 
     // Animation updates
@@ -240,6 +247,10 @@ function resetChef() {
     currentWaypointIdx = 0;
     chefGaitPhase = 0;
     hideAllWarningRings();
-    chefGroup.position.set(-8, 0, -8);
+    // Stand on the first waypoint of his own patrol — the route is authored in map/rooms.js,
+    // so hardcoding a kitchen corner here would drift the moment someone edits the map.
+    const kitchen = roomById('kitchen');
+    const start = chefWaypoints[0] || { x: kitchen.ox, z: kitchen.oz };
+    chefGroup.position.set(start.x, 0, start.z);
     chefGroup.rotation.y = 0;
 }

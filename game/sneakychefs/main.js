@@ -1,9 +1,9 @@
 /**
  * main.js — boot, the frame loop, and what a game over does. (Load this last.)
  *
- * The load handler builds the two rooms and both actors in a fixed order, then animate()
- * drives them: player, camera, whichever brain owns the current area, portal check, and the
- * ambient dressing. Getting caught resets everything except what you already got home.
+ * The load handler builds the house from map/rooms.js and both actors, then animate()
+ * drives them: player, camera, every brain that owns a room, portal check, and the ambient
+ * dressing. Getting caught resets everything except what you already got home.
  */
 let hintHidden = false;
 const HINT_MS = 14000;
@@ -12,7 +12,7 @@ let hintDeadline = HINT_MS;
 window.addEventListener('load', () => {
     setupSecurityRestrictions();
     initScene();
-    buildKitchenEnvironment();
+    buildHouse();
 
     const mouseData = createLowPolyMouse();
     mouseGroup = mouseData.mouseGroup;
@@ -34,12 +34,12 @@ window.addEventListener('load', () => {
     chefGroup.add(chefSpotlight, chefSpotlight.target);
     scene.add(chefGroup);
 
-    buildBurrow();
     createWarningRing();
     spawnIngredients();
     updateStashHud();
     updateCarryHud();
     setupInputListeners();
+    initMinimap();
     animate(0);
 });
 
@@ -54,11 +54,13 @@ function animate(time) {
         updateMouse(dt, time);
         updateCamera(dt);
 
-        // The base is the one place the chef can never follow
-        if (currentArea === 'burrow') updateBurrowMice(dt, time);
-        else updateChefAI(dt, time);
+        // Every brain ticks in every room. Each one guards itself: the chef is clamped to
+        // the kitchen and 300 units is far outside his sight range, so he cools off the
+        // chase on his own; the residents only move while you are actually home.
+        updateChefAI(dt, time);
+        updateBurrowMice(dt, time);
 
-        checkHoleCrossing();
+        checkPortalCrossing();
 
         if (!hintHidden && time > hintDeadline) {
             hintHidden = true;
@@ -66,9 +68,10 @@ function animate(time) {
         }
     }
 
-    updateMouseHoleGlow(time);
+    updatePortalGlows(time);
     updateFridge(dt);
-    updateBurrowView(time);
+    updateBurrowView();
+    drawMinimap();
     renderer.render(scene, camera);
 }
 

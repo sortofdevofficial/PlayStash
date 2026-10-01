@@ -60,7 +60,25 @@
         #hud-area { letter-spacing: 0.06em; font-size: 0.95rem; }
         #carry-name { font-size: 0.95rem; min-width: 8ch; }
 
-        /* Area change mask — the two rooms are nowhere near each other in the scene */
+        /* House map — seven rooms is too many to hold in your head, so the plan is always up */
+        #map-card {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            z-index: 10;
+            background: rgba(18, 18, 28, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 8px 10px 10px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            pointer-events: none;
+        }
+        #map-card .hud-label { display: block; margin-bottom: 5px; }
+        /* core/minimap.js sets both the backing store and this element's box size */
+        #minimap { display: block; }
+
+        /* Area change mask — the rooms are nowhere near each other in the shared scene */
         #fade {
             position: absolute;
             top: 0;
@@ -236,8 +254,16 @@
             #touch-controls { display: none; }
         }
         @media (max-width: 767px) {
-            #hint {
+            /* The touch buttons own the bottom corners, so the map sits above them and the
+               hint above that — stacking beats squeezing on a phone-wide screen. */
+            #map-card {
+                right: 12px;
                 bottom: 176px;
+                transform: scale(0.7);
+                transform-origin: bottom right;
+            }
+            #hint {
+                bottom: 268px;
                 white-space: normal;
                 text-align: center;
                 max-width: 92%;
@@ -248,7 +274,7 @@
 
     <!--
       One page, two modes (see README). Opening index.html?qa=1 boots the game as usual and
-      then runs a module audit plus 20 behaviour checks, printing a QA{...} blob into #qa-out.
+      then runs a module audit plus 24 behaviour checks, printing a QA{...} blob into #qa-out.
       Without the flag none of the rig runs. The error collector has to be installed here,
       before any module is fetched, to catch a file that fails to parse.
     -->
@@ -279,9 +305,16 @@
         </div>
     </div>
 
+    <div id="map-card">
+        <span class="hud-label">HOUSE</span>
+        <canvas id="minimap"></canvas>
+    </div>
+
     <div id="hint">
         The <b>fridge</b> is stocked &mdash; open it and take the good stuff: shove it into
         the <b>mouse hole</b>, or hoist it with <b>E</b> and carry it home, one at a time.
+        Glowing <b>doorways</b> lead out into the rest of the house, and the <b>map</b> keeps
+        track of where you are.
         WASD move &middot; Space jump &middot; E hoist &middot; Right-drag orbit &middot; Wheel zoom
     </div>
 
@@ -316,8 +349,11 @@
 
     <!--
       Modules share one global scope (no bundler, so the game is a folder of text files).
-      Load order matters only for core/areas.js, whose AREA_SPAWN reads BURROW_ORIGIN_X and
-      BURROW_BOUND while the file is evaluated, so it must come after world/burrow.js.
+      Load order matters for exactly one reason: map/rooms.js is data, and it reads other
+      modules' globals while it is being evaluated — kitchenObstacles, cameraCollisionMeshes,
+      MOUSE_HOLE, burrowObstacles, burrowCollision, BURROW_ORIGIN_X, BURROW_BOUND and
+      BURROW_EXIT. So it has to come after the files that define them. world/rooms.js only
+      reads that array inside buildHouse(), so it is safe anywhere before map/rooms.js.
       Everything else is function declarations plus per-module state, safe in any order.
       See README.md for which file owns what.
     -->
@@ -332,6 +368,8 @@
     <script src="world/kitchen.js"></script>
     <script src="world/ingredients.js"></script>
     <script src="world/burrow.js"></script>
+    <script src="world/rooms.js"></script>
+    <script src="map/rooms.js"></script>
     <script src="world/scene.js"></script>
     <script src="actors/mouse.js"></script>
     <script src="actors/chef.js"></script>
@@ -340,6 +378,7 @@
     <script src="core/ui.js"></script>
     <script src="core/input.js"></script>
     <script src="core/camera.js"></script>
+    <script src="core/minimap.js"></script>
     <script src="core/areas.js"></script>
     <script src="main.js"></script>
 
@@ -354,41 +393,53 @@
      * top-level let/const is a SyntaxError that silently kills a whole file, and that is the
      * failure mode this split is most likely to hit.
      *
-     * Phase 2 drives the real game through 20 checks: the fridge at rest, opening on
+     * Phase 2 drives the real game through 24 checks: the fridge at rest, opening on
      * approach, looting butter out of the cavity, resealing, a cheese wheel shoved end to
      * end down the hole, wall containment, moving around inside the fridge — to the back
      * panel, across the width and a hop — the portal there and back, the cutaway walls, the
      * residents, what a capture resets, the restock loop that keeps the kitchen supplied
      * (including a chilled good landing back on the fridge lip), the cap on the hoard pile,
      * two on prop contact — a wheel skidding along a counter face instead of grinding into
-     * it, and two props shoving each other apart instead of merging — and two on hoisting:
-     * the paws take one prop only, ride it along at a slowed pace, and hand it back when
-     * told, and a load carried to the arch is stowed in the base by the portal itself.
+     * it, and two props shoving each other apart instead of merging — two on hoisting: the
+     * paws take one prop only, ride it along at a slowed pace, and hand it back when told,
+     * and a load carried to the arch is stowed in the base by the portal itself — and two on
+     * the house itself: the map in map/rooms.js checked against the rules a level has to
+     * obey, and a walk through three rooms proving the doors work in both directions.
      */
     (function () {
         if (!new URLSearchParams(location.search).has('qa')) return;
 
         const EXPECTED_FUNCTIONS = ['initScene', 'buildKitchenEnvironment', 'buildFridge', 'updateFridge',
-            'buildMouseHole', 'updateMouseHoleGlow', 'spawnIngredients', 'updateIngredientProps', 'resetIngredients',
+            'buildMouseHole', 'kitchenHoleDistance', 'spawnIngredients', 'updateIngredientProps', 'resetIngredients',
             'buildBurrow', 'updateBurrowView', 'addToStash', 'updateBurrowMice', 'createLowPolyMouse',
             'createLowPolyChef', 'createWarningRing', 'updateChefAI', 'updateMouse', 'pushIngredients',
             'animateMouseBody', 'animateMouseTail', 'triggerJump', 'updateCamera', 'setupInputListeners',
-            'enterArea', 'travelTo', 'checkHoleCrossing', 'playSound', 'showToast', 'updateStashHud',
+            'enterArea', 'travelTo', 'checkPortalCrossing', 'playSound', 'showToast', 'updateStashHud',
             'getFloorY', 'resetChef', 'resetMouse', 'clearDust', 'buildFreezerGoods', 'fridgeReach',
-            'updateDust', 'spawnDust', 'holeRadius', 'holeDistance', 'clampToArea', 'activeObstacles',
+            'updateDust', 'spawnDust', 'clampToArea', 'clampToRect', 'activeObstacles',
             'activeCollision', 'liveProps', 'updateDeliveries', 'deliver', 'onIngredientStashed',
             'collideProps', 'solvePropCollision', 'clampPropToRect', 'toggleCarry', 'pickUp',
-            'dropCarry', 'nearestCarryable', 'updateCarry', 'stowCarried', 'updateCarryHud'];
+            'dropCarry', 'nearestCarryable', 'updateCarry', 'stowCarried', 'updateCarryHud',
+            'rehomeIngredient', 'buildIngredient', 'buildHouse', 'registerRoom', 'buildRoom', 'roomById',
+            'activeRoom', 'arrivalFor', 'lightActiveRoom', 'linkPortalGlow', 'updatePortalGlows',
+            'buildRoomDoor', 'buildRoomFloor', 'buildRoomWalls', 'buildRoomPiece', 'addRoomBlock',
+            'addRoomSolid', 'addRoomVisual', 'addRoomShape', 'roomPad', 'initMinimap', 'drawMinimap',
+            'mapPoint'];
         const EXPECTED_VARS = ['mouseVel', 'keys', 'ingredients', 'burrowMice', 'stashedIngredients', 'FRIDGE',
             'fridgeLamp', 'coldPuffs', 'camYaw', 'camDist', 'MOUSE_HOLE', 'BURROW_ORIGIN_X', 'kitchenObstacles',
             'GRAVITY', 'MOVE_SPEED', 'isTraveling', 'currentArea', 'DELIVERY_FLOOR', 'DELIVERY_DROP_Y',
             'STASH_PILE_CAP', 'BODY_BOUNCE', 'MOUSE_PUSH_RADIUS', 'PUSH_FACTOR',
-            'carriedItem', 'CARRY_REACH', 'CARRY_LIFT', 'CARRY_SHARE', 'CARRY_OUT', 'CARRY_SPEED'];
+            'carriedItem', 'CARRY_REACH', 'CARRY_LIFT', 'CARRY_SHARE', 'CARRY_OUT', 'CARRY_SPEED',
+            'ROOMS', 'rooms', 'roomOrder', 'HOUSE_SPACING', 'KITCHEN_BOUND', 'DELIVERY_GAP', 'INGREDIENT_SPEC',
+            'PORTAL_ENTER_MARGIN', 'ARRIVE_INSET', 'STEP_HEIGHT', 'DOOR_RADIUS', 'mapView', 'MAP_W', 'MAP_H',
+            'keyLight', 'chefWaypoints', 'burrowObstacles', 'burrowCollision', 'cameraCollisionMeshes'];
 
         window.addEventListener('load', () => {
             const r = {};
             const t0 = performance.now();
             const v3 = (o) => [+o.x.toFixed(2), +o.y.toFixed(2), +o.z.toFixed(2)];
+            // Doorway records are { x, z } with no y, so they get their own formatter.
+            const v2 = (o) => [+o.x.toFixed(2), +o.z.toFixed(2)];
             const inFridge = (p) => Math.abs(p.x - FRIDGE.x) < FRIDGE.cavityW / 2 && p.z < FRIDGE.mouthZ;
 
             const varErrs = [];
@@ -401,12 +452,23 @@
 
             // Park the chef out of sight and stop his patrol so these tests measure the
             // ingredient/fridge/portal mechanics rather than whether he happened to catch us.
-            chefGroup.position.set(13, 0, 13);
-            chefWaypoints.length = 0;
+            // He keeps a one-point route in the corner rather than an empty one: resetChef()
+            // stands him on waypoint 0, and with no waypoints at all the restart check below
+            // would put him back in the middle of the kitchen, on top of the mouse.
+            const chefPatrol = chefWaypoints.slice();
+            const parkChef = () => {
+                chefWaypoints.length = 0;
+                chefWaypoints.push(new THREE.Vector3(13, 0, 13));
+                currentWaypointIdx = 0;
+                chefGroup.position.set(13, 0, 13);
+                chefIsChasing = false;
+                chefLoseTimer = 0;
+            };
+            parkChef();
 
-            // Rig-only speedup: under swiftshader the 2048 shadow pass dominates wall clock
-            // and none of these checks depends on shadow quality.
-            const keyLight = scene.children.find(o => o.isDirectionalLight && o.castShadow);
+            // Rig-only speedup: under swiftshader the shadow pass dominates wall clock and none
+            // of these checks depends on shadow quality. keyLight is world/scene.js's own
+            // global now — the single light that follows the player from room to room.
             if (keyLight) {
                 keyLight.shadow.mapSize.set(512, 512);
                 if (keyLight.shadow.map) { keyLight.shadow.map.dispose(); keyLight.shadow.map = null; }
@@ -450,16 +512,19 @@
                 for (let i = 0; i < count; i++) {
                     simTime += SIM_DT * 1000;
                     // Mirrors animate(), minus the draw call and main.js's DOM-only hint timer.
+                    // Both brains tick in every room, exactly as they do in the game: the chef
+                    // is clamped to the kitchen and 300 units is well outside his sight range,
+                    // and updateBurrowMice returns at once unless the player is home.
                     if (!isGameOver) {
                         updateMouse(SIM_DT, simTime);
                         updateCamera(SIM_DT);
-                        if (currentArea === 'burrow') updateBurrowMice(SIM_DT, simTime);
-                        else updateChefAI(SIM_DT, simTime);
-                        checkHoleCrossing();
+                        updateChefAI(SIM_DT, simTime);
+                        updateBurrowMice(SIM_DT, simTime);
+                        checkPortalCrossing();
                     }
-                    updateMouseHoleGlow(simTime);
+                    updatePortalGlows(simTime);
                     updateFridge(SIM_DT);
-                    updateBurrowView(simTime);
+                    updateBurrowView();
                     flushTimers();
                 }
             };
@@ -481,8 +546,8 @@
 
             const areaLog = [];
             const rawEnterArea = enterArea;
-            enterArea = function (area) {
-                areaLog.push(area);
+            enterArea = function (area, fromId) {
+                areaLog.push(fromId ? fromId + '>' + area : area);
                 return rawEnterArea.apply(this, arguments);
             };
             r.areaLog = areaLog;
@@ -491,6 +556,17 @@
                 wait(() => currentArea === area, 900, done);
             };
             const settled = (onDone) => wait(() => !isTraveling && !isGameOver, 900, onDone);
+
+            // Stand the mouse in a doorway's trigger circle and let the game take it from there.
+            // That is all walking in does, so the crossing, the fade, the arrival inset and the
+            // toast all run for real rather than being asserted from the map data.
+            const doorTo = (roomId, toId) => roomById(roomId).portals.find(p => p.to === toId);
+            const stepThrough = (toId, done) => {
+                const p = doorTo(currentArea, toId);
+                mouseGroup.position.set(p.x, 0, p.z);
+                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                crossTo(toId, (ok) => settled(() => done(ok, p)));
+            };
 
             // A prop shoved down the hole drags the player through with it, so steps that assume
             // kitchen geometry have to let that settle and then put him back.
@@ -515,18 +591,30 @@
             });
 
             // 2. Every ingredient must start resting on the surface under it and within jump reach
-            //    of the mouse, and none may already be sitting in the hole.
+            //    of the mouse, in the room it was authored for, and none of the kitchen's may
+            //    already be sitting in the hole.
             steps.push((next) => {
-                r.props = ingredients.map(i => ({
-                    type: i.type,
-                    y: +i.group.position.y.toFixed(2),
-                    resting: Math.abs(i.group.position.y - getFloorY(i.group.position.x, i.group.position.z, Infinity, kitchenObstacles)) < 0.01,
-                    nearHole: +kitchenHoleDistance(i.group.position.x, i.group.position.z).toFixed(2)
-                }));
-                r.propCount = r.props.length;
-                r.propsAllResting = r.props.every(p => p.resting);
-                r.propsAllReachable = r.props.every(p => p.y < 1.6);
-                r.propsNonePreStashed = r.props.every(p => p.nearHole > MOUSE_HOLE.radius);
+                const all = ingredients.map(i => {
+                    const room = roomById(i.room);
+                    const p = i.group.position;
+                    return {
+                        type: i.type,
+                        room: i.room,
+                        y: +p.y.toFixed(2),
+                        resting: Math.abs(p.y - getFloorY(p.x, p.z, Infinity, room.obstacles)) < 0.01,
+                        inside: Math.abs(p.x - room.ox) <= room.hx + 0.01 &&
+                                Math.abs(p.z - room.oz) <= room.hz + 0.01
+                    };
+                });
+                // Only the failures are reported: 48 props across seven rooms would bury the blob.
+                r.propFaults = all.filter(p => !p.resting || !p.inside || p.y >= 1.6);
+                r.propCount = all.length;
+                r.propsAllResting = all.every(p => p.resting);
+                r.propsAllReachable = all.every(p => p.y < 1.6);
+                r.propsAllInOwnRoom = all.every(p => p.inside);
+                r.propsPerRoom = roomOrder.map(rm => rm.id + '=' + liveProps(rm.id)).join(' ');
+                r.propsNonePreStashed = ingredients.filter(i => i.room === 'kitchen')
+                    .every(i => kitchenHoleDistance(i.group.position.x, i.group.position.z) > MOUSE_HOLE.radius);
                 next();
             });
 
@@ -546,7 +634,7 @@
 
             // 4. Shove a block of butter out through the doorway and check the doors let it pass.
             steps.push((next) => {
-                const butter = ingredients.find(i => i.type === 'butter' && !i.sunk);
+                const butter = ingredients.find(i => i.type === 'butter' && i.room === 'kitchen' && !i.sunk);
                 r.butterStart = v3(butter.group.position);
                 mouseGroup.position.set(butter.group.position.x, FRIDGE.lipY, butter.group.position.z - 0.42);
                 mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
@@ -573,7 +661,8 @@
             // 6. Body-weight push, end to end: run into a cheese wheel and shove it down the hole,
             //    checking on the way that it rolls about its axle and never sinks through the floor.
             steps.push((next) => backToKitchen(() => {
-                const cheese = ingredients.find(i => i.type === 'cheese' && !i.sunk && i.group.position.z < -5);
+                const cheese = ingredients.find(i => i.type === 'cheese' && i.room === 'kitchen' &&
+                    !i.sunk && i.group.position.z < -5);
                 r.cheeseStart = v3(cheese.group.position);
                 mouseGroup.position.set(cheese.group.position.x, 0, cheese.group.position.z + 2.8);
                 mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
@@ -599,12 +688,14 @@
                 });
             }));
 
-            // 7. Wall containment, in the kitchen
+            // 7. Wall containment, in the kitchen: the clamp is what stops him, not the wall mesh.
             steps.push((next) => backToKitchen(() => {
-                mouseGroup.position.set(14.2, 0, 6);
+                const k = roomById('kitchen');
+                mouseGroup.position.set(k.ox + k.hx - 1.15, 0, k.oz + 6);
                 mouseVel.set(0, 0, 0);
                 keys.right = true;
-                wait(() => currentArea === 'kitchen' && mouseGroup.position.x >= 15.34, 600, (ok) => {
+                wait(() => currentArea === 'kitchen' &&
+                    mouseGroup.position.x >= k.ox + k.hx - 0.01, 600, (ok) => {
                     keys.right = false;
                     r.clampX = +mouseGroup.position.x.toFixed(2);
                     r.clampHeld = ok;
@@ -730,7 +821,15 @@
             steps.push((next) => settled(() => {
                 r.mouseAfterExit = v3(mouseGroup.position);
                 r.stashKept = stashedIngredients.length;
-                r.propsLeftInKitchen = ingredients.filter(i => !i.sunk).length;
+                r.propsLeftInKitchen = liveProps('kitchen');
+                r.propsLeftInHouse = ingredients.filter(i => !i.sunk && !i.stashing).length;
+                // Coming back through the hole now lands you just inside it rather than on the
+                // kitchen's spawn, so arriving cannot cross you straight back out again.
+                const holeDoor = doorTo('kitchen', 'burrow');
+                r.landedInsideHole = Math.hypot(mouseGroup.position.x - holeDoor.enter.x,
+                    mouseGroup.position.z - holeDoor.enter.z) < 0.05;
+                r.landedClearOfTrigger = kitchenHoleDistance(mouseGroup.position.x,
+                    mouseGroup.position.z) > holeDoor.radius + PORTAL_ENTER_MARGIN;
                 r.wallsRestored = ['posZ', 'negZ', 'posX', 'negX'].every(s => burrowWalls[s].every(m => m.visible));
                 r.fridgeShutWhileAway = +fridgeOpenK.toFixed(2);
                 next();
@@ -744,25 +843,34 @@
                 wait(() => !isGameOver, 900, (ok) => {
                     r.restarted = ok;
                     r.areaAfterRestart = currentArea;
+                    r.spawnAfterRestart = v3(mouseGroup.position);
+                    r.onOwnSpawn = Math.hypot(mouseGroup.position.x - roomById('kitchen').spawn.x,
+                        mouseGroup.position.z - roomById('kitchen').spawn.z) < 0.05;
                     r.stashAfterRestart = stashedIngredients.length;
                     r.propsAfterRestart = ingredients.filter(i => !i.sunk && !i.stashing).length;
+                    // Hauling a wheel two rooms away and then getting caught must not leave it
+                    // stranded: home is the authored spot, and a restart puts every prop back on it.
+                    r.propsAllHomeAfterRestart = ingredients.filter(i => !i.sunk)
+                        .every(i => i.room === i.home.room &&
+                            Math.hypot(i.group.position.x - i.home.x, i.group.position.z - i.home.z) < 0.01);
                     r.fridgeGoodsBack = ingredients.filter(i => i.type !== 'cheese' && inFridge(i.group.position)).length;
                     next();
                 });
             });
 
             // 14. The restock loop: an empty floor is no longer the end of the game. Sink the
-            //     kitchen below DELIVERY_FLOOR and hoarded goods fall back in, one delivery per
-            //     gap, until there is something to steal again.
+            //     kitchen below its own restock floor and hoarded goods fall back in, one
+            //     delivery per gap, until there is something to steal again.
             steps.push((next) => {
                 mouseGroup.position.set(2, 0, 6);
                 mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
                 ingredients.forEach(i => { i.vel.set(0, 0, 0); });
-                const live = liveProps();
-                ingredients.filter(i => !i.sunk && !i.stashing)
+                const kitchen = roomById('kitchen');
+                const live = liveProps('kitchen');
+                ingredients.filter(i => !i.sunk && !i.stashing && i.room === 'kitchen')
                     .slice(0, Math.max(0, live - 1))
                     .forEach(i => { i.sunk = true; i.stashing = false; i.group.visible = false; });
-                r.propsStrippedTo = liveProps();
+                r.propsStrippedTo = liveProps('kitchen');
                 r.pileBeforeRestock = stashedIngredients.length;
 
                 let highestFallY = 0;
@@ -770,19 +878,23 @@
                     ingredients.forEach(i => {
                         if (i.delivering) highestFallY = Math.max(highestFallY, i.group.position.y);
                     });
-                    return liveProps() >= DELIVERY_FLOOR && !ingredients.some(i => i.delivering);
+                    return liveProps('kitchen') >= kitchen.restock.floor &&
+                        !ingredients.some(i => i.delivering);
                 }, 4000, (ok) => {
                     r.restockRefilled = ok;
-                    r.restockLive = liveProps();
+                    r.restockLive = liveProps('kitchen');
                     // Sampled above the tiles while falling: proof it came down from the
                     // ceiling rather than appearing at rest.
                     r.restockFellFromAir = highestFallY > 1.5;
                     r.restockHighestY = +highestFallY.toFixed(2);
-                    const inPlay = ingredients.filter(i => !i.sunk && !i.stashing);
+                    const inPlay = ingredients.filter(i => !i.sunk && !i.stashing && i.room === 'kitchen');
                     r.restockAllSettled = inPlay.every(i => i.grounded && !i.delivering);
                     r.restockOnSpawns = inPlay.every(i =>
                         Math.hypot(i.group.position.x - i.spawn.x, i.group.position.z - i.spawn.z) < 0.9);
                     r.restockAtReachableHeight = inPlay.every(i => i.group.position.y < 1.6);
+                    // The other rooms are untouched: only the room being stood in pays out.
+                    r.restockLeftOtherRoomsAlone = roomOrder.filter(rm => rm.id !== 'kitchen')
+                        .every(rm => liveProps(rm.id) === (rm.spec.loot || []).length);
                     // A delivery must never drop straight into the chute it came from.
                     r.restockSelfStashed = stashedIngredients.length - r.pileBeforeRestock;
                     next();
@@ -793,7 +905,7 @@
             //     This is the whole reason the fridge spawns carry their own dropY: the freezer
             //     shelf and cavity ceiling sit above them.
             steps.push((next) => {
-                const good = ingredients.find(i => i.type === 'butter');
+                const good = ingredients.find(i => i.type === 'butter' && i.room === 'kitchen');
                 good.sunk = true; good.stashing = false; good.group.visible = false;
                 deliver(good);
                 wait(() => !good.delivering && good.grounded, 600, (ok) => {
@@ -808,7 +920,7 @@
             // 16. The pile is capped: deliveries make hoarding endless, so the base cannot grow
             //     forever, and the HUD keeps telling the truth about what is on screen.
             steps.push((next) => {
-                const src = ingredients.find(i => !i.sunk);
+                const src = ingredients.find(i => !i.sunk && !i.stashing && i.room === 'kitchen');
                 const oldest = stashedIngredients[0];
                 const fake = { group: src.group, label: src.label };
                 for (let n = 0; n < STASH_PILE_CAP + 8; n++) onIngredientStashed(fake);
@@ -826,8 +938,12 @@
             //     walked it back in, so a shove into a counter read as the prop seizing up.
             //     Now the normal component is reflected and the tangential one is kept.
             steps.push((next) => backToKitchen(() => {
-                const island = kitchenObstacles.find(o => o.w === 8 && o.d === 3);
-                const wheel = ingredients.find(i => !i.sunk && !i.stashing && !i.delivering);
+                const k = roomById('kitchen');
+                const island = k.obstacles.find(o => o.w === 8 && o.d === 3);
+                // Must be a kitchen prop: updateIngredientProps measures each one against its
+                // own room, so a pantry wheel parked here would be clamped straight back to x -300.
+                const wheel = ingredients.find(i => !i.sunk && !i.stashing && !i.delivering &&
+                    i.room === 'kitchen');
                 mouseGroup.position.set(-12, 0, 12);   // past the chef's sight: props alone
                 mouseVel.set(0, 0, 0);
 
@@ -846,7 +962,7 @@
                 const startZ = wheel.group.position.z;
                 let embedded = false;
                 wait(() => {
-                    embedded = embedded || kitchenObstacles.some(o =>
+                    embedded = embedded || k.obstacles.some(o =>
                         wheel.group.position.y < o.h - STEP_HEIGHT &&
                         Math.abs(wheel.group.position.x - o.x) < o.w / 2 + wheel.radius - 0.08 &&
                         Math.abs(wheel.group.position.z - o.z) < o.d / 2 + wheel.radius - 0.08);
@@ -858,8 +974,8 @@
                     r.slideX = +(wheel.group.position.x - startX).toFixed(2);
                     r.leftTheFace = wheel.group.position.z < restZ - 0.3;
                     r.neverEmbedded = !embedded;
-                    r.slideStayedInRoom = Math.abs(wheel.group.position.x) < KITCHEN_BOUND &&
-                        Math.abs(wheel.group.position.z) < KITCHEN_BOUND;
+                    r.slideStayedInRoom = Math.abs(wheel.group.position.x - k.ox) < k.hx &&
+                        Math.abs(wheel.group.position.z - k.oz) < k.hz;
                     wheel.sunk = true; wheel.group.visible = false;   // don't litter the floor
                     next();
                 });
@@ -868,7 +984,11 @@
             // 18. Props never touched each other at all, so two wheels ran into the same
             //     counter face and welded there. Equal masses: the shove changes hands.
             steps.push((next) => {
-                const pair = ingredients.filter(i => !i.sunk && !i.stashing && !i.delivering).slice(0, 2);
+                const k = roomById('kitchen');
+                // Both from the kitchen: collideProps skips a pair in different rooms, so one
+                // from each would measure nothing at all and still report success.
+                const pair = ingredients.filter(i => !i.sunk && !i.stashing && !i.delivering &&
+                    i.room === 'kitchen').slice(0, 2);
                 const [a, b] = pair;
                 const reach = a.radius + b.radius;
                 a.group.position.set(-6, 0, 8);
@@ -892,7 +1012,7 @@
                     r.propsNeverMerged = !deep;
                     r.propsApart = +Math.hypot(b.group.position.x - a.group.position.x,
                         b.group.position.z - a.group.position.z).toFixed(2);
-                    r.pairOutWalls = [a, b].every(it => !kitchenObstacles.some(o =>
+                    r.pairOutWalls = [a, b].every(it => !k.obstacles.some(o =>
                         Math.abs(it.group.position.x - o.x) < o.w / 2 + it.radius - 0.08 &&
                         Math.abs(it.group.position.z - o.z) < o.d / 2 + it.radius - 0.08));
                     r.pairBothOnFloor = [a, b].every(it => it.grounded && !it.stashing);
@@ -905,7 +1025,11 @@
             //     you walk, and give it back when asked. Two arms, one cargo: a second hoist is
             //     refused rather than allowed to swap what is already carried.
             steps.push((next) => backToKitchen(() => {
-                const live = ingredients.filter(i => !i.sunk && !i.stashing && !i.delivering);
+                const k = roomById('kitchen');
+                // nearestCarryable only looks at props in the room being stood in, so both of
+                // these have to be kitchen goods or the hoist is refused for the wrong reason.
+                const live = ingredients.filter(i => !i.sunk && !i.stashing && !i.delivering &&
+                    i.room === 'kitchen');
                 const [wheel, spare] = live;
                 mouseGroup.position.set(-6, 0, 8);      // a clear lane: the island stops at x -4
                 mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
@@ -946,8 +1070,8 @@
                     r.carryHoldY = +wheel.group.position.y.toFixed(2);
                     r.carryOffFloor = wheel.group.position.y > 0.1;
                     r.carryNotRolling = Math.abs(wheel.spinner.rotation.x) < 0.2;
-                    r.carryStayedInRoom = Math.abs(wheel.group.position.x) < KITCHEN_BOUND &&
-                        Math.abs(wheel.group.position.z) < KITCHEN_BOUND;
+                    r.carryStayedInRoom = Math.abs(wheel.group.position.x - k.ox) < k.hx &&
+                        Math.abs(wheel.group.position.z - k.oz) < k.hz;
                     r.carryNeverFellDownChute =
                         stashedIngredients[stashedIngredients.length - 1] === newestBefore;
 
@@ -958,8 +1082,11 @@
                         r.droppedPropSettled = settled;
                         r.dropRestsOnFloor = Math.abs(wheel.group.position.y -
                             getFloorY(wheel.group.position.x, wheel.group.position.z, Infinity,
-                                kitchenObstacles)) < 0.03;
+                                k.obstacles)) < 0.03;
                         r.dropBackInPlay = !wheel.sunk && !wheel.stashing && wheel.group.visible;
+                        // Put down where it was picked up, in its own room: no re-homing.
+                        r.dropKeptItsHome = wheel.room === 'kitchen' &&
+                            wheel.spawn.x === wheel.home.x && wheel.spawn.z === wheel.home.z;
                         next();
                     });
                 });
@@ -972,8 +1099,9 @@
             //     sunk prop at random, and with the floor already thin it would hand this one
             //     back to the kitchen during the portal fade and make the stow unreadable.
             steps.push((next) => backToKitchen(() => {
-                const load = ingredients.find(i => !i.sunk && !i.stashing && !i.delivering);
-                deliveryTimer = 1e6;
+                const load = ingredients.find(i => !i.sunk && !i.stashing && !i.delivering &&
+                    i.room === 'kitchen');
+                roomById('kitchen').deliveryTimer = 1e6;
                 mouseGroup.position.set(0.4, 0, -13.1);   // 2.2 from the arch, outside his own
                                                           // trigger radius: he has to walk in
                 mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
@@ -1010,6 +1138,218 @@
                 });
             }));
 
+            // 21. The house as data. None of this simulates: it reads map/rooms.js through the
+            //     registry and checks the rules a level has to obey, because a door to a room
+            //     that was never registered, or an arrival point inside a counter, is the kind of
+            //     bug that only shows up as a mouse stuck in furniture three rooms from here.
+            steps.push((next) => {
+                const faults = [];
+                r.mapRooms = roomOrder.map(rm => rm.id);
+                r.mapRoomsMatchSpec = roomOrder.length === ROOMS.length;
+
+                // A door has to lead somewhere that exists, and somewhere that leads back:
+                // arrivalFor() falls back to the room's spawn when it does not, which would
+                // quietly drop the mouse in the middle of a room it just walked into.
+                roomOrder.forEach(rm => rm.portals.forEach(p => {
+                    const far = roomById(p.to);
+                    if (!far) { faults.push(rm.id + '>' + p.to + ': no such room'); return; }
+                    if (!far.portals.some(q => q.to === rm.id)) faults.push(rm.id + '>' + p.to + ': no door back');
+                }));
+                r.mapDoorsResolve = !faults.length;
+
+                // Rooms share one scene, and the only thing hiding them from each other is fog
+                // plus the camera's far plane. HOUSE_SPACING is the floor on that separation.
+                let nearest = Infinity, nearestPair = null;
+                for (let i = 0; i < roomOrder.length; i++) {
+                    for (let j = i + 1; j < roomOrder.length; j++) {
+                        const a = roomOrder[i], b = roomOrder[j];
+                        const d = Math.hypot(a.ox - b.ox, a.oz - b.oz);
+                        if (d < nearest) { nearest = d; nearestPair = a.id + '/' + b.id; }
+                    }
+                }
+                r.mapNearestPair = nearestPair;
+                r.mapNearestGap = Math.round(nearest);
+                r.mapRoomsFarApart = nearest >= HOUSE_SPACING;
+
+                const lootFaults = [];
+                roomOrder.forEach(rm => (rm.spec.loot || []).forEach(l => {
+                    if (!INGREDIENT_SPEC[l.type]) lootFaults.push(rm.id + ': unknown ' + l.type);
+                    if (Math.abs(l.x) >= rm.hx || Math.abs(l.z) >= rm.hz) {
+                        lootFaults.push(rm.id + ': ' + l.type + ' outside the room');
+                    }
+                    if (l.dropY !== undefined && l.dropY <= 0) {
+                        lootFaults.push(rm.id + ': ' + l.type + ' delivers underground');
+                    }
+                }));
+                r.mapLoot = roomOrder.reduce((n, rm) => n + (rm.spec.loot || []).length, 0);
+                r.mapLootFaults = lootFaults;
+                r.mapLootValid = !lootFaults.length;
+
+                // A restock rule re-delivers sunk props, so it can only ever top the room back
+                // up to the number it was authored with.
+                const restockFaults = roomOrder.filter(rm => rm.restock &&
+                    (rm.spec.loot || []).length < rm.restock.floor)
+                    .map(rm => rm.id + ': floor ' + rm.restock.floor + ' > ' + (rm.spec.loot || []).length + ' authored');
+                r.mapRestockFaults = restockFaults;
+                r.mapRestockReachable = !restockFaults.length;
+
+                // Standing points: the room's own spawn and every arrival inset. Each has to be
+                // clear of furniture that would block a body, and outside every door trigger in
+                // that room — or arriving puts you straight back through the door you came in.
+                const BODY_PAD = 0.35;
+                const clear = (rm, x, z) => rm.obstacles.every(o => o.h <= STEP_HEIGHT ||
+                    Math.abs(x - o.x) >= o.w / 2 + BODY_PAD || Math.abs(z - o.z) >= o.d / 2 + BODY_PAD);
+                const untriggered = (rm, x, z) => rm.portals.every(p =>
+                    Math.hypot(x - p.x, z - p.z) >= p.radius + PORTAL_ENTER_MARGIN);
+                const standFaults = [];
+                roomOrder.forEach(rm => {
+                    const spots = [{ at: 'spawn', p: rm.spawn }]
+                        .concat(rm.portals.map(q => ({ at: 'from ' + q.to, p: q.enter })));
+                    spots.forEach(s => {
+                        if (!clear(rm, s.p.x, s.p.z)) standFaults.push(rm.id + ' ' + s.at + ': in furniture');
+                        if (!untriggered(rm, s.p.x, s.p.z)) standFaults.push(rm.id + ' ' + s.at + ': in a doorway');
+                        if (Math.abs(s.p.x - rm.ox) > rm.hx || Math.abs(s.p.z - rm.oz) > rm.hz) {
+                            standFaults.push(rm.id + ' ' + s.at + ': outside the room');
+                        }
+                    });
+                });
+                r.mapStandFaults = standFaults;
+                r.mapStandPointsClear = !standFaults.length;
+
+                // The map card fits itself to the registry at boot; this is the check that the
+                // card it fitted to is actually big enough for the house.
+                let fits = !!mapView && mapView.scale > 0;
+                if (fits) {
+                    roomOrder.forEach(rm => {
+                        [[rm.ox - rm.hx, rm.oz - rm.hz], [rm.ox + rm.hx, rm.oz + rm.hz]].forEach(c => {
+                            const [x, z] = mapPoint(c[0], c[1]);
+                            if (x < 0 || x > MAP_W || z < 0 || z > MAP_H) fits = false;
+                        });
+                    });
+                }
+                r.mapScale = mapView ? +mapView.scale.toFixed(4) : null;
+                r.mapFitsCard = fits;
+                r.mapFaults = faults;
+                next();
+            });
+
+            // 22. A walk through the house, both ways. Everything above is kitchen geometry;
+            //     this proves the doors are doors — that the fade, the arrival inset and the
+            //     toast work three rooms from the kitchen, that the hunter cannot follow, that
+            //     a prop obeys its own room's walls, and that a load carried through a doorway
+            //     arrives still in the paws and belongs to the room it is put down in.
+            steps.push((next) => {
+                // His real patrol back: "he stayed in the kitchen" is only worth measuring if
+                // he was actually walking it while the mouse was somewhere else.
+                chefWaypoints.length = 0;
+                chefPatrol.forEach(p => chefWaypoints.push(p));
+                currentWaypointIdx = 0;
+                chefGroup.position.set(chefPatrol[0].x, 0, chefPatrol[0].z);
+                chefIsChasing = false;
+                chefLoseTimer = 0;
+                const chefStart = v3(chefGroup.position);
+
+                stepThrough('kitchen', (okHome) => {
+                    const k = roomById('kitchen');
+                    r.walkLeftBase = okHome;
+                    r.walkHomeAt = v2(mouseGroup.position);
+                    r.walkHomeArrival = v2(doorTo('kitchen', 'burrow').enter);
+                    r.walkHomeLanded = r.walkHomeAt.join() === r.walkHomeArrival.join();
+                    r.walkHomeHud = document.getElementById('hud-area').textContent === k.label;
+
+                    stepThrough('hall', (okHall) => {
+                        const hall = roomById('hall');
+                        r.walkReachedHall = okHall;
+                        r.walkHallAt = v2(mouseGroup.position);
+                        r.walkHallArrival = v2(doorTo('hall', 'kitchen').enter);
+                        r.walkHallLanded = r.walkHallAt.join() === r.walkHallArrival.join();
+                        r.walkHallHud = document.getElementById('hud-area').textContent === hall.label;
+                        r.walkHallHasGoods = liveProps('hall') > 0;
+                        r.walkKitchenEmptyOfPlayer = currentArea !== 'kitchen';
+
+                        // Prop physics on a room's own obstacle set: shoved toward the centre so
+                        // the check measures the room, not how close to a wall it happened to sit.
+                        const loose = ingredients.filter(i => !i.sunk && !i.stashing && !i.delivering &&
+                            i.room === 'hall');
+                        const roller = loose.find(i => i.group.position.y < 0.3) || loose[0];
+                        const from = v3(roller.group.position);
+                        roller.vel.set(hall.ox - from[0], 0, hall.oz - from[2]);
+                        // A prop already at the centre has nowhere to be aimed, so shove it east.
+                        if (roller.vel.lengthSq() < 1e-6) roller.vel.set(1, 0, 0);
+                        roller.vel.setLength(4);
+                        roller.grounded = true;
+                        wait(() => roller.vel.lengthSq() === 0, 480, (stopped) => {
+                            const p = roller.group.position;
+                            r.hallPropMoved = Math.hypot(p.x - from[0], p.z - from[2]) > 0.5;
+                            r.hallPropCameToRest = stopped;
+                            r.hallPropStayedInRoom = Math.abs(p.x - hall.ox) <= hall.hx + 0.01 &&
+                                Math.abs(p.z - hall.oz) <= hall.hz + 0.01;
+                            r.hallPropOnFloor = Math.abs(p.y -
+                                getFloorY(p.x, p.z, Infinity, hall.obstacles)) < 0.03;
+
+                            // Three seconds in another room: he has no business following, and
+                            // line of sight died 300 units ago, so the chase has to have cooled.
+                            after(3000, () => {
+                                r.chefKeptPatrolling = Math.hypot(chefGroup.position.x - chefStart[0],
+                                    chefGroup.position.z - chefStart[2]) > 0.5;
+                                r.chefStayedInKitchen = Math.abs(chefGroup.position.x - k.ox) <= k.hx + 1 &&
+                                    Math.abs(chefGroup.position.z - k.oz) <= k.hz + 1;
+                                r.chefNotChasingFromAfar = chefIsChasing === false;
+                                r.chefWhere = v3(chefGroup.position);
+
+                                // Hoist a hall good and take it through to the dining room. Only
+                                // the way home stows a load, so it has to survive this door.
+                                parkChef();
+                                const load = ingredients.find(i => !i.sunk && !i.stashing &&
+                                    !i.delivering && i.room === 'hall' && i.group.position.y < 0.3 &&
+                                    i.grounded && i.vel.lengthSq() === 0);
+                                mouseGroup.position.set(load.group.position.x + 0.5, 0, load.group.position.z);
+                                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                                simFrames(2);
+                                pickUp();
+                                r.carryLoadedInHall = carriedItem === load;
+
+                                stepThrough('dining', (okDining) => {
+                                    const dining = roomById('dining');
+                                    r.carrySurvivedDoorway = okDining && carriedItem === load &&
+                                        load.carried === true && !load.sunk;
+                                    r.carryStillOneLoad = ingredients.filter(i => i.carried).length === 1;
+                                    r.carryRodeAlong = Math.hypot(load.group.position.x - mouseGroup.position.x,
+                                        load.group.position.z - mouseGroup.position.z) < CARRY_REACH;
+                                    r.walkDiningAt = v2(mouseGroup.position);
+                                    r.walkDiningArrival = v2(doorTo('dining', 'hall').enter);
+                                    r.walkDiningLanded = r.walkDiningAt.join() === r.walkDiningArrival.join();
+
+                                    dropCarry();
+                                    wait(() => load.grounded && load.vel.lengthSq() === 0, 240, (put) => {
+                                        r.loadPutDown = put && carriedItem === null;
+                                        r.loadRehomed = load.room === 'dining' && load.spawn.room === 'dining';
+                                        r.loadKeptItsAuthoredHome = load.home.room === 'hall';
+                                        r.loadInDiningRect = Math.abs(load.group.position.x - dining.ox) < dining.hx &&
+                                            Math.abs(load.group.position.z - dining.oz) < dining.hz;
+
+                                        // And back the way he came, which is the half of a
+                                        // doorway pair that is easiest to leave unbuilt.
+                                        stepThrough('hall', (okBack) => {
+                                            r.walkBackToHall = okBack;
+                                            stepThrough('kitchen', (okEnd) => {
+                                                r.walkBackToKitchen = okEnd;
+                                                r.walkEndedAt = v2(mouseGroup.position);
+                                                r.walkEndedArrival = v2(doorTo('kitchen', 'hall').enter);
+                                                r.walkEndedLanded = r.walkEndedAt.join() === r.walkEndedArrival.join();
+                                                r.walkChain = areaLog.slice(-5).join(' ');
+                                                r.walkNeverCaught = isGameOver === false;
+                                                next();
+                                            });
+                                        });
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+
             const out = document.getElementById('qa-out');
             let stepIdx = 0;
             const publish = () => {
@@ -1026,6 +1366,10 @@
                     mouse: v3(mouseGroup.position)
                 };
                 out.textContent = 'QA' + JSON.stringify(r);
+                // Once per step rather than once per frame: the map is a full 2D-canvas repaint
+                // of the whole house, and simFrames runs thousands of frames. Drawing it here is
+                // enough to put its errors in the collector and to leave real pixels on screen.
+                drawMinimap();
             };
             const runStep = () => {
                 if (stepIdx >= steps.length) return publish();

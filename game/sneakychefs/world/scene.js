@@ -6,6 +6,10 @@
  * the base, parked 400 units along x, out of the kitchen's frame entirely.
  */
 let fillLight = null;
+// The one shadow-casting light in the house. world/rooms.js moves it, its target and its
+// shadow frustum to whichever room the player is standing in — a single light serving the
+// whole map is the difference between this and a slideshow on a phone.
+let keyLight = null;
 
 function initScene() {
     const canvas = document.getElementById('game-canvas');
@@ -43,6 +47,9 @@ function initScene() {
     dirLight.shadow.bias = -0.0004;
     dirLight.shadow.normalBias = 0.03;
     scene.add(dirLight);
+    // A target only moves once it is part of the scene graph.
+    scene.add(dirLight.target);
+    keyLight = dirLight;
 
     window.addEventListener('resize', onWindowResize);
 }

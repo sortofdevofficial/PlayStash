@@ -1,108 +1,112 @@
 /**
  * world/ingredients.js — the hoard: what the mouse steals and how it moves.
  *
- * Owns the spawn table, the ingredient spec (which types roll), and the prop physics:
- * body-weight pushing and carrying live in actors/mouse.js, everything after the shove
- * happens here — friction, gravity, obstacle collisions, prop-vs-prop contact, rolling, and
- * the drop into the mouse hole. A prop in the paws is skipped by all of it, and `stowCarried`
- * is what turns a load carried through the hole into part of the pile.
+ * Owns the ingredient spec (which types roll), the prop physics and the per-room restock
+ * loop. Where the goods start is data: map/rooms.js authors each room's `loot` and its
+ * `restock` rule. Body-weight pushing and carrying live in actors/mouse.js; everything
+ * after the shove happens here — friction, gravity, obstacle collisions, prop-vs-prop
+ * contact, rolling, and the drop into the mouse hole. Every prop belongs to a room, and
+ * that room's walls and floors are the ones it is measured against. A prop in the paws is
+ * skipped by all of it, and `stowCarried` is what turns a load carried through the hole
+ * into part of the pile.
  */
 const PROP_FRICTION = 1.6;
 const PROP_MAX_SPEED = 9.0;
 const PROP_STASH_TIME = 0.45;
 const ROLL_AXIS = new THREE.Vector3(1, 0, 0); // a rolling prop turns about the carrier's X
 
-// The kitchen restocks itself. There is no goal and no clock, so an empty floor would mean
-// the game had quietly ended; once the goods still in play fall below DELIVERY_FLOOR, one
-// sunk item is re-delivered every DELIVERY_GAP seconds, dropping in from above. Sunk items
-// are reused rather than duplicated, so the scene never holds a second copy of a prop.
-const DELIVERY_FLOOR = 5;
-const DELIVERY_GAP = 9.0;
+// Every room with a `restock` rule in map/rooms.js refills itself. There is no goal and no
+// clock, so a bare floor would mean the game had quietly ended; once the goods still in play
+// in that room fall below its floor, one sunk item is re-delivered every `gap` seconds,
+// dropping in from above. Sunk items are reused rather than duplicated, so the scene never
+// holds a second copy of a prop. The timer lives on the room record, not here, because each
+// room counts down independently and only the one you are standing in ever pays out.
 const DELIVERY_DROP_Y = 5.2;   // over open floor — an enclosed spawn sets its own dropY
-let deliveryTimer = 0;
 
 // Round enough to roll believably; the rest slide and tumble.
 const INGREDIENT_SPEC = {
     cheese: { label: 'Cheese', roll: true },
     apple: { label: 'Apple', roll: true },
+    tomato: { label: 'Tomato', roll: true },
     banana: { label: 'Banana', roll: false },
     carrot: { label: 'Carrot', roll: false },
     butter: { label: 'Butter', roll: false },
-    milk: { label: 'Milk', roll: false }
+    milk: { label: 'Milk', roll: false },
+    bread: { label: 'Bread', roll: false },
+    jam: { label: 'Jam jar', roll: false }
 };
 
-// Where the hoard starts. Everything on open floor or inside the fridge: the mouse's jump
-// apex (~1.6) can't clear a 2.2 counter, and a prop up there can't be shoved down from the
-// ground, so anything spawned on a worktop would be unobtainable. The chilled trio stands
-// on the fridge's interior lip and has to be shoved out through the doorway.
-const INGREDIENT_SPAWNS = [
-    { type: 'cheese', x: 0, z: -6 },
-    { type: 'cheese', x: 6, z: -8 },
-    { type: 'cheese', x: -6, z: -8 },
-    { type: 'apple', x: 0, z: 6.5 },
-    { type: 'banana', x: -11, z: 2 },
-    { type: 'banana', x: 11, z: 4 },
-    { type: 'carrot', x: 4, z: 11 },
-    // Inside the cavity: the freezer shelf and ceiling sit above these, so a re-delivery
-    // has to start below them and fall the last stretch onto the lip.
-    { type: 'apple', x: -13.5, z: -13.6, dropY: 1.6 },
-    { type: 'butter', x: -12.5, z: -14.5, dropY: 1.6 },
-    { type: 'milk', x: -11.5, z: -13.6, dropY: 1.6 }
-];
-
+// Where the hoard starts comes from map/rooms.js: each room authors its own `loot` in local
+// coordinates and this resolves it to the scene. Two records per prop, because they answer
+// different questions — `home` is the authored spot a restart returns to and never changes,
+// while `spawn` is where the next delivery drops and `room` is whose floor it belongs to,
+// both of which move when the mouse hauls a load through a doorway.
 function spawnIngredients() {
     ingredients = [];
 
-    INGREDIENT_SPAWNS.forEach(spawn => {
-        const model = buildIngredientModel(spawn.type);
+    roomOrder.forEach(room => (room.spec.loot || []).forEach(l => {
+        const spawn = {
+            type: l.type,
+            x: room.ox + l.x,
+            z: room.oz + l.z,
+            dropY: l.dropY,
+            room: room.id
+        };
+        ingredients.push(buildIngredient(spawn, room));
+    }));
+}
 
-        // Models stand on their own origin, so the box gives the size used for pushing and
-        // rolling, and the centroid gives the offset needed to spin the prop about itself.
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-        const radius = Math.max(size.x, size.z) / 2;
+function buildIngredient(spawn, room) {
+    const model = buildIngredientModel(spawn.type);
 
-        // A model may name its own contact pivot (the apple's body, not its leaf).
-        const pivot = model.userData.rollPivot;
-        const pivotY = pivot ? pivot.y : size.y / 2;
-        const height = pivot ? pivot.y + radius : size.y;
+    // Models stand on their own origin, so the box gives the size used for pushing and
+    // rolling, and the centroid gives the offset needed to spin the prop about itself.
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const radius = Math.max(size.x, size.z) / 2;
 
-        model.position.set(-center.x, -box.min.y - pivotY, -center.z);
-        // Two levels on purpose: the carrier yaws to face the direction of travel, the
-        // spinner inside it accumulates the roll. A wheel then always turns about its own
-        // axle instead of tumbling across whatever axis the shove happened to point along.
-        const spinner = new THREE.Group();
-        spinner.add(model);
-        const carrier = new THREE.Group();
-        carrier.position.y = pivotY;
-        carrier.add(spinner);
+    // A model may name its own contact pivot (the apple's body, not its leaf).
+    const pivot = model.userData.rollPivot;
+    const pivotY = pivot ? pivot.y : size.y / 2;
+    const height = pivot ? pivot.y + radius : size.y;
 
-        const group = new THREE.Group();
-        group.add(carrier);
-        group.position.set(spawn.x, getFloorY(spawn.x, spawn.z, Infinity, kitchenObstacles), spawn.z);
-        scene.add(group);
+    model.position.set(-center.x, -box.min.y - pivotY, -center.z);
+    // Two levels on purpose: the carrier yaws to face the direction of travel, the
+    // spinner inside it accumulates the roll. A wheel then always turns about its own
+    // axle instead of tumbling across whatever axis the shove happened to point along.
+    const spinner = new THREE.Group();
+    spinner.add(model);
+    const carrier = new THREE.Group();
+    carrier.position.y = pivotY;
+    carrier.add(spinner);
 
-        ingredients.push({
-            type: spawn.type,
-            label: INGREDIENT_SPEC[spawn.type].label,
-            roll: INGREDIENT_SPEC[spawn.type].roll,
-            radius,
-            rollRadius: pivot ? pivot.radius : radius,
-            height,
-            group, carrier, spinner,
-            vel: new THREE.Vector3(),
-            velY: 0,
-            grounded: true,
-            spawn,
-            stashing: false,
-            sunk: false,
-            delivering: false,
-            carried: false,
-            stashT: 0,
-            stashFrom: new THREE.Vector3()
-        });
-    });
+    const group = new THREE.Group();
+    group.add(carrier);
+    group.position.set(spawn.x, getFloorY(spawn.x, spawn.z, Infinity, room.obstacles), spawn.z);
+    scene.add(group);
+
+    return {
+        type: spawn.type,
+        label: INGREDIENT_SPEC[spawn.type].label,
+        roll: INGREDIENT_SPEC[spawn.type].roll,
+        radius,
+        rollRadius: pivot ? pivot.radius : radius,
+        height,
+        group, carrier, spinner,
+        vel: new THREE.Vector3(),
+        velY: 0,
+        grounded: true,
+        home: { ...spawn },
+        spawn,
+        room: spawn.room,
+        stashing: false,
+        sunk: false,
+        delivering: false,
+        carried: false,
+        stashT: 0,
+        stashFrom: new THREE.Vector3()
+    };
 }
 
 function updateIngredientProps(dt) {
@@ -121,13 +125,14 @@ function updateIngredientProps(dt) {
         }
         if (item.vel.lengthSq() > PROP_MAX_SPEED * PROP_MAX_SPEED) item.vel.setLength(PROP_MAX_SPEED);
 
+        const room = roomById(item.room);
         const prevX = pos.x, prevZ = pos.z;
         pos.x += item.vel.x * dt;
         pos.z += item.vel.z * dt;
-        clampPropToRect(pos, item.vel, 0, KITCHEN_BOUND);
-        solvePropCollision(pos, item.vel, item.radius, kitchenObstacles);
+        clampPropToRect(pos, item.vel, room);
+        solvePropCollision(pos, item.vel, item.radius, room.obstacles);
 
-        const restY = getFloorY(pos.x, pos.z, pos.y + 0.05, kitchenObstacles);
+        const restY = getFloorY(pos.x, pos.z, pos.y + 0.05, room.obstacles);
         if (pos.y > restY + 0.001) {
             item.grounded = false;
             item.velY -= GRAVITY * dt;
@@ -178,6 +183,9 @@ function collideProps() {
         for (let j = i + 1; j < ingredients.length; j++) {
             const b = ingredients[j];
             if (b.sunk || b.stashing || b.carried) continue;
+            // Different rooms are hundreds of units apart in the same scene, so they can
+            // never touch; saying it here keeps the loop below about neighbours only.
+            if (a.room !== b.room) continue;
 
             const pa = a.group.position, pb = b.group.position;
             // Only things standing on the same surface can touch: the chilled goods are a
@@ -206,14 +214,14 @@ function collideProps() {
     }
 }
 
-// How many goods are still in play on the kitchen floor.
-function liveProps() {
-    return ingredients.filter(i => !i.sunk && !i.stashing).length;
+// How many goods are still in play on one room's floor.
+function liveProps(roomId) {
+    return ingredients.filter(i => !i.sunk && !i.stashing && i.room === roomId).length;
 }
 
 function updateDeliveries(dt) {
-    // A delivery is done the moment it settles on the tiles: dust, a knock, and it is back
-    // in play as an ordinary prop.
+    // A delivery is done the moment it settles: dust, a knock, and it is back in play as an
+    // ordinary prop.
     ingredients.forEach(item => {
         if (item.delivering && item.grounded) {
             item.delivering = false;
@@ -222,14 +230,20 @@ function updateDeliveries(dt) {
         }
     });
 
-    if (deliveryTimer > 0) { deliveryTimer -= dt; return; }
-    // No point dropping groceries where the player cannot see them land.
-    if (currentArea !== 'kitchen' || liveProps() >= DELIVERY_FLOOR) return;
+    // No point dropping groceries where the player cannot see them land, so only the room
+    // being stood in counts down — and the base has no restock rule at all, because the
+    // pile in there is the score, not the supply.
+    const room = activeRoom();
+    if (!room.restock) return;
+    if (room.deliveryTimer > 0) { room.deliveryTimer -= dt; return; }
+    if (liveProps(room.id) >= room.restock.floor) return;
 
-    const gone = ingredients.filter(i => i.sunk);
+    // Re-use a prop that sank from this room, so it lands back on its own authored spot —
+    // the fridge trio has to fall onto the interior lip, not through the freezer shelf.
+    const gone = ingredients.filter(i => i.sunk && i.room === room.id);
     if (!gone.length) return;
     deliver(gone[Math.floor(Math.random() * gone.length)]);
-    deliveryTimer = DELIVERY_GAP;
+    room.deliveryTimer = room.restock.gap;
 }
 
 function deliver(item) {
@@ -245,7 +259,7 @@ function deliver(item) {
     item.vel.set(0, 0, 0);
     item.velY = 0;
     item.grounded = false;
-    showToast(item.label + ' delivered — the chef restocked');
+    showToast(item.label + ' restocked in the ' + roomById(item.room).label.toLowerCase());
 }
 
 function animateIngredientStash(item, dt) {
@@ -265,13 +279,17 @@ function animateIngredientStash(item, dt) {
 }
 
 function resetIngredients() {
-    deliveryTimer = 0;
+    roomOrder.forEach(room => { room.deliveryTimer = 0; });
     carriedItem = null;
     ingredients.forEach(item => {
         // A caught mouse keeps his hoard: the clone stays in the base pile, so restarting
-        // must not put a second copy in the kitchen. The restock loop is what brings a
+        // must not put a second copy in the house. The restock loop is what brings a
         // hoarded prop back, and it does that one delivery at a time.
         if (item.sunk) return;
+        // Back to the authored spot, in the authored room: hauling a wheel out of the garden
+        // and getting caught must not leave it stranded in the kitchen for good.
+        item.room = item.home.room;
+        item.spawn = item.home;
         item.stashing = false;
         item.delivering = false;
         item.carried = false;
@@ -280,7 +298,7 @@ function resetIngredients() {
         item.group.scale.set(1, 1, 1);
         item.group.position.set(
             item.spawn.x,
-            getFloorY(item.spawn.x, item.spawn.z, Infinity, kitchenObstacles),
+            getFloorY(item.spawn.x, item.spawn.z, Infinity, roomById(item.room).obstacles),
             item.spawn.z
         );
         item.carrier.rotation.set(0, 0, 0);
@@ -292,6 +310,18 @@ function resetIngredients() {
     updateCarryHud();
 }
 
+
+// A load the mouse hauls through a doorway belongs to the room it is put down in from then
+// on. `home` stays the authored spot, so a restart still puts the whole house back as
+// map/rooms.js wrote it; only the working room and the next delivery point move. A prop set
+// back down in its own room is left alone — hoisting something and putting it down again
+// should not quietly rewrite where the restock loop drops it next.
+function rehomeIngredient(item) {
+    if (item.room === currentArea) return;
+    item.room = currentArea;
+    const p = item.group.position;
+    item.spawn = { type: item.type, x: p.x, z: p.z, room: item.room };
+}
 
 // Called by the ingredient physics the moment a prop drops into the hole.
 function onIngredientStashed(item) {

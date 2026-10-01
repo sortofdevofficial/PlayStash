@@ -1,39 +1,40 @@
 /**
  * core/areas.js — which room the player is in, and how they change it.
  *
- * Walking into either end of the portal flips `currentArea`, fades the screen, and
- * re-spawns the mouse at the far room's entry point. AREA_SPAWN reads BURROW_ORIGIN_X and
- * BURROW_BOUND at load time, so this file must load after world/burrow.js — the only
- * cross-file top-level read in the game.
+ * Walking into any doorway registered for the room flips `currentArea`, fades the screen,
+ * and re-spawns the mouse just inside the door it came through. Everything it needs — the
+ * spawn points, the labels, the arrival toasts, the doors themselves — comes from the room
+ * records that world/rooms.js built out of map/rooms.js, so nothing here knows the layout.
  */
-const AREA_SPAWN = {
-    kitchen: { x: 0, z: 9, label: 'KITCHEN' },
-    burrow: { x: BURROW_ORIGIN_X, z: BURROW_BOUND - 2.2, label: 'MOUSE BASE' }
-};
 
-function enterArea(area) {
+function enterArea(area, fromId) {
     currentArea = area;
-    const spawn = AREA_SPAWN[area];
+    const room = activeRoom();
+    // Coming through a door puts you inside it, facing in; anything else (a restart) uses
+    // the room's own spawn. The inset is wider than the door's trigger, so arriving never
+    // walks you straight back out again.
+    const at = (fromId && arrivalFor(room, fromId)) || room.spawn;
 
-    mouseGroup.position.set(spawn.x, getFloorY(spawn.x, spawn.z), spawn.z);
+    mouseGroup.position.set(at.x, getFloorY(at.x, at.z), at.z);
     mouseVel.set(0, 0, 0);
     jumpVelocity = 0;
     isGrounded = true;
 
-    // Snap the camera straight to its orbit position: lerping from the kitchen would
-    // spend most of a second flying through empty space 400 units away.
+    // Snap the camera straight to its orbit position: lerping from the last room would
+    // spend most of a second flying through empty space hundreds of units away.
     const dir = new THREE.Vector3(
         Math.sin(camYaw) * Math.cos(camPitch),
         Math.sin(camPitch),
         Math.cos(camYaw) * Math.cos(camPitch)
     ).normalize();
     camera.position.copy(mouseGroup.position).add(new THREE.Vector3(0, 0.5, 0)).addScaledVector(dir, camDist);
-    camera.lookAt(spawn.x, mouseGroup.position.y + 0.5, spawn.z);
+    camera.lookAt(at.x, mouseGroup.position.y + 0.5, at.z);
 
-    document.getElementById('hud-area').textContent = spawn.label;
+    document.getElementById('hud-area').textContent = room.label;
+    lightActiveRoom();
 }
 
-function travelTo(area) {
+function travelTo(area, fromId) {
     if (isTraveling || isGameOver || currentArea === area) return;
     isTraveling = true;
     keys.forward = keys.backward = keys.left = keys.right = false;
@@ -43,21 +44,26 @@ function travelTo(area) {
     playSound('portal');
 
     setTimeout(() => {
-        enterArea(area);
+        enterArea(area, fromId);
         fade.classList.remove('on');
-        showToast(area === 'burrow'
-            ? 'Home sweet home — the chef cannot follow in here'
-            : 'Back to the kitchen — keep foraging');
+        showToast(activeRoom().arrive);
         setTimeout(() => { isTraveling = false; }, 450);
     }, 450);
 }
 
-// The hole works both ways: walk into it and you are in the base, walk back out and you
-// are in the kitchen. Anything in the paws goes into the pile at the door.
-function checkHoleCrossing() {
+// Every door in the room the player is standing in is live at once, and the nearest one
+// within its own trigger radius wins. Only the way home takes the load off your back:
+// a doorway between two rooms upstairs is not the base's front door, so carrying a wheel
+// through it has to keep working.
+function checkPortalCrossing() {
     if (isTraveling) return;
+    const room = activeRoom();
     const pos = mouseGroup.position;
-    if (holeDistance(pos.x, pos.z) >= holeRadius()) return;
-    if (currentArea !== 'burrow') stowCarried();
-    travelTo(currentArea === 'burrow' ? 'kitchen' : 'burrow');
+
+    for (const p of room.portals) {
+        if (Math.hypot(pos.x - p.x, pos.z - p.z) >= p.radius + PORTAL_ENTER_MARGIN) continue;
+        if (p.to === 'burrow') stowCarried();
+        travelTo(p.to, room.id);
+        return;
+    }
 }

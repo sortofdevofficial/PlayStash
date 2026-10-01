@@ -7,44 +7,36 @@
  *                        keeps it sliding along a face instead of grinding into it.
  * clampPropToRect        the room bounds for a prop, killing speed aimed at a wall.
  * clampToRect/clampToArea the rect that seals whichever room the player is in.
- * activeObstacles / activeCollision / areaRect pick the kitchen's or the base's geometry
- * from `currentArea`, which is why one scene can hold two unrelated rooms.
+ * activeObstacles / activeCollision read the room record the registry keeps for
+ * `currentArea`, which is why one scene can hold a whole house of unrelated rooms.
  *
  * Walls are camera geometry, not obstacles, so the clamp — not the walls — contains the
- * player. Obstacle sets are filled by world/kitchen.js, world/fridge.js and world/burrow.js.
+ * player. Obstacle sets are filled by world/rooms.js from map/rooms.js, plus the two
+ * bespoke builders world/fridge.js and world/burrow.js.
  */
 const STEP_HEIGHT = 0.12;
-const KITCHEN_BOUND = 15.35;
 
-// Which area the player is standing in decides which set of geometry matters: the
-// burrow is a second room parked at x = BURROW_ORIGIN_X in the same scene.
 function activeObstacles() {
-    return currentArea === 'burrow' ? burrowObstacles : kitchenObstacles;
+    return activeRoom().obstacles;
 }
 
 function activeCollision() {
-    return currentArea === 'burrow' ? burrowCollision : cameraCollisionMeshes;
+    return activeRoom().collision;
 }
 
-function areaRect() {
-    return currentArea === 'burrow'
-        ? { originX: BURROW_ORIGIN_X, bound: BURROW_BOUND }
-        : { originX: 0, bound: KITCHEN_BOUND };
-}
-
-function clampToRect(vec, originX, bound) {
-    const min = originX - bound, max = originX + bound;
-    if (vec.x < min) vec.x = min;
-    else if (vec.x > max) vec.x = max;
-    if (vec.z < -bound) vec.z = -bound;
-    else if (vec.z > bound) vec.z = bound;
+// A room is the rect (ox ± hx, oz ± hz). Walls sit just outside it, so the clamp stops the
+// mouse at the wall's inner face rather than in the middle of the masonry.
+function clampToRect(vec, room) {
+    if (vec.x < room.ox - room.hx) vec.x = room.ox - room.hx;
+    else if (vec.x > room.ox + room.hx) vec.x = room.ox + room.hx;
+    if (vec.z < room.oz - room.hz) vec.z = room.oz - room.hz;
+    else if (vec.z > room.oz + room.hz) vec.z = room.oz + room.hz;
 }
 
 // Walls are visual/camera geometry, not obstacles, so without this the mouse would
 // simply walk out of the room (and, in the burrow, out through the exit arch).
 function clampToArea(vec) {
-    const rect = areaRect();
-    clampToRect(vec, rect.originX, rect.bound);
+    clampToRect(vec, activeRoom());
 }
 
 
@@ -112,14 +104,15 @@ function solvePropCollision(pos, vel, radius, obstacles = activeObstacles()) {
     }
 }
 
-// The room's own bounds, for a prop. No rebound here: the mouse hole is set into this wall,
-// so a wheel that reaches it has to stay put rather than be thrown back into the room.
-function clampPropToRect(pos, vel, originX, bound) {
-    const min = originX - bound, max = originX + bound;
-    if (pos.x < min) { pos.x = min; if (vel.x < 0) vel.x = 0; }
-    else if (pos.x > max) { pos.x = max; if (vel.x > 0) vel.x = 0; }
-    if (pos.z < -bound) { pos.z = -bound; if (vel.z < 0) vel.z = 0; }
-    else if (pos.z > bound) { pos.z = bound; if (vel.z > 0) vel.z = 0; }
+// The prop's own room bounds. No rebound here: the mouse hole is set into the kitchen's
+// wall, so a wheel that reaches it has to stay put rather than be thrown back into the room.
+function clampPropToRect(pos, vel, room) {
+    const minX = room.ox - room.hx, maxX = room.ox + room.hx;
+    const minZ = room.oz - room.hz, maxZ = room.oz + room.hz;
+    if (pos.x < minX) { pos.x = minX; if (vel.x < 0) vel.x = 0; }
+    else if (pos.x > maxX) { pos.x = maxX; if (vel.x > 0) vel.x = 0; }
+    if (pos.z < minZ) { pos.z = minZ; if (vel.z < 0) vel.z = 0; }
+    else if (pos.z > maxZ) { pos.z = maxZ; if (vel.z > 0) vel.z = 0; }
 }
 
 // Particle dust puffs sharing geometry and material to prevent GC stuttering

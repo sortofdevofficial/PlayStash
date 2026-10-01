@@ -21,6 +21,12 @@ const butterMat = new THREE.MeshStandardMaterial({ color: 0xfff3c4, roughness: 0
 const butterFoilMat = new THREE.MeshStandardMaterial({ color: 0xc9ccd4, roughness: 0.25, metalness: 0.6, flatShading: true });
 const milkCartonMat = new THREE.MeshStandardMaterial({ color: 0xf4f7fb, roughness: 0.4, flatShading: true });
 const milkCapMat = new THREE.MeshStandardMaterial({ color: 0x2f7fd1, roughness: 0.4, flatShading: true });
+const crustMat = new THREE.MeshStandardMaterial({ color: 0xc8873f, roughness: 0.75, flatShading: true });
+const crumbMat = new THREE.MeshStandardMaterial({ color: 0xe8c083, roughness: 0.85, flatShading: true });
+const jamGlassMat = new THREE.MeshStandardMaterial({ color: 0xb8243c, roughness: 0.15, metalness: 0.1, flatShading: true });
+const jamLidMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.35, metalness: 0.55, flatShading: true });
+const tomatoMat = new THREE.MeshStandardMaterial({ color: 0xd8402c, roughness: 0.3, flatShading: true });
+const tomatoStemMat = new THREE.MeshStandardMaterial({ color: 0x3f8a3a, roughness: 0.6, flatShading: true });
 
 function createCheeseWheelModel() {
     const group = new THREE.Group();
@@ -164,11 +170,98 @@ function createMilkCarton() {
     return group;
 }
 
+// Pantry and garden goods. The loaf and the jar are squat and flat-bottomed, so both slide;
+// the tomato is round and rolls about its own body.
+function createBreadModel() {
+    const group = new THREE.Group();
+
+    // A cob: one squashed ball for the crust, a paler one sunk into the top for the scored
+    // crumb, so it reads as bread rather than a brown pebble.
+    const crust = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), crustMat);
+    crust.scale.set(1.5, 0.82, 1.05);
+    crust.position.y = 0.24;
+    crust.castShadow = crust.receiveShadow = true;
+    group.add(crust);
+
+    const crumb = new THREE.Mesh(new THREE.SphereGeometry(0.19, 7, 5), crumbMat);
+    crumb.scale.set(1.35, 0.4, 0.8);
+    crumb.position.y = 0.4;
+    group.add(crumb);
+
+    // Two slashes across the top, the way a loaf is proved before it goes in the oven.
+    [-0.14, 0.14].forEach(dx => {
+        const slash = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.02, 0.34), crustMat);
+        slash.position.set(dx, 0.45, 0);
+        slash.rotation.y = 0.35;
+        group.add(slash);
+    });
+
+    return group;
+}
+
+function createJamJar() {
+    const group = new THREE.Group();
+
+    const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.19, 0.4, 9), jamGlassMat);
+    glass.position.y = 0.2;
+    glass.castShadow = glass.receiveShadow = true;
+    group.add(glass);
+
+    // A neck and a lid: the lid is the only bright metal in the house, so a jar glints.
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.19, 0.07, 9), jamGlassMat);
+    neck.position.y = 0.43;
+    group.add(neck);
+
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.165, 0.07, 9), jamLidMat);
+    lid.position.y = 0.49;
+    lid.castShadow = true;
+    group.add(lid);
+
+    // A paper label round the middle so it is a jar of something, not a red cylinder.
+    const label = new THREE.Mesh(new THREE.CylinderGeometry(0.205, 0.2, 0.17, 9),
+        new THREE.MeshStandardMaterial({ color: 0xf2e6c8, roughness: 0.9, flatShading: true }));
+    label.position.y = 0.19;
+    group.add(label);
+
+    return group;
+}
+
+function createTomatoModel() {
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 6), tomatoMat);
+    body.scale.set(1.0, 0.86, 1.0);
+    body.position.y = 0.22;
+    body.castShadow = body.receiveShadow = true;
+    group.add(body);
+
+    // A star of leaves at the top, plus the stub of a stem.
+    for (let i = 0; i < 5; i++) {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.18, 4), tomatoStemMat);
+        const a = (i / 5) * Math.PI * 2;
+        leaf.position.set(Math.cos(a) * 0.09, 0.42, Math.sin(a) * 0.09);
+        leaf.rotation.set(Math.PI / 2 + 0.5, 0, -a);
+        group.add(leaf);
+    }
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.1, 5), tomatoStemMat);
+    stem.position.y = 0.47;
+    group.add(stem);
+
+    // Roll about the fruit, not the box: the star above adds height that has nothing to do
+    // with where a tomato touches a surface.
+    group.userData.rollPivot = { y: 0.22, radius: 0.25 };
+
+    return group;
+}
+
 function buildIngredientModel(type) {
     if (type === 'apple') return createAppleModel();
     if (type === 'banana') return createBananaModel();
     if (type === 'carrot') return createCarrotModel();
     if (type === 'butter') return createButterModel();
     if (type === 'milk') return createMilkCarton();
+    if (type === 'bread') return createBreadModel();
+    if (type === 'jam') return createJamJar();
+    if (type === 'tomato') return createTomatoModel();
     return createCheeseWheelModel();
 }
