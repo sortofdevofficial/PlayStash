@@ -33,7 +33,7 @@ function roomEntered(room, x, z) {
 function updateAreaFromPosition() {
     if (isGameOver) return;
     const pos = mouseGroup.position;
-    const here = roomAt(pos.x, pos.z);
+    const here = roomAt(pos.x, pos.z, pos.y);
     if (here.id === currentArea) return;
     if (!roomEntered(here, pos.x, pos.z)) return;
     setArea(here);
@@ -46,7 +46,7 @@ function enterArea(area) {
     const room = activeRoom();
     const at = room.spawn;
 
-    mouseGroup.position.set(at.x, getFloorY(at.x, at.z), at.z);
+    mouseGroup.position.set(at.x, (room.oy || 0) + getFloorY(at.x, at.z), at.z);
     mouseVel.set(0, 0, 0);
     jumpVelocity = 0;
     isGrounded = true;

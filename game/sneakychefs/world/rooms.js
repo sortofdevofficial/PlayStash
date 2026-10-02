@@ -63,9 +63,19 @@ function activeRoom() {
 // frame loop asks to know where the player is — and the same question a prop asks to know which
 // floor it is resting on. A point in the masonry itself (which is where a doorway puts you
 // part-way through) belongs to whichever rect is nearest, so this never returns nothing.
-function roomAt(x, z) {
+//
+// Second-floor rooms have `oy > 0`. When a query Y is supplied (e.g. the mouse's feet), an
+// elevated room is only matched if the feet are at or above its floor — keeping the ground-floor
+// room active while the player is on the stairs below, and switching to the upper room the
+// moment he steps onto the upper platform.
+function roomAt(x, z, y = Infinity) {
+    // First pass: prefer elevated rooms whose floor the query Y can stand on (oy <= y).
+    // Ground-floor rooms have oy === 0 and are always candidates.
     for (const r of roomOrder) {
-        if (Math.abs(x - r.ox) <= r.hx && Math.abs(z - r.oz) <= r.hz) return r;
+        if (Math.abs(x - r.ox) <= r.hx && Math.abs(z - r.oz) <= r.hz) {
+            // If the room has an elevated floor, only match when the query is at or above it.
+            if ((r.oy || 0) <= y + 0.5) return r;
+        }
     }
     let best = roomOrder[0], bestD = Infinity;
     roomOrder.forEach(r => {
@@ -78,11 +88,16 @@ function roomAt(x, z) {
 }
 
 function registerRoom(spec) {
+    // `oy` is the Y elevation of this room's floor. Ground-floor rooms omit it (0).
+    // Second-floor rooms set it to the height their floor is built at so furniture,
+    // lights and spawns all sit at the right altitude.
+    const oy = spec.oy || 0;
     const room = {
         id: spec.id,
         label: spec.label,
         spec,
         ox: spec.ox, oz: spec.oz, hx: spec.hx, hz: spec.hz,
+        oy,
         spawn: { x: spec.ox + spec.spawn.x, z: spec.oz + spec.spawn.z },
         restock: spec.restock || null,
         deliveryTimer: 0,
@@ -159,6 +174,7 @@ function buildHouse() {
 
 function buildRoom(room) {
     const spec = room.spec;
+    const oy = room.oy || 0;
     room.group = new THREE.Group();
     scene.add(room.group);
 
@@ -167,7 +183,7 @@ function buildRoom(room) {
 
     (spec.lights || []).forEach(l => {
         const light = new THREE.PointLight(l.color, l.intensity, l.distance, l.decay === undefined ? 2 : l.decay);
-        light.position.set(room.ox + l.x, l.y, room.oz + l.z);
+        light.position.set(room.ox + l.x, oy + l.y, room.oz + l.z);
         room.group.add(light);
         room.lights.push(light);
     });
@@ -195,7 +211,7 @@ function buildRoomFloor(room) {
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(sx, sz),
         new THREE.MeshStandardMaterial({ map: tex, roughness: f.rough === undefined ? 0.5 : f.rough, flatShading: true }));
     floor.rotation.x = -Math.PI / 2;
-    floor.position.set(room.ox, 0, room.oz);
+    floor.position.set(room.ox, room.oy || 0, room.oz);
     floor.receiveShadow = true;
     room.group.add(floor);
 }
@@ -212,13 +228,15 @@ let houseStructure = null;   // one group, because the masonry belongs to no sin
 
 const round3 = n => +n.toFixed(3);
 
-// Every room edge laid onto the line it falls on: { axis, line, from, to, spec }. `axis` is the
-// direction the run extends along, so a north or south edge is an 'x' line at its z.
+// Every room edge laid onto the line it falls on: { axis, line, from, to, spec, yBase }. `axis`
+// is the direction the run extends along, so a north or south edge is an 'x' line at its z.
+// `yBase` is the world Y the wall starts from — 0 for ground-floor rooms, room.oy for upper ones.
 function houseWallLines() {
     const lines = {};
     roomOrder.forEach(room => {
         const w = room.spec.wall;
         if (!w) return;
+        const yBase = room.oy || 0;
         [{ axis: 'x', line: room.oz - room.hz, from: room.ox - room.hx, to: room.ox + room.hx },
         { axis: 'x', line: room.oz + room.hz, from: room.ox - room.hx, to: room.ox + room.hx },
         { axis: 'z', line: room.ox - room.hx, from: room.oz - room.hz, to: room.oz + room.hz },
@@ -227,8 +245,10 @@ function houseWallLines() {
                 // Rounded, because two rooms can reach the same edge by different arithmetic:
                 // the pantry puts its east face at -25.35 + 10, the kitchen its west at -15.35.
                 const line = round3(e.line), from = round3(e.from), to = round3(e.to);
-                const key = e.axis + '|' + line;
-                const l = lines[key] || (lines[key] = { key, axis: e.axis, line, from, to, spec: w, rooms: [] });
+                // Second-floor walls get a unique key that includes their Y base so they never
+                // merge with a ground-floor wall on the same XZ line.
+                const key = e.axis + '|' + line + (yBase ? '@' + yBase : '');
+                const l = lines[key] || (lines[key] = { key, axis: e.axis, line, from, to, spec: w, yBase, rooms: [] });
                 l.from = Math.min(l.from, from);
                 l.to = Math.max(l.to, to);
                 // Two rooms that share this wall may want different heights: the taller wins the
@@ -248,7 +268,8 @@ function houseDoorways() {
         const axis = alongX ? 'x' : 'z';
         const line = round3(alongX ? p.z : p.x);
         const at = round3(alongX ? p.x : p.z);
-        const key = axis + '|' + line;
+        const yBase = room.oy || 0;
+        const key = axis + '|' + line + (yBase ? '@' + yBase : '');
         // Both halves of a pair land on the same key and the same point, so one opening is cut
         // once however many rooms name it.
         if (!doors.find(d => d.key === key && d.at === at))
@@ -267,7 +288,8 @@ function houseWindows() {
         const axis = alongX ? 'x' : 'z';
         const line = round3(alongX ? w.z : w.x);
         const at = round3(alongX ? w.x : w.z);
-        wins.push({ key: axis + '|' + line, axis, line, at, width: w.width, sill: w.sill, head: w.head, room: w.room, id: w.id });
+        const yBase = room.oy || 0;
+        wins.push({ key: axis + '|' + line + (yBase ? '@' + yBase : ''), axis, line, at, width: w.width, sill: w.sill, head: w.head, room: w.room, id: w.id });
     }));
     return wins;
 }
@@ -289,6 +311,8 @@ function buildMasonry() {
         // Stretch the span by half its own thickness at each end, so where two walls meet at a
         // corner they overlap instead of leaving a see-through sliver at the joint.
         const from = l.from - t / 2, to = l.to + t / 2;
+        // yBase shifts the entire wall up for second-floor rooms.
+        const yb = l.yBase || 0;
         const openings = [
             ...doors.filter(d => d.key === key).map(d => ({ kind: 'door', at: d.at, width: d.width })),
             ...wins.filter(w => w.key === key).map(w => ({
@@ -301,26 +325,28 @@ function buildMasonry() {
         openings.forEach(o => {
             const a = Math.max(from, o.at - o.width / 2);
             const b = Math.min(to, o.at + o.width / 2);
-            wallPanel(l, cursor, a, 0, l.spec.height, true);
+            wallPanel(l, cursor, a, yb, yb + l.spec.height, true);
             if (o.kind === 'door') {
-                wallPanel(l, a, b, DOOR_H, l.spec.height, false);   // lintel over the opening
+                wallPanel(l, a, b, yb + DOOR_H, yb + l.spec.height, false);   // lintel over the opening
             } else {
                 // Glass does not reach the floor, so the masonry below and above it is drawn and
                 // the band between is left open — and windowBlocker puts the wall back for the
                 // only thing that has to care: a body.
-                wallPanel(l, a, b, 0, o.sill, false);
-                wallPanel(l, a, b, o.head, l.spec.height, false);
+                wallPanel(l, a, b, yb, yb + o.sill, false);
+                wallPanel(l, a, b, yb + o.head, yb + l.spec.height, false);
                 windowBlocker(l, a, b);
             }
             cursor = b;
         });
-        wallPanel(l, cursor, to, 0, l.spec.height, true);
+        wallPanel(l, cursor, to, yb, yb + l.spec.height, true);
     });
 
     doors.forEach(d => {
-        const wall = lines[d.key].spec;
-        buildThreshold(d, wall);
-        buildDoorway(d, wall);
+        const line = lines[d.key];
+        const wall = line.spec;
+        const yBase = line.yBase || 0;
+        buildThreshold(d, wall, yBase);
+        buildDoorway(d, wall, yBase);
     });
     wins.forEach(w => buildWindow(w, lines[w.key]));
 }
@@ -332,9 +358,10 @@ function buildMasonry() {
 function windowBlocker(line, from, to) {
     const t = line.spec.thickness, mid = (from + to) / 2;
     const alongX = line.axis === 'x';
+    const yb = line.yBase || 0;
     wallBoxes.push(alongX
-        ? { x: mid, z: line.line, w: to - from, d: t, h: line.spec.height }
-        : { x: line.line, z: mid, w: t, d: to - from, h: line.spec.height });
+        ? { x: mid, z: line.line, w: to - from, d: t, h: yb + line.spec.height }
+        : { x: line.line, z: mid, w: t, d: to - from, h: yb + line.spec.height });
 }
 
 // The glass and its one cross bar. The pane is registered as camera geometry, which is what
@@ -346,6 +373,7 @@ function buildWindow(w, line) {
     const t = line.spec.thickness;
     const cx = alongX ? w.at : w.line, cz = alongX ? w.line : w.at;
     const band = Math.min(w.head, line.spec.height - 0.4) - w.sill;
+    const yb = line.yBase || 0;
 
     const pane = new THREE.Mesh(alongX
         ? new THREE.BoxGeometry(w.width, band, t * 0.25)
@@ -353,7 +381,7 @@ function buildWindow(w, line) {
         new THREE.MeshStandardMaterial({
             color: 0xa8c8e8, transparent: true, opacity: 0.13, roughness: 0.08, metalness: 0
         }));
-    pane.position.set(cx, w.sill + band / 2, cz);
+    pane.position.set(cx, yb + w.sill + band / 2, cz);
     houseStructure.add(pane);
     wallMeshes.push(pane);
 
@@ -361,7 +389,7 @@ function buildWindow(w, line) {
         ? new THREE.BoxGeometry(0.18, band, t + 0.1)
         : new THREE.BoxGeometry(t + 0.1, band, 0.18),
         new THREE.MeshStandardMaterial({ color: line.spec.trim || 0x8a6a45, flatShading: true, roughness: 0.6 }));
-    mullion.position.set(cx, w.sill + band / 2, cz);
+    mullion.position.set(cx, yb + w.sill + band / 2, cz);
     houseStructure.add(mullion);
     wallMeshes.push(mullion);
 }
@@ -371,7 +399,7 @@ function buildWindow(w, line) {
 // strip of stone you step over to get from one room to the next. Camera geometry only: it
 // stands a few centimetres proud, which is nothing to a mouse, and registering it would give
 // every doorway a lip to snag a rolling wheel on.
-function buildThreshold(d, wall) {
+function buildThreshold(d, wall, yBase = 0) {
     const alongX = d.axis === 'x';
     const slab = new THREE.Mesh(
         alongX ? new THREE.BoxGeometry(d.width, 0.04, wall.thickness + 0.02)
@@ -380,7 +408,7 @@ function buildThreshold(d, wall) {
             color: new THREE.Color(wall.trim || 0x8a6a45).lerp(new THREE.Color(0xffffff), 0.25),
             flatShading: true, roughness: 0.7
         }));
-    slab.position.set(alongX ? d.at : d.line, 0.01, alongX ? d.line : d.at);
+    slab.position.set(alongX ? d.at : d.line, yBase + 0.01, alongX ? d.line : d.at);
     slab.receiveShadow = true;
     houseStructure.add(slab);
     wallMeshes.push(slab);
@@ -410,7 +438,7 @@ function wallPanel(line, from, to, y0, y1, isRun) {
 // panel — with the next room genuinely on the other side, a panel there would be a wall with a
 // picture of a door on it — and no marker on the floor, because a doorway is only a hole in the
 // masonry and anything that drew the eye to it would promise a gate that is not there.
-function buildDoorway(d, wall) {
+function buildDoorway(d, wall, yBase = 0) {
     const alongX = d.axis === 'x';
     const t = wall.thickness;
     const cx = alongX ? d.at : d.line, cz = alongX ? d.line : d.at;
@@ -424,7 +452,7 @@ function buildDoorway(d, wall) {
         const mesh = new THREE.Mesh(alongX
             ? new THREE.BoxGeometry(0.22, archH + 0.22, t + 0.24)
             : new THREE.BoxGeometry(t + 0.24, archH + 0.22, 0.22), trimMat);
-        mesh.position.set(alongX ? cx + off : cx, (archH + 0.22) / 2, alongX ? cz : cz + off);
+        mesh.position.set(alongX ? cx + off : cx, yBase + (archH + 0.22) / 2, alongX ? cz : cz + off);
         mesh.castShadow = true;
         houseStructure.add(mesh);
     };
@@ -434,7 +462,7 @@ function buildDoorway(d, wall) {
         const head = new THREE.Mesh(alongX
             ? new THREE.BoxGeometry(d.width + 0.44, 0.24, t + 0.24)
             : new THREE.BoxGeometry(t + 0.24, 0.24, d.width + 0.44), trimMat);
-        head.position.set(cx, archH + 0.24, cz);
+        head.position.set(cx, yBase + archH + 0.24, cz);
         head.castShadow = true;
         houseStructure.add(head);
     }
@@ -479,7 +507,9 @@ function buildRoofs() {
         if (room.spec.roof === false) return;          // open to the sky
         const r = room.spec.roof || {};
         const t = r.thickness === undefined ? 0.8 : r.thickness;
-        const y0 = room.spec.wall.height;
+        // y0 is the world Y where this room's walls top out. For second-floor rooms (oy > 0)
+        // the roof sits above the elevated floor rather than at ground level.
+        const y0 = (room.oy || 0) + room.spec.wall.height;
         // An eaves only where the edge faces the outside. Past a party wall the slab would stick
         // into the next room's ceiling — and where the two rooms are different heights, which
         // most of them are, it would stick through the other one's roof as well.
@@ -655,15 +685,17 @@ function roomFootprint(f) {
 // One mesh out of a furniture spec. `blocks` makes it an obstacle (so it also becomes a
 // surface things can rest on), `hitsCamera` makes it stop the orbit camera.
 function addRoomShape(room, f, x, z, blocks, hitsCamera) {
+    const oy = room.oy || 0;
     const y = f.y || 0;
     const mesh = new THREE.Mesh(roomGeometry(f), roomMaterial(f));
-    mesh.position.set(x, f.shape === 'sphere' ? y + f.r : y + f.h / 2, z);
+    mesh.position.set(x, oy + (f.shape === 'sphere' ? y + f.r : y + f.h / 2), z);
     mesh.castShadow = mesh.receiveShadow = true;
     room.group.add(mesh);
     if (hitsCamera) room.collision.push(mesh);
     if (blocks) {
         const round = roomFootprint(f);
-        room.obstacles.push({ x, z, w: round === null ? f.w : round * 0.9, d: round === null ? f.d : round * 0.9, h: y + (f.shape === 'sphere' ? f.r * 2 : f.h) });
+        // Obstacle h is absolute world Y of the top surface.
+        room.obstacles.push({ x, z, w: round === null ? f.w : round * 0.9, d: round === null ? f.d : round * 0.9, h: oy + y + (f.shape === 'sphere' ? f.r * 2 : f.h) });
     }
     return mesh;
 }
@@ -678,9 +710,10 @@ function buildRoomPiece(room, f) {
 
 // A worktop: the box plus a lighter slab overhanging it on all four sides.
 function addRoomBlock(room, w, h, d, x, z, color) {
+    const oy = room.oy || 0;
     const mat = new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.5 });
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h - 0.02, d), mat);
-    mesh.position.set(x, (h - 0.02) / 2, z);
+    mesh.position.set(x, oy + (h - 0.02) / 2, z);
     mesh.castShadow = mesh.receiveShadow = true;
     room.group.add(mesh);
 
@@ -689,11 +722,11 @@ function addRoomBlock(room, w, h, d, x, z, color) {
         flatShading: true, roughness: 0.4
     });
     const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, 0.12, d + 0.12), slabMat);
-    slab.position.set(x, h - 0.06, z);
+    slab.position.set(x, oy + h - 0.06, z);
     slab.castShadow = slab.receiveShadow = true;
     room.group.add(slab);
 
-    room.obstacles.push({ x, z, w, d, h });
+    room.obstacles.push({ x, z, w, d, h: oy + h });
     room.collision.push(mesh, slab);
     return mesh;
 }

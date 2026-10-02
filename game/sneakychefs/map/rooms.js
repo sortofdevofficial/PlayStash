@@ -255,7 +255,9 @@ const ROOMS = [
         doors: [
             { side: 'north', at: -3, to: 'kitchen' },
             { side: 'west', at: 0, to: 'dining' },
-            { side: 'east', at: 0, to: 'living' }
+            { side: 'east', at: 0, to: 'living' },
+            // Staircase door: south wall, west side (at=-5 keeps it clear of the window at at=10)
+            { side: 'south', at: -5, to: 'staircase' }
         ],
         // The hall's south face is outside — the dining room stops at its west edge and the
         // sitting room at its east — so this is where the house looks at the street.
@@ -505,5 +507,159 @@ const ROOMS = [
         // it. One band of glass high in that wall so the base still reads as somewhere under
         // the world rather than merely north of it.
         windows: [{ side: 'north', at: 0, width: 4, sill: 2.6, head: 4.4 }]
+    },
+
+    // ========================================================================
+    // SECOND FLOOR ROOMS (Connected via Staircase from Hall)
+    // ========================================================================
+
+    // ------------------------------------------------------------------------ Grand Staircase
+    {
+        id: 'staircase',
+        label: 'STAIRCASE',
+        ox: -5, oz: 43.35, hx: 7, hz: 12,
+        spawn: { x: 0, z: -10 },
+        floor: { a: '#4a3b32', b: '#3d3028', tile: 3, rough: 0.8 },
+        wall: { color: 0x2d241e, height: 16, thickness: 1, trim: 0x7a5c3a },
+        roof: ROOF,
+        lights: [
+            { color: 0xffdca8, intensity: 1.0, distance: 30, x: 0, y: 5.0, z: 0 },
+            { color: 0xffc98a, intensity: 1.1, distance: 32, x: 0, y: 13.5, z: 6 }
+        ],
+        furniture: [
+            // Staircase steps climbing from Y=0 to Y=8.5
+            ...Array.from({ length: 14 }).map((_, i) => ({
+                kind: 'counter', w: 11.0, h: 0.6 + i * 0.6, d: 1.1, x: 0, z: -10 + i * 1.3, color: 0x5a3f28
+            })),
+            // High landing platform at top of stairs (Y=8.5)
+            { kind: 'counter', w: 12.0, h: 8.5, d: 3.5, x: 0, z: 9.5, color: 0x6b4a2f },
+            // Grand chandelier floating over the stairwell
+            { kind: 'visual', shape: 'cyl', rt: 1.8, rb: 1.8, h: 0.4, segments: 12, x: 0, y: 12.0, z: 0, color: 0xd4af37, metal: 0.7, rough: 0.2 }
+        ],
+        doors: [
+            { side: 'north', at: 0, to: 'hall' },
+            { side: 'south', at: 0, to: 'upper_landing' }
+        ],
+        loot: [
+            { type: 'cheese', x: 0, z: -3.5 },
+            { type: 'apple', x: 2, z: 4.5 },
+            { type: 'banana', x: -2, z: 9.5 }
+        ],
+        restock: { floor: 2, gap: DELIVERY_GAP }
+    },
+
+    // ------------------------------------------------------------------------ Upstairs Landing (Floor 2)
+    {
+        id: 'upper_landing',
+        label: 'UPPER LANDING',
+        ox: -5, oz: 62.35, hx: 7, hz: 7, oy: 8.5,
+        spawn: { x: 0, z: -5 },
+        floor: { a: '#6a4a35', b: '#5b3f2b', tile: 3.5, rough: 0.75 },
+        wall: { color: 0x362820, height: 7, thickness: 1, trim: 0x8a6a45 },
+        roof: ROOF,
+        lights: [
+            { color: 0xffe2b8, intensity: 1.0, distance: 28, x: 0, y: 4.8, z: 0 }
+        ],
+        furniture: [
+            { kind: 'deco', w: 10, h: 0.05, d: 10, x: 0, y: 0.01, z: 0, color: 0x7a2b38, rough: 0.9 },
+            { kind: 'counter', w: 4.5, h: 1.1, d: 1.4, x: 0, z: 4.8, color: 0x5a3f28 },
+            { kind: 'solid', w: 1.8, h: 0.95, d: 1.8, x: -4.5, z: 4.5, color: 0x8a6a3a },
+            { kind: 'solid', w: 1.4, h: 1.45, d: 1.4, x: -4.5, z: 2.2, color: 0x8a6a3a }
+        ],
+        doors: [
+            { side: 'north', at: 0, to: 'staircase' },
+            { side: 'east', at: 0, to: 'study' },
+            { side: 'west', at: 0, to: 'library' }
+        ],
+        windows: [{ side: 'south', at: 0, width: 6, sill: 1.4, head: 4.5 }],
+        loot: [
+            { type: 'jam', x: 0, z: 4.8 },
+            { type: 'milk', x: -4.5, z: 2.2 },
+            { type: 'cheese', x: 4, z: -3 }
+        ],
+        restock: { floor: 3, gap: DELIVERY_GAP }
+    },
+
+    // ------------------------------------------------------------------------ Master Study (Floor 2 East)
+    {
+        id: 'study',
+        label: 'MASTER STUDY',
+        ox: 12, oz: 62.35, hx: 10, hz: 7, oy: 8.5,
+        spawn: { x: -6, z: 0 },
+        floor: { a: '#3d4d5a', b: '#31404c', tile: 3.5, rough: 0.7 },
+        wall: { color: 0x22303c, height: 7, thickness: 1, trim: 0x5c728a },
+        roof: ROOF,
+        lights: [
+            { color: 0xffd99b, intensity: 1.1, distance: 30, x: 0, y: 5.0, z: 0 },
+            { color: 0xffaa44, intensity: 0.8, distance: 16, x: 5, y: 1.8, z: -4 }
+        ],
+        furniture: [
+            // Executive Desk
+            { kind: 'counter', w: 7.5, h: 1.3, d: 3.2, x: 4, z: -3.5, color: 0x4a3222 },
+            // High back desk chair
+            { kind: 'solid', w: 1.4, h: 0.9, d: 1.4, x: 4, z: -6.0, color: 0x2a1a12 },
+            { kind: 'visual', w: 1.4, h: 1.6, d: 0.2, x: 4, y: 0.9, z: -6.7, color: 0x2a1a12 },
+            // Globe stand & leather armchair
+            { kind: 'solid', shape: 'sphere', r: 0.8, x: -6.5, y: 0.3, z: 4, color: 0x4b709b, rough: 0.4 },
+            { kind: 'solid', w: 3.2, h: 0.7, d: 3.0, x: 4, z: 3.8, color: 0x6b2a2a, rough: 0.85 },
+            // Bookshelf with stepping crates
+            { kind: 'solid', w: 7.0, h: 3.2, d: 1.5, x: -5.5, z: -5.0, color: 0x3d2719 },
+            { kind: 'solid', w: 1.6, h: 0.8, d: 1.6, x: -1.0, z: -5.0, color: 0x8a6a3a },
+            { kind: 'solid', w: 1.5, h: 1.4, d: 1.5, x: -1.0, z: -2.8, color: 0x8a6a3a }
+        ],
+        doors: [
+            { side: 'west', at: 0, to: 'upper_landing' }
+        ],
+        windows: [
+            { side: 'east', at: 0, width: 6, sill: 1.4, head: 4.5 },
+            { side: 'south', at: 4, width: 5, sill: 1.4, head: 4.5 }
+        ],
+        loot: [
+            { type: 'cheese', x: 4, z: -3.5 },
+            { type: 'butter', x: 5.5, z: -3.5 },
+            { type: 'apple', x: -1.0, z: -2.8 },
+            { type: 'banana', x: -6.5, z: 4 }
+        ],
+        restock: { floor: 3, gap: DELIVERY_GAP }
+    },
+
+    // ------------------------------------------------------------------------ Grand Library (Floor 2 West)
+    {
+        id: 'library',
+        label: 'GRAND LIBRARY',
+        ox: -22, oz: 62.35, hx: 10, hz: 7, oy: 8.5,
+        spawn: { x: 6, z: 0 },
+        floor: { a: '#523a28', b: '#453020', tile: 3.5, rough: 0.8 },
+        wall: { color: 0x382417, height: 7, thickness: 1, trim: 0x8a5a3a },
+        roof: ROOF,
+        lights: [
+            { color: 0xffca85, intensity: 1.15, distance: 32, x: 0, y: 5.0, z: 0 }
+        ],
+        furniture: [
+            // Massive Bookcase walls
+            { kind: 'solid', w: 8.5, h: 3.4, d: 1.5, x: -4.5, z: -5.0, color: 0x4a2e1b },
+            { kind: 'solid', w: 8.5, h: 3.4, d: 1.5, x: -4.5, z: 5.0, color: 0x4a2e1b },
+            // Reading desk & bench
+            { kind: 'counter', w: 6.0, h: 1.2, d: 2.4, x: 4.0, z: 0, color: 0x5a3a22 },
+            { kind: 'solid', w: 5.0, h: 0.6, d: 1.2, x: 4.0, z: 2.6, color: 0x3d2719 },
+            // Rolling ladder / step crates
+            { kind: 'solid', w: 1.6, h: 0.9, d: 1.6, x: -1.0, z: -3.0, color: 0x8a6a3a },
+            { kind: 'solid', w: 1.5, h: 1.5, d: 1.5, x: -1.0, z: -0.8, color: 0x8a6a3a }
+        ],
+        doors: [
+            { side: 'east', at: 0, to: 'upper_landing' }
+        ],
+        windows: [
+            { side: 'west', at: 0, width: 6, sill: 1.4, head: 4.5 },
+            { side: 'south', at: -4, width: 5, sill: 1.4, head: 4.5 }
+        ],
+        loot: [
+            { type: 'cheese', x: 4.0, z: 0 },
+            { type: 'bread', x: -1.0, z: -0.8 },
+            { type: 'jam', x: -4.5, z: 4.0 },
+            { type: 'carrot', x: 6.0, z: 0 }
+        ],
+        restock: { floor: 3, gap: DELIVERY_GAP }
     }
 ];
+
