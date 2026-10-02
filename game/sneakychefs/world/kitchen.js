@@ -5,7 +5,7 @@
  * The room itself — floor, walls, counters, pedestals, doorways, loot — is data in
  * map/rooms.js and world/rooms.js builds it before this hook runs. What is left here is the
  * two things no other room has: the mouse hole in the north wall and the walk-in fridge.
- * Nothing here knows about the player; geometry only, plus the chef's patrol route.
+ * Nothing here knows about the player; geometry only.
  */
 
 // Plain box that blocks movement, without the counter overhang addRoomBlock draws.
@@ -25,6 +25,4 @@ function buildKitchenEnvironment(room) {
     // The lamp belongs to the room's lighting budget, so it goes out with the rest of them
     // when the player leaves; updateFridge still owns its intensity.
     room.lights.push(fridgeLamp);
-
-    chefWaypoints = room.spec.patrol.map(p => new THREE.Vector3(room.ox + p[0], 0, room.oz + p[1]));
 }

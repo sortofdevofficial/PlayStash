@@ -1,14 +1,16 @@
 /**
- * actors/chef.js — the chef's brain: patrol, sight, chase, smash telegraphs.
+ * actors/chef.js — the chef's brain: beat, sight, chase, smash telegraphs.
  *
  * The geometry is models/chef.js; this file drives it. Line of sight is a real raycast
  * against `worldCollisionMeshes`, so counters block his view — and since the house is one
  * connected plan now, so do its walls: he can see you through an open doorway and nowhere
- * else. Capture is delegated to main.js through triggerGameOver(), and the only UI this
+ * else. His beat is the same deal — one walk through several rooms, with the masonry the only
+ * thing that decides where he can go, so he takes the doorways and stops at the shut ones.
+ * Capture is delegated to main.js through triggerGameOver(), and the only UI this
  * module touches is core/ui.js's toast. main.js never mutates the chef's state directly —
  * it calls resetChef().
  */
-let chefWaypoints = [];      // patrol route, laid out by world/kitchen.js
+let chefWaypoints = [];      // the beat, laid out by world/rooms.js from map/rooms.js
 let chefIsChasing = false;
 let currentWaypointIdx = 0;
 let chefGaitPhase = 0;
@@ -58,11 +60,6 @@ const CHEF_SIGHT_RANGE = 11.0;
 const CHEF_CLOSE_RANGE = 4.0;
 const CHEF_LOSE_SIGHT_SECONDS = 2.2;
 const CHEF_REALERT_COOLDOWN = 1.0;
-// How far off the walls he turns: half a kitchen wall's thickness (the masonry straddles the
-// rect boundary) plus his own body radius, which is exactly where the obstacle push-out would
-// leave him anyway. It has to be this far because the doorways are gaps in that masonry with no
-// box in front of them — the clamp is the only thing keeping him out of them.
-const CHEF_WALL_INSET = 0.5 + 0.7;
 const chefSightRay = new THREE.Raycaster();
 
 // Counters, crates, the fridge and the walls all block the chef's view, so ducking
@@ -75,6 +72,18 @@ function chefHasLineOfSight(distToMouse) {
     chefSightRay.set(eye, dir.normalize());
     chefSightRay.far = distToMouse - 0.25;
     return chefSightRay.intersectObjects(worldCollisionMeshes, false).length === 0;
+}
+
+// A chase ends wherever it lost you, which since the beat walks three rooms may not be the room
+// the waypoint he was heading for stands in. Straight-line steering has no way round a wall, so
+// pick up again from the point he is actually standing next to.
+function resumeBeat() {
+    let best = currentWaypointIdx, bestD = Infinity;
+    chefWaypoints.forEach((p, i) => {
+        const d = Math.hypot(p.x - chefGroup.position.x, p.z - chefGroup.position.z);
+        if (d < bestD) { bestD = d; best = i; }
+    });
+    currentWaypointIdx = best;
 }
 
 function updateChefAI(dt, time) {
@@ -113,6 +122,7 @@ function updateChefAI(dt, time) {
             chefIsChasing = false;
             chefLoseTimer = 0;
             chefRealertTimer = CHEF_REALERT_COOLDOWN;
+            resumeBeat();
             showToast('You lost him — keep rolling');
         }
     }
@@ -190,15 +200,6 @@ function updateChefAI(dt, time) {
                 const moveSpeed = (typeof chefIsChasing !== 'undefined' && chefIsChasing) ? 5.2 : 3.0;
                 chefGroup.position.x += Math.sin(chefGroup.rotation.y) * moveSpeed * dt;
                 chefGroup.position.z += Math.cos(chefGroup.rotation.y) * moveSpeed * dt;
-
-                // The masonry blocks him everywhere except an open doorway, and it is this rect
-                // that keeps him out of those gaps instead of strolling into the hall after
-                // the mouse.
-                const room = roomById('kitchen');
-                const lo = { x: room.ox - room.hx + CHEF_WALL_INSET, z: room.oz - room.hz + CHEF_WALL_INSET };
-                const hi = { x: room.ox + room.hx - CHEF_WALL_INSET, z: room.oz + room.hz - CHEF_WALL_INSET };
-                chefGroup.position.x = THREE.MathUtils.clamp(chefGroup.position.x, lo.x, hi.x);
-                chefGroup.position.z = THREE.MathUtils.clamp(chefGroup.position.z, lo.z, hi.z);
             }
         }
     }
@@ -253,7 +254,7 @@ function resetChef() {
     currentWaypointIdx = 0;
     chefGaitPhase = 0;
     hideAllWarningRings();
-    // Stand on the first waypoint of his own patrol — the route is authored in map/rooms.js,
+    // Stand on the first point of his beat — the route is authored in map/rooms.js,
     // so hardcoding a kitchen corner here would drift the moment someone edits the map.
     const kitchen = roomById('kitchen');
     const start = chefWaypoints[0] || { x: kitchen.ox, z: kitchen.oz };

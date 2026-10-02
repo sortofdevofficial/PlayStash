@@ -13,9 +13,11 @@ hall, the dining room, the sitting room and the garden are built edge to edge ag
 other, and their doorways are real gaps in real walls you walk through — no fade, no loading,
 no jump. Each room has its own furniture to climb, its own loot to steal and its own restock
 rule, and the minimap in the corner draws the whole plan. The only gate that still carries you
-somewhere is the mouse hole's chute into the base, because the den is not next door. The chef
-cannot follow you through a doorway — his patrol stops at his own walls — but an open door is a
-line of sight, so the risk is standing in the frame.
+somewhere is the mouse hole's chute into the base, because the den is not next door. The chef does
+not stay in his own room either: his beat walks out of the kitchen, down the hall and into the
+dining room and back — about a minute round the loop, with the masonry the only thing that decides
+where he can go. An open doorway is a line of sight *and* a way to reach you, so the dot on the
+minimap is how you tell which room he is in.
 
 ## Running it
 
@@ -33,7 +35,7 @@ HTML document: the QA rig is a mode of `index.html`, not a second page.
 | --- | --- |
 | `index.html` | DOM, HUD, CSS, the script load order, and the `?qa` rig described below |
 | `main.js` | boot sequence, the frame loop, capture/restart |
-| `map/rooms.js` | the level: every room as plain data — rect, floor, walls, furniture, doors, lights, loot, restock rule |
+| `map/rooms.js` | the level: every room as plain data — rect, floor, walls, furniture, doors, lights, loot, restock rule — plus the chef's beat |
 | `core/state.js` | every shared global: stage objects, actor rigs, geometry registries, game flags |
 | `core/input.js` | keyboard, mouse-drag, wheel and touch buttons → `keys` and camera targets |
 | `core/camera.js` | orbit camera, zoom limits, raycast pull-in so it never clips through walls |
@@ -43,15 +45,15 @@ HTML document: the QA rig is a mode of `index.html`, not a second page.
 | `core/audio.js` | synthesised sfx (jump, collect, alert, portal, door, thud, grab) |
 | `world/scene.js` | renderer, scene, fog, lights, resize, the one key light that follows the player |
 | `world/physics.js` | floor height, obstacle push-out (body and prop variants) against the whole house's merged sets, and the rect clamp for the one room that still needs it |
-| `world/rooms.js` | the room registry and the generic builder: floors, the house's merged masonry with door gaps cut through it, thresholds, furniture, door dressing, lights |
-| `world/kitchen.js` | the kitchen's own furniture and block helpers, plus the chef's patrol read from the map |
+| `world/rooms.js` | the room registry and the generic builder: floors, the house's merged masonry with door gaps cut through it, thresholds, furniture, door dressing, lights, and the chef's beat turned into waypoints |
+| `world/kitchen.js` | the kitchen's own block helpers and the two things no other room has: the mouse hole's arch and the walk-in fridge |
 | `world/fridge.js` | the fridge: shell with a walk-in cavity, hinged doors, interior lamp, freezer stock, cold mist |
 | `world/mousehole.js` | the portal: arch, floor marker, the two radii (prop drop vs. player walk); registers itself as the kitchen's way home |
 | `world/ingredients.js` | prop physics (push response, roll, gravity, stash drop), `stowCarried`, the per-room restock loop; spawns come from each room's authored `loot` |
 | `world/burrow.js` | the base room: shell, cutaway walls, props, the capped stash pile |
 | `world/dust.js` | footstep and landing puffs |
 | `actors/mouse.js` | player movement, jump, pushing, hoisting and carrying, body and tail animation |
-| `actors/chef.js` | chef brain: patrol, line of sight, chase, smash telegraphs, warning rings |
+| `actors/chef.js` | chef brain: his beat, line of sight, chase, smash telegraphs, warning rings |
 | `actors/residents.js` | the four mice living in the base |
 | `models/mice.js` | mouse rig geometry (player and residents share it) |
 | `models/chef.js` | chef geometry only — joints are handed back in `userData` |
@@ -91,7 +93,7 @@ so it has to come after the world modules that define them and before anything t
   must land on the same point on a wall line each of them actually owns.
 - **The level is data.** `map/rooms.js` is the only file you edit to change the house. A room
   spec is a rect (`ox`, `oz`, `hx`, `hz`), a `floor` and `wall` palette, a `spawn`, an `arrive`
-  toast, optional `brain` / `build` / `patrol` hooks, `lights`, `furniture`, `doors`, `loot`
+  toast, an optional `build` hook, `lights`, `furniture`, `doors`, `loot`
   and a `restock` rule — everything but the doors in local coordinates. Furniture kinds are
   `counter` (worktop: blocks bodies and the camera), `solid` (a column from `y` to `y + h`:
   blocks and stops the camera), `visual` (camera geometry only, so the mouse walks under it —
@@ -107,6 +109,17 @@ so it has to come after the world modules that define them and before anything t
   the rig fails the map: `arrivalFor` would otherwise drop the player on the far room's spawn.
   The kitchen and the base predate the registry and hand their own global obstacle arrays over
   instead of being built from data.
+- **The hunter's beat is authored, not solved.** `CHEF_BEAT` in `map/rooms.js` is his route: a
+  list of `[x, z]` pairs that `world/rooms.js` turns into `chefWaypoints` once, at the end of
+  `buildHouse()`. It is written in **world** coordinates and not room-local ones precisely because
+  it crosses doorways — two room specs would otherwise have to agree on where the join is. His
+  steering is straight-line only, so two rules hold the route together, and the `?qa` rig walks
+  the whole beat to check both: every leg that changes rooms is collinear with the doorway it goes
+  through, and no sample along any leg comes within his body radius — `0.7`, the one passed to
+  `solveObstacleCollision` — of a wall, a counter or the fridge. Rooms he never sets foot in are
+  the pantry, the sitting room, the garden and the base. A chase ends wherever it lost you, which
+  may not be the room the waypoint he was heading for stands in, so `resumeBeat()` picks him up
+  from the nearest point on the route instead of walking him through a wall to reach it.
 - **The obstacle contract.** Anything that should block bodies is an `{ x, z, w, d, h }`
   column — authored furniture gets onto its room's registry record through
   `addRoomBlock` / `addRoomSolid`, camera-only geometry through `addRoomVisual`, and the whole
@@ -124,7 +137,8 @@ so it has to come after the world modules that define them and before anything t
   0.1 sole a step rather than a wall the mouse slides through. Note that push-out inflates
   the box by the body's own radius — `0.46 * mouseGroup.userData.scaleFactor` for the mouse,
   about 0.16 today, and it changes whenever the model is resized — so a space you want
-  someone to *stand in* needs that much clearance on every side beyond what it looks like.
+  someone to *stand in* needs that much clearance on every side beyond what it looks like —
+  `0.7` for the chef, which is the gap his beat is authored against.
   The fridge cavity is authored around it: 3.6 x 2.5 of shell is roughly 3.3 x 2.3 of floor
   the mouse can actually walk on. Use
   `addKitchenVisualBox` for geometry the mouse should walk through but the camera should
@@ -199,14 +213,19 @@ inside it, push, portal, restart, restock, prop collision and carrying flows, pl
 the house itself: the map in `map/rooms.js` audited against the rules a connected floorplan has
 to obey (doors resolve both ways, no two rects share a floor, every doorway pair meets on a wall
 line with the gap clear of furniture, loot is known and inside its own room, every standing
-point is clear of furniture and outside its own door trigger, the card the minimap fitted itself
+point is clear of furniture and outside its own door trigger, the chef's beat clears every wall,
+counter and fridge he walks past, the card the minimap fitted itself
 to is big enough for the plan), a walk out through four rooms and back — which asserts that no
 fade appeared and `isTraveling` was never set, so the only thing that can have moved him is his
 own feet crossing a wall line, that on the frame a doorway flips the key light is still over the
 room he left and has to walk the rest of the way, and that the arch out of the base still snaps it
-in a single frame — and the hunter's sight ray fired twice from six units apart,
+in a single frame — and the hunter himself: his sight ray fired twice from six units apart,
 once through the masonry and once through the open door, with the blocker named so the check is
-measuring a wall and not a crate. It finishes in a fraction of a second and reports `simMs`
+measuring a wall and not a crate; his beat walked on paper at a finer step than he moves, so a leg
+that changes rooms is caught if it misses its doorway; and then a lap and a bit of him running
+for real with the mouse parked out of sight in the garden, reporting the rooms he entered in order
+as `lapRooms`, how many waypoints he passed as `lapAdvances`, and the tightest clearance he ever
+stood in as `lapMinClearance`. It finishes in a few seconds of wall clock and reports `simMs`
 (simulation time the checks consumed) next to `wallMs`, because it does not use the browser's
 clock.
 

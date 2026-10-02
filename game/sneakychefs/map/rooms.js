@@ -25,11 +25,9 @@
  * Everything except doors is in LOCAL coordinates, relative to the room's centre:
  *   spawn     where a restart or a room with no door back drops the player
  *   arrive    the toast shown when you walk in through a doorway
- *   brain     which actor module runs here: 'chef' (hunter) or 'residents' (family)
  *   build     a global function for the parts only this room has (fridge, burrow shell)
  *   clamp     seal the rect with an invisible wall as well as masonry. Only the base sets this:
  *             its cutaway shell is drawn by world/burrow.js and is not a registry obstacle.
- *   patrol    the chef's route, as local [x, z] pairs
  *   floor     { a, b, tile, rough } — a two-tone checker, `tile` units per tile
  *   wall      { color, height, thickness, trim } — doorways are cut automatically. Where two
  *             rooms share an edge, the taller wall spec wins both sides of it.
@@ -56,7 +54,8 @@
  * kitchenObstacles and cameraCollisionMeshes (core/state.js), MOUSE_HOLE (world/mousehole.js),
  * and burrowObstacles, burrowCollision, BURROW_ORIGIN_X, BURROW_BOUND and BURROW_EXIT
  * (world/burrow.js). The numbers this file defines for itself are all above ROOMS:
- * KITCHEN_BOUND, SOUTH_EDGE, DELIVERY_FLOOR and DELIVERY_GAP.
+ * KITCHEN_BOUND, SOUTH_EDGE, HALL_MID, DELIVERY_FLOOR and DELIVERY_GAP — plus CHEF_BEAT, the
+ * hunter's route, which is the one thing here written in world coordinates.
  */
 
 // The kitchen has always been 15.35 half-units; its walls and the mouse hole cut in the north
@@ -76,6 +75,34 @@ const DELIVERY_GAP = 9.0;
 // rather than by arithmetic done somewhere else. Change one number and both sides move.
 const SOUTH_EDGE = KITCHEN_BOUND;
 
+// The hall's own centre line, which is also the line its two side doors stand on: the hall is
+// `hz: 8` deep sitting on SOUTH_EDGE, and the dining room hangs its east door at exactly this z.
+const HALL_MID = SOUTH_EDGE + 8;
+
+// The hunter's beat. One ordered loop of world [x, z] points: he walks the kitchen's perimeter,
+// takes his own south door into the hall, goes west to the dining room, pokes down its west
+// aisle and back, and comes home through the same two gaps. About 65 seconds round the loop at
+// his walking pace, so roughly a third of it is spent out of the kitchen — which is the window
+// the hall and dining room loot exist to be taken in, and the reason the minimap has to show
+// where he actually is.
+//
+// World coordinates rather than the local ones everything else here uses, because a route that
+// crosses three rooms does not belong to any one of them. Two rules hold it together, and the
+// ?qa rig walks the whole beat and checks both: every leg that changes rooms is collinear with
+// the doorway it goes through (the gaps are DOOR_W wide and his body radius is 0.7, so a leg
+// that merely points at a gap from an angle ends with him grinding along the jamb), and no
+// sample along any leg comes within his radius of a wall, a counter or the fridge.
+//
+// Rooms he never sets foot in: the pantry, the sitting room, the garden and the base.
+const CHEF_BEAT = [
+    [-12, -10], [12, -10], [12, 9],            // the kitchen: north wall, east run, past the island
+    [-3, 9], [-3, HALL_MID - 6],               // onto his door axis and through the gap
+    [-16, HALL_MID], [-34, HALL_MID],          // west along the hall and into the dining room
+    [-46, 26], [-34, HALL_MID],                // down its west aisle and back to the door line
+    [-8, HALL_MID], [-3, HALL_MID - 4],        // out, and east along the hall to his own door
+    [-3, 9], [-12, 9]                          // home, and down the kitchen's west run
+];
+
 const ROOMS = [
     // ---------------------------------------------------------------- the heist happens here
     {
@@ -87,13 +114,11 @@ const ROOMS = [
         collision: cameraCollisionMeshes,
         spawn: { x: 0, z: 9 },
         arrive: 'Back to the kitchen — keep foraging',
-        brain: 'chef',
         build: 'buildKitchenEnvironment',
-        patrol: [[-9, -10], [10, -10], [10, 8], [-10, 8]],
         floor: { a: '#454558', b: '#34344a', tile: 4, rough: 0.5 },
         wall: { color: 0x222230, height: 8, thickness: 1, trim: 0x4a5568 },
         furniture: [
-            // The island and the two runs the chef patrols between.
+            // The island and the two runs his beat walks a wide circle around.
             { kind: 'counter', w: 8, h: 2.2, d: 3, x: 0, z: 0, color: 0x4a5568 },
             { kind: 'counter', w: 3, h: 2.2, d: 7, x: -8, z: -2, color: 0x4a5568 },
             { kind: 'counter', w: 3, h: 2.2, d: 7, x: 8, z: -2, color: 0x4a5568 },
@@ -186,7 +211,7 @@ const ROOMS = [
         id: 'hall',
         label: 'HALL',
         // South of the kitchen and the pantry, wide enough to reach past both of them.
-        ox: 0, oz: SOUTH_EDGE + 8, hx: 20, hz: 8,
+        ox: 0, oz: HALL_MID, hx: 20, hz: 8,
         spawn: { x: 0, z: 0 },
         arrive: 'The hall — three doors and a long runner',
         floor: { a: '#5b4636', b: '#4d3a2b', tile: 4, rough: 0.75 },
@@ -259,7 +284,7 @@ const ROOMS = [
             { kind: 'solid', w: 1.6, h: 0.6, d: 1.6, x: 13.4, z: 11.4, color: 0x8a6a3a },
             { kind: 'solid', w: 1.5, h: 1.15, d: 1.5, x: 13.4, z: 9.2, color: 0x8a6a3a }
         ],
-        doors: [{ side: 'east', at: -7, to: 'hall' }],
+        doors: [{ side: 'east', at: -7, to: 'hall' }],   // -7 puts it on HALL_MID, the hall's line
         loot: [
             { type: 'cheese', x: -2.5, z: 0 },      // both of these stand on the table
             { type: 'bread', x: 2.5, z: 0.6 },
@@ -410,7 +435,6 @@ const ROOMS = [
         collision: burrowCollision,
         spawn: { x: 0, z: BURROW_BOUND - 2.2 },
         arrive: 'Home sweet home — the chef cannot follow in here',
-        brain: 'residents',
         build: 'buildBurrow',
         // The base is the only room that still has an invisible rect clamp. Its cutaway shell is
         // drawn by world/burrow.js rather than built from this spec, so those meshes are not

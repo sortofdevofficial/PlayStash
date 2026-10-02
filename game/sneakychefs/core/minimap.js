@@ -141,9 +141,10 @@ function drawMinimap() {
         ctx.fillRect(x - 0.75, z - 0.75, 1.5, 1.5);
     });
 
-    // The hunter, but only in his own kitchen — he cannot follow you through a doorway, and
-    // a red dot sitting in an empty room three doors away would say otherwise.
-    if (room.brain === 'chef' && chefGroup) {
+    // The hunter, wherever he has got to. His beat walks out of the kitchen and through two
+    // doorways, so "which room is he in" is the thing this dot is for — and the ring while he
+    // is chasing is the only warning you get when he is in a room you cannot see into.
+    if (chefGroup) {
         const [x, z] = mapPoint(chefGroup.position.x, chefGroup.position.z);
         if (chefIsChasing) {
             ctx.strokeStyle = 'rgba(255,71,87,0.85)';

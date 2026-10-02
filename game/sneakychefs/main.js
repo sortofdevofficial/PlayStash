@@ -61,9 +61,9 @@ function animate(time) {
         updateKeyLight(dt);
         updateCamera(dt);
 
-        // Every brain ticks in every room. Each one guards itself: the chef is clamped to his
-        // own kitchen and the masonry stops his sight through anything but an open doorway, so
-        // he cannot follow you into the hall; the residents only move while you are home.
+        // Every brain ticks in every room. Each one guards itself: the chef walks his own beat
+        // and the masonry decides where that goes, so he is in the hall and the dining room for
+        // a third of the loop and nowhere else; the residents only move while you are home.
         updateChefAI(dt, time);
         updateBurrowMice(dt, time);
 

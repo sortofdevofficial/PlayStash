@@ -15,6 +15,9 @@
  * the wall is not just how the house looks — it is what stops you, and the two rooms either side
  * of it are the two you can walk between.
  *
+ * buildHouse also lays out the hunter's beat. map/rooms.js writes it as one ordered walk through
+ * several rooms, so no single room spec can own it and this is where it becomes waypoints.
+ *
  * Furniture kinds, and what each blocks:
  *   counter  box plus a lighter slab overhanging it — an obstacle and camera geometry
  *   solid    a column from its base up to y + h    — an obstacle and camera geometry
@@ -72,7 +75,6 @@ function registerRoom(spec) {
         ox: spec.ox, oz: spec.oz, hx: spec.hx, hz: spec.hz,
         spawn: { x: spec.ox + spec.spawn.x, z: spec.oz + spec.spawn.z },
         arrive: spec.arrive,
-        brain: spec.brain || null,
         restock: spec.restock || null,
         deliveryTimer: 0,
         // Masonry contains every room in the plan. The base is the exception: its cutaway shell
@@ -132,6 +134,9 @@ function buildHouse() {
     // After every room exists: a wall two rooms share has to be built once, for both of them.
     buildMasonry();
     collectSolidGeometry();
+    // Once, here: actors/chef.js only ever walks this list, and the beat is authored in world
+    // coordinates so it can cross a doorway without two room specs having to agree on a join.
+    chefWaypoints = CHEF_BEAT.map(p => new THREE.Vector3(p[0], 0, p[1]));
     lightActiveRoom(true);
     // Raycasts read matrixWorld without refreshing it, and every wall and counter now lives
     // inside a group rather than the scene root. Refresh once so the chef's line of sight and

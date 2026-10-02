@@ -403,9 +403,10 @@
      * instead of merging — two on hoisting: the paws take one prop only, ride it along at a
      * slowed pace, and hand it back when told, and a load carried to the arch is stowed in the
      * base by the portal itself — and three on the house: the map in map/rooms.js audited
-     * against the rules a connected floorplan has to obey, a walk through four rooms and back
+     * against the rules a connected floorplan has to obey, including the hunter's beat walked
+     * on paper before he walks it for real, a walk through four rooms and back
      * with no fade anywhere in it, and the hunter's own sight ray tested against the masonry
-     * and through the one gap in it.
+     * and through the one gap in it, followed by a full lap of him.
      */
     (function () {
         if (!new URLSearchParams(location.search).has('qa')) return;
@@ -417,7 +418,7 @@
             'animateMouseBody', 'animateMouseTail', 'triggerJump', 'updateCamera', 'setupInputListeners',
             'enterArea', 'travelTo', 'checkPortalCrossing', 'playSound', 'showToast', 'updateStashHud',
             'getFloorY', 'resetChef', 'resetMouse', 'clearDust', 'buildFreezerGoods', 'fridgeReach',
-            'chefHasLineOfSight',
+            'chefHasLineOfSight', 'resumeBeat',
             'updateDust', 'spawnDust', 'clampToArea', 'clampToRect',
             'liveProps', 'updateDeliveries', 'deliver', 'onIngredientStashed',
             'collideProps', 'solvePropCollision', 'clampPropToRect', 'toggleCarry', 'pickUp',
@@ -437,7 +438,7 @@
             'GRAVITY', 'MOVE_SPEED', 'isTraveling', 'currentArea', 'DELIVERY_FLOOR', 'DELIVERY_DROP_Y',
             'STASH_PILE_CAP', 'BODY_BOUNCE', 'MOUSE_PUSH_RADIUS', 'PUSH_FACTOR',
             'carriedItem', 'CARRY_REACH', 'CARRY_LIFT', 'CARRY_SHARE', 'CARRY_OUT', 'CARRY_SPEED',
-            'ROOMS', 'rooms', 'roomOrder', 'KITCHEN_BOUND', 'SOUTH_EDGE', 'DELIVERY_GAP', 'INGREDIENT_SPEC',
+            'ROOMS', 'rooms', 'roomOrder', 'KITCHEN_BOUND', 'SOUTH_EDGE', 'HALL_MID', 'CHEF_BEAT', 'DELIVERY_GAP', 'INGREDIENT_SPEC',
             'PORTAL_ENTER_MARGIN', 'ARRIVE_INSET', 'STEP_HEIGHT', 'DOOR_W', 'DOOR_H', 'INWARD',
             'worldObstacles', 'worldCollisionMeshes', 'wallBoxes', 'wallMeshes',
             'mapView', 'MAP_W', 'MAP_H', 'MAP_PAD',
@@ -459,12 +460,28 @@
                 varErrs: varErrs
             };
 
-            // Park the chef out of sight and stop his patrol so these tests measure the
+            // Park the chef out of sight and stop his beat so these tests measure the
             // ingredient/fridge/portal mechanics rather than whether he happened to catch us.
             // He keeps a one-point route in the corner rather than an empty one: resetChef()
             // stands him on waypoint 0, and with no waypoints at all the restart check below
             // would put him back in the middle of the kitchen, on top of the mouse.
-            const chefPatrol = chefWaypoints.slice();
+            const chefBeat = chefWaypoints.slice();
+
+            // How much room a point has, measured against every static obstacle tall enough to
+            // block a body standing on the floor. Two checks below ask the same question —
+            // "does a body this wide fit here?" — the beat on paper and the chef in motion.
+            const clearanceAt = (x, z) => {
+                let min = Infinity;
+                worldObstacles.forEach(o => {
+                    if (o.h <= STEP_HEIGHT) return;
+                    const dx = Math.max(Math.abs(x - o.x) - o.w / 2, 0);
+                    const dz = Math.max(Math.abs(z - o.z) - o.d / 2, 0);
+                    const d = Math.hypot(dx, dz);
+                    if (d < min) min = d;
+                });
+                return min;
+            };
+
             const parkChef = () => {
                 chefWaypoints.length = 0;
                 chefWaypoints.push(new THREE.Vector3(13, 0, 13));
@@ -521,9 +538,9 @@
                 for (let i = 0; i < count; i++) {
                     simTime += SIM_DT * 1000;
                     // Mirrors animate(), minus the draw call and main.js's DOM-only hint timer.
-                    // Both brains tick in every room exactly as they do in the game: the chef is
-                    // confined to his kitchen by the masonry and the residents return at once
-                    // unless the player is home.
+                    // Both brains tick in every room exactly as they do in the game: the chef
+                    // walks his beat, which crosses three rooms with only the masonry to stop him,
+                    // and the residents return at once unless the player is home.
                     if (!isGameOver) {
                         updateMouse(SIM_DT, simTime);
                         updateAreaFromPosition();
@@ -1331,6 +1348,54 @@
                 r.mapStandFaults = standFaults;
                 r.mapStandPointsClear = !standFaults.length;
 
+                // The hunter's beat, on paper. He walks it in world coordinates and the masonry is
+                // the only thing that decides where he can go, so a metre of typo is a chef strolling
+                // through a wall — and the only way to see that before he does it live is to walk the
+                // whole route at a finer step than he moves and ask, at each sample, whether a body
+                // his width fits there.
+                const CHEF_BODY_R = 0.7;
+                const beatFaults = [];
+                const beatRooms = [];
+                const underfoot = (x, z) => roomOrder.find(rm =>
+                    Math.abs(x - rm.ox) <= rm.hx && Math.abs(z - rm.oz) <= rm.hz);
+                for (let i = 0; i < CHEF_BEAT.length; i++) {
+                    const a = CHEF_BEAT[i], b = CHEF_BEAT[(i + 1) % CHEF_BEAT.length];
+                    const ra = underfoot(a[0], a[1]), rb = underfoot(b[0], b[1]);
+                    if (!ra || !rb) { beatFaults.push('leg ' + i + ': starts off the plan'); continue; }
+                    [ra, rb].forEach(rm => { if (beatRooms.indexOf(rm.id) < 0) beatRooms.push(rm.id); });
+
+                    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+                    const n = Math.max(1, Math.ceil(len / 0.2));
+                    for (let s = 0; s <= n; s++) {
+                        const x = a[0] + (b[0] - a[0]) * s / n;
+                        const z = a[1] + (b[1] - a[1]) * s / n;
+                        if (!underfoot(x, z)) beatFaults.push('leg ' + i + ': leaves the plan');
+                        const c = clearanceAt(x, z);
+                        if (c < CHEF_BODY_R) {
+                            beatFaults.push('leg ' + i + ': ' + c.toFixed(2) + ' clearance at ' +
+                                x.toFixed(1) + ',' + z.toFixed(1));
+                        }
+                    }
+                    if (rb === ra) continue;
+
+                    // A leg that changes rooms has to go through the door and not beside it, and it
+                    // has to run square to the wall: steering is straight-line only, so a diagonal
+                    // that clears the jambs on paper clips them at whatever step he actually moves.
+                    if (Math.abs(b[0] - a[0]) > 0.01 && Math.abs(b[1] - a[1]) > 0.01) {
+                        beatFaults.push('leg ' + i + ': diagonal across ' + ra.id + '>' + rb.id);
+                        continue;
+                    }
+                    const p = ra.portals.find(q => q.to === rb.id && !q.bespoke);
+                    if (!p) { beatFaults.push('leg ' + i + ': ' + ra.id + '>' + rb.id + ' has no door'); continue; }
+                    const miss = ((p.side === 'east' || p.side === 'west')
+                        ? Math.abs(a[1] - p.z) : Math.abs(a[0] - p.x)) - (p.width / 2 - CHEF_BODY_R);
+                    if (miss > 0) beatFaults.push('leg ' + i + ': ' + miss.toFixed(2) + ' past the jamb at ' + ra.id + '>' + rb.id);
+                }
+                r.mapBeatFaults = beatFaults;
+                r.mapBeatWalkable = !beatFaults.length;
+                r.mapBeatRooms = beatRooms.slice().sort();
+                r.mapBeatThreeRooms = r.mapBeatRooms.join(',') === 'dining,hall,kitchen';
+
                 // The card fits itself to the walkable plan at boot; this is the check that the
                 // plan it fitted to is actually inside the card. The base is deliberately not in
                 // the fit — dragging a rect 400 units away into bounds shrinks the house to a
@@ -1512,24 +1577,53 @@
                 r.chefBlindedByMasonry = wallSide.blocked === 'wall' && wallSide.sight === false;
                 r.chefSeesThroughOpenDoor = doorSide.blocked === null && doorSide.sight === true;
 
-                // His patrol, running for real while the mouse is two rooms away: whatever he
-                // sees, he never once stands in the masonry, so an open door is not a door he
-                // walks through. The catch radius is 2.2 and the threshold he cannot cross is
-                // already further than that from the far side of it.
+                // Now the beat, running for real. The paper walk above says the route fits; this
+                // says the chef actually walks it, with his own steering, his own push-out radius
+                // and the masonry pushing back. The mouse goes out to the garden — three rooms
+                // past anywhere he steps and well past his sight range — so what is being measured
+                // is the route and not a chase, and a lap of his is the thing that has to happen.
                 chefWaypoints.length = 0;
-                chefPatrol.forEach(p => chefWaypoints.push(p));
+                chefBeat.forEach(p => chefWaypoints.push(p));
                 currentWaypointIdx = 0;
                 chefIsChasing = false;
                 chefLoseTimer = 0;
-                mouseGroup.position.set(roomById('dining').ox, 0, roomById('dining').oz);
+                chefGroup.position.copy(chefWaypoints[0]);
+                chefGroup.rotation.y = 0;
+                const gar = roomById('garden');
+                mouseGroup.position.set(gar.ox, 0, gar.oz);
                 mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
-                travelTo('dining');
-                after(4000, () => {
-                    r.chefWalkedHisPatrol = v3(chefGroup.position);
-                    r.chefStayedInKitchen = Math.abs(chefGroup.position.x - k.ox) <= k.hx - 0.5 &&
-                        Math.abs(chefGroup.position.z - k.oz) <= k.hz - 0.5;
-                    settled(() => next());
-                });
+                travelTo('garden');
+                simFrames(60);                       // let the fade finish before he starts moving
+
+                const lapRooms = [];
+                let advances = 0, lastIdx = 0, lapMin = Infinity, offPlan = 0;
+                for (let chunk = 0; chunk < 150; chunk++) {
+                    simFrames(30);                   // 75 s of clock; a lap of the beat is about 65
+                    const p = chefGroup.position;
+                    const rm = roomOrder.find(q =>
+                        Math.abs(p.x - q.ox) <= q.hx && Math.abs(p.z - q.oz) <= q.hz);
+                    if (!rm) offPlan++;
+                    else if (lapRooms[lapRooms.length - 1] !== rm.id) lapRooms.push(rm.id);
+                    lapMin = Math.min(lapMin, clearanceAt(p.x, p.z));
+                    if (currentWaypointIdx !== lastIdx) {
+                        advances += (currentWaypointIdx - lastIdx + chefWaypoints.length) % chefWaypoints.length;
+                        lastIdx = currentWaypointIdx;
+                    }
+                }
+                r.chefBeatLength = chefWaypoints.length;
+                r.lapRooms = lapRooms.join('>');
+                r.lapAdvances = advances;
+                r.lapMinClearance = +lapMin.toFixed(2);
+                r.lapOffPlanSamples = offPlan;
+                r.lapCaughtMouse = isGameOver;
+                r.lapWentEverywhere = ['kitchen', 'hall', 'dining']
+                    .every(id => lapRooms.indexOf(id) >= 0);
+                // Home last: a route that reached the dining room and then failed to get back
+                // through the door would still trip lapWentEverywhere.
+                r.lapCameHome = lapRooms.lastIndexOf('kitchen') > lapRooms.lastIndexOf('dining');
+                r.lapFullLoop = advances >= chefWaypoints.length;
+                r.lapClearOfMasonry = lapMin >= 0.2 && offPlan === 0;
+                next();
             });
 
             const out = document.getElementById('qa-out');
