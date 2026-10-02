@@ -337,10 +337,10 @@
      * and through the one gap in it, followed by a full lap of him — and two on the outside:
      * a night city registered as nothing a body or a ray can hit, traffic that stays on its
      * own road, and a mouse walked into every window in the house, which is how the view out
-     * is kept a view and not a way out; and the roofs over every room, which have to be drawn
-     * and registered nowhere at all, and a camera put into every angle it can reach in every
-     * room to prove the cutaway drops the slabs a lens has climbed above — and keeps the ceiling
-     * over his head while that lens is still under it.
+     * is kept a view and not a way out; and the roofs over every room, slab and pitch together,
+     * which have to be drawn and registered nowhere at all, and a camera put into every angle it
+     * can reach in every room to prove the cutaway drops the roofs a lens has climbed above —
+     * and keeps the ceiling over his head while that lens is still under it.
      */
     (function () {
         if (!new URLSearchParams(location.search).has('qa')) return;
@@ -361,7 +361,7 @@
             'roomAt', 'activeRoom', 'lightActiveRoom', 'updateKeyLight', 'placeKeyLight',
             'buildMasonry', 'houseWallLines', 'houseDoorways', 'wallPanel', 'buildDoorway', 'buildThreshold',
             'houseWindows', 'windowBlocker', 'buildWindow',
-            'buildRoofs', 'updateRoofs', 'roofEdgeHasNeighbour', 'segmentCrossesRect',
+            'buildRoofs', 'buildGable', 'updateRoofs', 'roofEdgeHasNeighbour', 'segmentCrossesRect',
             'buildCity', 'updateCity', 'cityWindowTexture', 'buildCityBlock', 'buildCityCar',
             'houseBounds', 'cityRing', 'ringPoint',
             'collectSolidGeometry',
@@ -1757,17 +1757,23 @@
 
                 const roofed = roomOrder.filter(rm => rm.spec.roof !== false);
                 const slabs = roofed.map(rm => rm.roof);
-                const yTop = rm => rm.spec.wall.height + rm.roof.geometry.parameters.height;
+                // The whole roof now, pitch included: a slab's children are panels, gable ends and
+                // a ridge cap, and they are its children precisely so that one `visible` flag
+                // hides all of it at once.
+                const roofKit = slabs.reduce((a, m) => a.concat([m], m.children), []);
+                const yTop = rm => rm.roof.userData.apex ||
+                    (rm.spec.wall.height + rm.roof.geometry.parameters.height);
                 r.roofRooms = roofed.map(rm => rm.id).join(',');
                 r.roofOpenRooms = roomOrder.filter(rm => !rm.roof).map(rm => rm.id).join(',');
                 r.roofCount = roofMeshes.length;
+                r.roofPitchPieces = roofKit.length - slabs.length;
 
                 // Drawn and registered nowhere. Not camera geometry, because core/camera.js's
                 // raycast reads the mesh list without skipping what the cutaway has hidden and a
                 // registered roof would go on pulling the lens in after it had vanished from view.
                 // Not an obstacle either: a column has no underside, so a roof registered as one
                 // would fill the room it caps.
-                r.roofsNotCameraMeshes = slabs.every(m => worldCollisionMeshes.indexOf(m) < 0);
+                r.roofsNotCameraMeshes = roofKit.every(m => worldCollisionMeshes.indexOf(m) < 0);
                 r.roofsNotObstacles = worldObstacles.length === wallBoxes.length +
                     roomOrder.reduce((n, rm) => n + rm.obstacles.length, 0);
 
@@ -1783,6 +1789,21 @@
                         faults.push(rm.id + ': slab does not cover its own room');
                     (rm.windows || []).forEach(w => {
                         if (w.head >= y0) faults.push(w.id + ': ceiling at ' + y0 + ' covers the glass');
+                    });
+                    m.updateMatrixWorld(true);
+                    if (m.children.length < 5)
+                        faults.push(rm.id + ': pitched on ' + m.children.length + ' pieces');
+                    m.children.forEach(piece => {
+                        if (piece.parent !== m) faults.push(rm.id + ': a panel is its own roof');
+                        if (!piece.geometry.boundingBox) piece.geometry.computeBoundingBox();
+                        const bb = piece.geometry.boundingBox.clone().applyMatrix4(piece.matrixWorld);
+                        // The crossing test is a plan-view test against this rect. Anything of the
+                        // roof that reaches past it is occlusion nothing is checking.
+                        if (bb.min.x < rect.x0 - 0.02 || bb.max.x > rect.x1 + 0.02 ||
+                            bb.min.z < rect.z0 - 0.02 || bb.max.z > rect.z1 + 0.02)
+                            faults.push(rm.id + ': the pitch escapes its own eaves');
+                        if (bb.min.y < y0 - 0.02) faults.push(rm.id + ': the pitch comes through the ceiling');
+                        if (bb.max.y > yTop(rm) + 0.02) faults.push(rm.id + ': the pitch tops its own ridge');
                     });
                 });
                 // Two slabs may cross in plan — a taller neighbour's wall comes up through one, and

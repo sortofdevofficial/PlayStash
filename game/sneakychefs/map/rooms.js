@@ -30,9 +30,11 @@
  *   floor     { a, b, tile, rough } — a two-tone checker, `tile` units per tile
  *   wall      { color, height, thickness, trim } — doorways are cut automatically. Where two
  *             rooms share an edge, the taller wall spec wins both sides of it.
- *   roof      { color?, thickness?, overhang? } — a slab at the top of that wall spec, which is
- *             also the room's ceiling. `roof: false` leaves the room open to the sky. The eaves
- *             only reach past an edge no other roofed room abuts, so a party wall stays flush.
+ *   roof      { color?, thickness?, overhang?, gable? } — a slab at the top of that wall spec,
+ *             which is also the room's ceiling, pitched under `gable` units of ridge.
+ *             `roof: false` leaves the room open to the sky. The eaves only reach past an edge
+ *             no other roofed room abuts, so a party wall stays flush, and the whole roof —
+ *             slab, panels, ridge — is one object that the camera cutaway hides at once.
  *   furniture pieces, see below
  *   doors     { side, at, to, gap? } — a real gap cut in the masonry you walk through
  *   windows   { side, at, width?, sill?, head? } — a band of glass in an EXTERIOR wall. The
@@ -71,8 +73,10 @@ const KITCHEN_BOUND = 15.35;
 
 // One house, one roof. Every room is capped with the same slab and the registry sets it down on
 // top of that room's own walls, which is why the kitchen's roof stands a floor above the
-// pantry's. The garden opts out with `roof: false` — it is the outside.
-const ROOF = { color: 0x2b2f3a, thickness: 0.8, overhang: 1.2 };
+// pantry's. `gable` is how far the pitch rises off that slab — flat enough to keep the row's
+// stepped skyline, enough to read as a roof rather than a lid. The garden opts out with
+// `roof: false` — it is the outside.
+const ROOF = { color: 0x2b2f3a, thickness: 0.8, overhang: 1.2, gable: 1.6 };
 
 // Restock defaults, quoted by the `restock` rule below. `floor` is how many props a room
 // keeps in play before it starts refilling; `gap` is the seconds between two deliveries.

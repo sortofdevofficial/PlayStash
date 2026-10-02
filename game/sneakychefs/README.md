@@ -27,13 +27,14 @@ through six windows you can walk up to and never out of — the hall's, two in t
 two in the sitting room, and one high in the den. Every one of them is a hole in the masonry
 that the builder has sealed to a body.
 
-And the house has a roof. Six of the seven rooms are capped at the top of their own walls —
-the garden is the outside and stays open to the sky — so the plan reads as a house from the
-street rather than a pit with walls built around it. The ceilings come off as the camera climbs
-through them: a slab is dropped when the line from the mouse's feet to the lens passes over it
-*and* the lens has risen above its underside. At the pose the game opens at the lens is still
-under the kitchen's ceiling, so you start indoors; pull up and out and the house opens into the
-same look-down view it has always had.
+And the house has a roof. Six of the seven rooms are capped at the top of their own walls and
+pitched with a shallow gable — the garden is the outside and stays open to the sky — so the plan
+reads as a house from the street rather than a pit with walls built around it. The ceilings come
+off as the camera climbs through them: a roof is dropped when the line from the mouse's feet to
+the lens passes over it *and* the lens has risen above its underside, and being one object means
+the pitch goes with the slab rather than floating a ridge over his head. At the pose the game
+opens at the lens is still under the kitchen's ceiling, so you start indoors; pull up and out and
+the house opens into the same look-down view it has always had.
 
 ## Running it
 
@@ -60,7 +61,7 @@ HTML document: the QA rig is a mode of `index.html`, not a second page.
 | `core/audio.js` | synthesised sfx (jump, collect, alert, door, thud, grab) |
 | `world/scene.js` | renderer, scene, fog, lights, the one key light that follows the player |
 | `world/physics.js` | floor height and obstacle push-out (body and prop variants) against the whole house's merged sets |
-| `world/rooms.js` | the room registry and the generic builder: floors, the house's merged masonry with door gaps and window bands cut through it, thresholds, roofs and the cutaway that drops the ones in the camera's way, furniture, lights, and the chef's beat turned into waypoints |
+| `world/rooms.js` | the room registry and the generic builder: floors, the house's merged masonry with door gaps and window bands cut through it, thresholds, roofs — slab, pitch and all — and the cutaway that drops whichever ones the camera has climbed above, furniture, lights, and the chef's beat turned into waypoints |
 | `world/city.js` | the outside: ring road, traffic, street lamps, skyline and moon, laid out around the house's own bounds — drawn, never registered, so nothing in it is solid |
 | `world/kitchen.js` | the kitchen's block helpers and its `build` hook, whose only job is to put the walk-in fridge in the north-west corner |
 | `world/fridge.js` | the fridge: shell with a walk-in cavity, hinged doors, interior lamp, freezer stock, cold mist |
@@ -132,8 +133,8 @@ anything that builds. `world/city.js` reads the registry too, but only when `mai
   an exterior wall — the line only one room claims — because it is a view and not a way out.
   A roof is one shared palette (`ROOF`) quoted by every room but the garden, which says
   `roof: false` and stays open to the sky; the slab lands on top of that room's own `wall.height`,
-  so a room's ceiling is as high as its walls, and its eaves only reach past an edge no other
-  roofed room abuts.
+  so a room's ceiling is as high as its walls, `gable` is how far the pitch rises off the slab,
+  and its eaves only reach past an edge no other roofed room abuts.
   The kitchen and the base predate the registry and hand their own global obstacle arrays
   over instead of being built from data.
 - **The hunter's beat is authored, not solved.** `CHEF_BEAT` in `map/rooms.js` is his route: a
@@ -188,21 +189,28 @@ anything that builds. `world/city.js` reads the registry too, but only when `mai
   The rig walks a mouse into every window in the house and fails if one of them lets him past the
   inner face of its own wall.
 - **A roof is drawn and registered nowhere.** `buildRoofs()` caps every room whose spec does not
-  opt out with a slab set down on top of that room's own walls, so the house is a house when the
-  camera pulls back — and `updateRoofs()` drops a slab when the line from the mouse's feet to the
-  lens passes over it *and* the lens has climbed above that slab's underside, which is the only
-  way a ceiling can coexist with an orbit camera that lives above the wall heads. The height half
-  is what keeps a room a room: a lens below an underside cannot be occluded from behind it, since
-  the segment starts at his feet, so the ceiling stays exactly where it should. Both registration
-  halves matter too: a roof must not be an obstacle (a column has no underside, so registering one
-  would fill the room it caps), and it must not be camera geometry either, because `core/camera.js`
-  raycasts the mesh list and three.js does not skip a mesh that is currently hidden — a registered
-  roof would go on pulling the lens in after the cutaway had already made it invisible. The rig
-  sweeps every roofed room's spawn against three camera poses at four yaws, re-deriving the
-  crossing by sampling points along the segment rather than by calling the registry's own maths,
-  and fails if a slab between him and a lens above it is still on, if the lens comes to rest
-  inside one, if *every* roof went off, or if a ceiling dropped while the lens was still under it
-  — the cutaway takes the lid off a room, it does not remove the roof.
+  opt out with a slab set down on top of that room's own walls, and `buildGable()` pitches it —
+  two panels, the two triangles that close their ends, a ridge cap — so the house is a house when
+  the camera pulls back. Every piece of the pitch is a **child of the slab**, which is what lets a
+  roof be pitched at all: the cutaway flips one `visible` flag and the whole roof goes with it,
+  instead of stranding a ridge in mid-air over the player's head. It also fixes the pitch's
+  bounds, because the occlusion test is a plan-view crossing of the slab's rect and nothing else —
+  a panel past the eaves would be occlusion nothing checks. `updateRoofs()` drops a roof when the
+  line from the mouse's feet to the lens passes over it *and* the lens has climbed above its
+  underside, which is the only way a ceiling can coexist with an orbit camera that lives above the
+  wall heads. The height half is what keeps a room a room: a lens below an underside cannot be
+  occluded from behind it, since the segment starts at his feet, so the ceiling stays exactly
+  where it should. Both registration halves matter too: a roof must not be an obstacle (a column
+  has no underside, so registering one would fill the room it caps), and it must not be camera
+  geometry either, because `core/camera.js` raycasts the mesh list and three.js does not skip a
+  mesh that is currently hidden — a registered roof would go on pulling the lens in after the
+  cutaway had already made it invisible. The rig sweeps every roofed room's spawn against three
+  camera poses at four yaws, re-deriving the crossing by sampling points along the segment rather
+  than by calling the registry's own maths, and fails if a roof between him and a lens above it is
+  still on, if the lens comes to rest anywhere inside the roof volume up to the ridge, if *every*
+  roof went off, if a ceiling dropped while the lens was still under it, or if any piece of a
+  pitch is parented elsewhere, escapes its own eaves, or comes through the ceiling — the cutaway
+  takes the lid off a room, it does not remove the roof.
 - **Props roll about their own axle.** Each ingredient is `group → carrier → spinner →
   model`: the carrier yaws to face the direction of travel, the spinner accumulates the
   roll. A model that does not contact the ground at its bounding-box centre publishes
@@ -292,7 +300,8 @@ the outside: the city required to be registered as nothing at all, ten cars run 
 required to stay on their own tarmac and off every room's floor, and a mouse walked into each of
 the six windows, which is where `windowSealFaults`, `windowViewFaults` and `windowEscapes` come
 from — the last of them naming any pane that let him past the face of its own wall; and the
-roofs, required to be registered as nothing either, then every roofed room's spawn held while the
+roofs, required to be registered as nothing either — slab and the thirty pieces of pitch on top
+of them — then every roofed room's spawn held while the
 camera is put at three pitches and four yaws — poses chosen because their lens heights straddle the
 six ceiling heights, so the one sweep proves both halves of the cutaway — with the crossing
 re-derived by sampling the segment rather than by trusting `segmentCrossesRect`. That is where

@@ -19,13 +19,14 @@
  * several rooms, so no single room spec can own it and this is where it becomes waypoints.
  *
  * Then it puts a roof on the house: buildRoofs caps every room whose spec asks for one with a
- * slab at the top of its own walls, and updateRoofs drops whichever of those slabs stand between
- * the mouse and the orbit lens, once the lens has climbed above the slab's underside. The
- * cutaway is not a nicety — the camera flies above the wall heads by design, so a roof it could
- * not see through would be a lid on the game — and the height test is what keeps a room a room
- * at the poses the game opens at. It is also why the no-overlap rule matters twice over: because
- * no two rects share a floor, two neighbours' slabs can meet at a party wall at different heights
- * without one passing through the other.
+ * slab at the top of its own walls, buildGable pitches that slab with a shallow gable, and
+ * updateRoofs drops whichever roofs stand between the mouse and the orbit lens, once the lens has
+ * climbed above the slab's underside. The pitch is built as children of the slab, so the one flag
+ * the cutaway flips takes the whole roof with it. That cutaway is not a nicety — the camera flies
+ * above the wall heads by design, so a roof it could not see through would be a lid on the game —
+ * and the height test is what keeps a room a room at the poses the game opens at. It is also why
+ * the no-overlap rule matters twice over: because no two rects share a floor, two neighbours'
+ * slabs can meet at a party wall at different heights without one passing through the other.
  *
  * Furniture kinds, and what each blocks:
  *   counter  box plus a lighter slab overhanging it — an obstacle and camera geometry
@@ -503,7 +504,74 @@ function buildRoofs() {
         room.group.add(mesh);
         room.roof = mesh;
         roofMeshes.push(mesh);
+        buildGable(room, mesh, t);
     });
+}
+
+// The pitch: two panels, the triangles that close their ends, and a ridge cap, all of them
+// CHILDREN of the slab. That is the whole trick — the cutaway flips one `visible` flag and the
+// roof goes with it, so a pitched roof cannot strand a floating ridge over the player's head.
+// It also means every piece has to stay inside the slab's own rect, because the occlusion test
+// is a plan-view crossing of that rect and nothing else: a gable that stuck past the eaves
+// would need a rule of its own. A neighbour's taller wall does come up through the pitch, which
+// is what a party wall looks like where a row house's roofline steps.
+function buildGable(room, slab, thickness) {
+    const r = room.spec.roof || {};
+    const rise = r.gable === undefined ? 1.6 : r.gable;
+    if (rise <= 0.05) return;
+    const rect = slab.userData.rect;
+    const dX = rect.x1 - rect.x0, dZ = rect.z1 - rect.z0;
+    const alongX = dX >= dZ;                    // the ridge runs down the longer axis
+    const len = alongX ? dX : dZ;
+    const half = (alongX ? dZ : dX) / 2 - 0.08;  // inset so the sloped thickness stays in the rect
+    const L = Math.hypot(half, rise);
+    const theta = Math.atan2(rise, half);
+    const base = thickness / 2;                  // the slab's top face, in the slab's own frame
+    const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(r.color === undefined ? 0x2b2f3a : r.color).lerp(new THREE.Color(0xffffff), 0.1),
+        roughness: 0.92, side: THREE.DoubleSide
+    });
+    const dress = mesh => {
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        slab.add(mesh);
+    };
+
+    for (const s of [-1, 1]) {
+        const panel = new THREE.Mesh(alongX
+            ? new THREE.BoxGeometry(len, 0.22, L)
+            : new THREE.BoxGeometry(L, 0.22, len), mat);
+        if (alongX) {
+            panel.rotation.x = s * theta;
+            panel.position.set(0, base + rise / 2, s * half / 2);
+        } else {
+            panel.rotation.z = -s * theta;
+            panel.position.set(s * half / 2, base + rise / 2, 0);
+        }
+        dress(panel);
+    }
+
+    // The gable ends: a triangle in the plane the ridge runs out of, closed by the slab under it.
+    for (const s of [-1, 1]) {
+        const at = s * len / 2;
+        const [v1, v2, apex] = alongX
+            ? [[at, base, -half], [at, base, half], [at, base + rise, 0]]
+            : [[-half, base, at], [half, base, at], [0, base + rise, at]];
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(
+            [...v1, ...v2, ...apex], 3));
+        g.computeVertexNormals();
+        dress(new THREE.Mesh(g, mat));
+    }
+
+    const cap = new THREE.Mesh(alongX
+        ? new THREE.BoxGeometry(len, 0.26, 0.36)
+        : new THREE.BoxGeometry(0.36, 0.26, len), mat);
+    cap.position.set(0, base + rise, 0);
+    dress(cap);
+    // The cap and the panels' top corners both sit proud of the nominal ridge by half their own
+    // thickness, so this is the roof's highest point rather than the line it peaks on.
+    slab.userData.apex = room.spec.wall.height + thickness + rise + 0.13;
 }
 
 // The cutaway: any roof the line from the mouse's feet to the lens passes over is off — but only
