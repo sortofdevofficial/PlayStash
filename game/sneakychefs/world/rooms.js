@@ -2,9 +2,10 @@
  * world/rooms.js — the room registry, and the builder that turns map/rooms.js into geometry.
  *
  * Every room in the house is one record here: its rect in the shared scene, the obstacles and
- * camera-collision meshes inside it, the doors out of it, its lights and its restock rule.
- * world/physics.js, core/areas.js and world/ingredients.js all ask this registry what the room
- * at a given point looks like, and nothing else in the game knows the layout.
+ * camera-collision meshes inside it, the doors out of it and the glass in its walls, its lights
+ * and its restock rule. world/physics.js, core/areas.js and world/ingredients.js all ask this
+ * registry what the room at a given point looks like, and nothing else in the game knows the
+ * layout.
  *
  * buildRoom builds the parts a spec declares on its own — floor, furniture, lights — then calls
  * the spec's own `build` hook for the things only one room has (the kitchen's fridge, the base's
@@ -17,6 +18,15 @@
  * buildHouse also lays out the hunter's beat. map/rooms.js writes it as one ordered walk through
  * several rooms, so no single room spec can own it and this is where it becomes waypoints.
  *
+ * Then it puts a roof on the house: buildRoofs caps every room whose spec asks for one with a
+ * slab at the top of its own walls, and updateRoofs drops whichever of those slabs stand between
+ * the mouse and the orbit lens, once the lens has climbed above the slab's underside. The
+ * cutaway is not a nicety — the camera flies above the wall heads by design, so a roof it could
+ * not see through would be a lid on the game — and the height test is what keeps a room a room
+ * at the poses the game opens at. It is also why the no-overlap rule matters twice over: because
+ * no two rects share a floor, two neighbours' slabs can meet at a party wall at different heights
+ * without one passing through the other.
+ *
  * Furniture kinds, and what each blocks:
  *   counter  box plus a lighter slab overhanging it — an obstacle and camera geometry
  *   solid    a column from its base up to y + h    — an obstacle and camera geometry
@@ -26,6 +36,12 @@
  * its underside. The obstacle contract has no underside — it is a column topped at `h` — which
  * is exactly why anything you can walk under has to be `visual`, and why a doorway's lintel is
  * geometry only: registering the column over an opening would seal the opening.
+ * A window is the one opening that wants exactly that. It is cut on a wall line the same way a
+ * doorway is, but on an exterior wall — the line only one room claims — and it is a view rather
+ * than a way out: the band is left open to the eye and closed to a body by one undrawn column at
+ * the wall's own height. Since the contract has no underside, keeping a window's span solid means
+ * registering the whole span, which is the opposite of what a doorway does with the masonry over
+ * it.
  */
 const rooms = {};
 const roomOrder = [];
@@ -99,6 +115,20 @@ function registerRoom(spec) {
         });
     });
 
+    room.windows = (spec.windows || []).map(w => {
+        const alongX = w.side === 'north' || w.side === 'south';
+        return {
+            id: room.id + '@' + w.side + ':' + (w.at || 0),
+            side: w.side,
+            room: room.id,
+            x: room.ox + (alongX ? (w.at || 0) : (w.side === 'east' ? room.hx : -room.hx)),
+            z: room.oz + (alongX ? (w.side === 'north' ? -room.hz : room.hz) : (w.at || 0)),
+            width: w.width || 4,
+            sill: w.sill === undefined ? 1.6 : w.sill,
+            head: w.head === undefined ? 3.6 : w.head
+        };
+    });
+
     rooms[spec.id] = room;
     roomOrder.push(room);
     return room;
@@ -112,6 +142,9 @@ function buildHouse() {
     });
     // After every room exists: a wall two rooms share has to be built once, for both of them.
     buildMasonry();
+    // On top of the masonry it just laid, and before the collection below because a roof is in
+    // neither list it reads — see the roof section.
+    buildRoofs();
     collectSolidGeometry();
     // Once, here: actors/chef.js only ever walks this list, and the beat is authored in world
     // coordinates so it can cross a doorway without two room specs having to agree on a join.
@@ -223,12 +256,28 @@ function houseDoorways() {
     return doors;
 }
 
+// The same fold for the glass: a window is an opening on a wall line like a door is, and it has
+// to be cut by the builder that owns that line rather than by the room that asked for it. Unlike
+// a door it does not reach the floor, so it carries a sill and a head as well as a width.
+function houseWindows() {
+    const wins = [];
+    roomOrder.forEach(room => (room.windows || []).forEach(w => {
+        const alongX = w.side === 'north' || w.side === 'south';
+        const axis = alongX ? 'x' : 'z';
+        const line = round3(alongX ? w.z : w.x);
+        const at = round3(alongX ? w.x : w.z);
+        wins.push({ key: axis + '|' + line, axis, line, at, width: w.width, sill: w.sill, head: w.head, room: w.room, id: w.id });
+    }));
+    return wins;
+}
+
 function buildMasonry() {
     houseStructure = new THREE.Group();
     scene.add(houseStructure);
 
     const lines = houseWallLines();
     const doors = houseDoorways();
+    const wins = houseWindows();
 
     Object.keys(lines).forEach(key => {
         const l = lines[key];
@@ -239,14 +288,29 @@ function buildMasonry() {
         // Stretch the span by half its own thickness at each end, so where two walls meet at a
         // corner they overlap instead of leaving a see-through sliver at the joint.
         const from = l.from - t / 2, to = l.to + t / 2;
-        const gaps = doors.filter(d => d.key === key).sort((a, b) => a.at - b.at);
+        const openings = [
+            ...doors.filter(d => d.key === key).map(d => ({ kind: 'door', at: d.at, width: d.width })),
+            ...wins.filter(w => w.key === key).map(w => ({
+                kind: 'window', at: w.at, width: w.width,
+                sill: w.sill, head: Math.min(w.head, l.spec.height - 0.4)
+            }))
+        ].sort((a, b) => a.at - b.at);
 
         let cursor = from;
-        gaps.forEach(d => {
-            const a = Math.max(from, d.at - d.width / 2);
-            const b = Math.min(to, d.at + d.width / 2);
+        openings.forEach(o => {
+            const a = Math.max(from, o.at - o.width / 2);
+            const b = Math.min(to, o.at + o.width / 2);
             wallPanel(l, cursor, a, 0, l.spec.height, true);
-            wallPanel(l, a, b, DOOR_H, l.spec.height, false);   // lintel over the opening
+            if (o.kind === 'door') {
+                wallPanel(l, a, b, DOOR_H, l.spec.height, false);   // lintel over the opening
+            } else {
+                // Glass does not reach the floor, so the masonry below and above it is drawn and
+                // the band between is left open — and windowBlocker puts the wall back for the
+                // only thing that has to care: a body.
+                wallPanel(l, a, b, 0, o.sill, false);
+                wallPanel(l, a, b, o.head, l.spec.height, false);
+                windowBlocker(l, a, b);
+            }
             cursor = b;
         });
         wallPanel(l, cursor, to, 0, l.spec.height, true);
@@ -257,6 +321,48 @@ function buildMasonry() {
         buildThreshold(d, wall);
         buildDoorway(d, wall);
     });
+    wins.forEach(w => buildWindow(w, lines[w.key]));
+}
+
+// A window is a hole the mouse cannot use. The obstacle contract is a column from the floor to
+// `h` with no underside, so the whole span gets one column at the wall's own height: the view
+// out is real and the way out is not. It is deliberately not drawn — the sill and head panels
+// above it are the visible masonry, and this is the part that only physics ever sees.
+function windowBlocker(line, from, to) {
+    const t = line.spec.thickness, mid = (from + to) / 2;
+    const alongX = line.axis === 'x';
+    wallBoxes.push(alongX
+        ? { x: mid, z: line.line, w: to - from, d: t, h: line.spec.height }
+        : { x: line.line, z: mid, w: t, d: to - from, h: line.spec.height });
+}
+
+// The glass and its one cross bar. The pane is registered as camera geometry, which is what
+// keeps the orbit camera inside the room while still letting it press right up to the window,
+// and it is a real mesh rather than an invisible one because a mouse at a sill should see a
+// window and not an opening onto a six-lane road.
+function buildWindow(w, line) {
+    const alongX = line.axis === 'x';
+    const t = line.spec.thickness;
+    const cx = alongX ? w.at : w.line, cz = alongX ? w.line : w.at;
+    const band = Math.min(w.head, line.spec.height - 0.4) - w.sill;
+
+    const pane = new THREE.Mesh(alongX
+        ? new THREE.BoxGeometry(w.width, band, t * 0.25)
+        : new THREE.BoxGeometry(t * 0.25, band, w.width),
+        new THREE.MeshStandardMaterial({
+            color: 0xa8c8e8, transparent: true, opacity: 0.13, roughness: 0.08, metalness: 0
+        }));
+    pane.position.set(cx, w.sill + band / 2, cz);
+    houseStructure.add(pane);
+    wallMeshes.push(pane);
+
+    const mullion = new THREE.Mesh(alongX
+        ? new THREE.BoxGeometry(0.18, band, t + 0.1)
+        : new THREE.BoxGeometry(t + 0.1, band, 0.18),
+        new THREE.MeshStandardMaterial({ color: line.spec.trim || 0x8a6a45, flatShading: true, roughness: 0.6 }));
+    mullion.position.set(cx, w.sill + band / 2, cz);
+    houseStructure.add(mullion);
+    wallMeshes.push(mullion);
 }
 
 // Each room's floor stops at its own rect edge and the masonry is built on that line, so the
@@ -331,6 +437,107 @@ function buildDoorway(d, wall) {
         head.castShadow = true;
         houseStructure.add(head);
     }
+}
+
+// ---- roofs ------------------------------------------------------------------
+// Open-topped rooms were fine while the house was the only thing in the scene. With a street and
+// a skyline outside it, the plan reads from the road as a pile of quarried pits, so every room
+// now gets capped at the top of its own walls.
+//
+// A roof is drawn and nothing else. It joins neither `worldObstacles` nor `worldCollisionMeshes`,
+// for two reasons: an obstacle is a column from the floor to `h` with no underside, so a slab
+// registered as one would fill the room it covers; and the camera's raycast reads the mesh list
+// without skipping the meshes that are currently hidden, so a registered roof would go on
+// pulling the lens in after the cutaway below had already made it invisible. That is the one
+// thing that would make a roof unplayable here — the orbit camera lives above the wall heads.
+const roofMeshes = [];
+
+// Does another roofed room's rect reach this one's edge along the line it lies on? Rooms tile
+// edge to edge, so the test is exact rather than a proximity check: the neighbour's far edge is
+// on the same line and its run down that line overlaps ours. A room with no roof of its own does
+// not count, which is what lets the sitting room overhang the garden.
+function roofEdgeHasNeighbour(room, side) {
+    const alongX = side === 'north' || side === 'south';
+    const line = round3(alongX ? (side === 'north' ? room.oz - room.hz : room.oz + room.hz)
+        : (side === 'west' ? room.ox - room.hx : room.ox + room.hx));
+    const a0 = alongX ? room.ox - room.hx : room.oz - room.hz;
+    const a1 = alongX ? room.ox + room.hx : room.oz + room.hz;
+    return roomOrder.some(o => {
+        if (o === room || o.spec.roof === false) return false;
+        const far = round3(alongX ? (side === 'north' ? o.oz + o.hz : o.oz - o.hz)
+            : (side === 'west' ? o.ox + o.hx : o.ox - o.hx));
+        if (far !== line) return false;
+        const b0 = alongX ? o.ox - o.hx : o.oz - o.hz;
+        const b1 = alongX ? o.ox + o.hx : o.oz + o.hz;
+        return Math.min(a1, b1) - Math.max(a0, b0) > 1e-6;
+    });
+}
+
+function buildRoofs() {
+    roomOrder.forEach(room => {
+        if (room.spec.roof === false) return;          // open to the sky
+        const r = room.spec.roof || {};
+        const t = r.thickness === undefined ? 0.8 : r.thickness;
+        const y0 = room.spec.wall.height;
+        // An eaves only where the edge faces the outside. Past a party wall the slab would stick
+        // into the next room's ceiling — and where the two rooms are different heights, which
+        // most of them are, it would stick through the other one's roof as well.
+        const over = side => (roofEdgeHasNeighbour(room, side) ? 0 : (r.overhang === undefined ? 1.2 : r.overhang));
+        const n = over('north'), s = over('south'), w = over('west'), e = over('east');
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(room.hx * 2 + w + e, t, room.hz * 2 + n + s),
+            new THREE.MeshStandardMaterial({
+                color: r.color === undefined ? 0x2b2f3a : r.color,
+                roughness: r.rough === undefined ? 0.95 : r.rough
+            }));
+        mesh.position.set(room.ox + (e - w) / 2, y0 + t / 2, room.oz + (s - n) / 2);
+        // The key light is the only shadow caster in the game and it shines down from above, so
+        // a roof that cast shadows would black out the room under it — which is always the one
+        // the player is standing in.
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        mesh.userData.rect = {
+            x0: room.ox - room.hx - w, x1: room.ox + room.hx + e,
+            z0: room.oz - room.hz - n, z1: room.oz + room.hz + s
+        };
+        mesh.userData.y0 = y0;
+        room.group.add(mesh);
+        room.roof = mesh;
+        roofMeshes.push(mesh);
+    });
+}
+
+// The cutaway: any roof the line from the mouse's feet to the lens passes over is off — but only
+// once the lens has climbed above that slab's underside. Both halves are needed. The crossing
+// covers the two ways a roof could break the game: it cannot hide the player, because his own
+// room is always on that line, and the camera cannot end up inside it, because whatever the lens
+// is hovering over is on it too. The height test is what leaves a ceiling standing when the lens
+// is under it — at the default pose it is, and a mouse in his own house should be indoors. A
+// lens below a slab cannot be occluded by it anyway: the segment runs from his feet, which are
+// lower still, so both ends and every point between are under the underside.
+function updateRoofs() {
+    const px = mouseGroup.position.x, pz = mouseGroup.position.z;
+    for (let i = 0; i < roofMeshes.length; i++) {
+        const roof = roofMeshes[i];
+        const rect = roof.userData.rect;
+        roof.visible = !(camera.position.y > roof.userData.y0
+            && segmentCrossesRect(px, pz, camera.position.x, camera.position.z, rect));
+    }
+}
+
+// Segment against an axis-aligned rect, by clipping the segment's own t-range against each pair
+// of slabs and seeing whether anything survives.
+function segmentCrossesRect(ax, az, bx, bz, r) {
+    let lo = 0, hi = 1;
+    const clip = (a, b, min, max) => {
+        const d = b - a;
+        if (Math.abs(d) < 1e-9) return a >= min && a <= max;
+        let t0 = (min - a) / d, t1 = (max - a) / d;
+        if (t0 > t1) { const swap = t0; t0 = t1; t1 = swap; }
+        lo = Math.max(lo, t0);
+        hi = Math.min(hi, t1);
+        return hi > lo;
+    };
+    return clip(ax, bx, r.x0, r.x1) && clip(az, bz, r.z0, r.z1);
 }
 
 // Everything in the house that stops a body or a raycast: every room's own furniture plus the

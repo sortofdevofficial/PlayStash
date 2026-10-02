@@ -210,7 +210,7 @@
 
     <!--
       One page, two modes (see README). Opening index.html?qa=1 boots the game as usual and
-      then runs a module audit plus 24 behaviour checks, printing a QA{...} blob into #qa-out.
+      then runs a module audit plus 25 behaviour checks, printing a QA{...} blob into #qa-out.
       Without the flag none of the rig runs. The error collector has to be installed here,
       before any module is fetched, to catch a file that fails to parse.
     -->
@@ -296,6 +296,7 @@
     <script src="world/ingredients.js"></script>
     <script src="world/burrow.js"></script>
     <script src="world/rooms.js"></script>
+    <script src="world/city.js"></script>
     <script src="map/rooms.js"></script>
     <script src="world/scene.js"></script>
     <script src="actors/mouse.js"></script>
@@ -333,7 +334,13 @@
      * to obey, including that every door is walked and nothing jumps, the hunter's beat walked
      * on paper before he walks it for real, a walk through four rooms and back with no
      * reposition anywhere in it, and the hunter's own sight ray tested against the masonry
-     * and through the one gap in it, followed by a full lap of him.
+     * and through the one gap in it, followed by a full lap of him — and two on the outside:
+     * a night city registered as nothing a body or a ray can hit, traffic that stays on its
+     * own road, and a mouse walked into every window in the house, which is how the view out
+     * is kept a view and not a way out; and the roofs over every room, which have to be drawn
+     * and registered nowhere at all, and a camera put into every angle it can reach in every
+     * room to prove the cutaway drops the slabs a lens has climbed above — and keeps the ceiling
+     * over his head while that lens is still under it.
      */
     (function () {
         if (!new URLSearchParams(location.search).has('qa')) return;
@@ -353,6 +360,10 @@
             'rehomeIngredient', 'buildIngredient', 'buildHouse', 'registerRoom', 'buildRoom', 'roomById',
             'roomAt', 'activeRoom', 'lightActiveRoom', 'updateKeyLight', 'placeKeyLight',
             'buildMasonry', 'houseWallLines', 'houseDoorways', 'wallPanel', 'buildDoorway', 'buildThreshold',
+            'houseWindows', 'windowBlocker', 'buildWindow',
+            'buildRoofs', 'updateRoofs', 'roofEdgeHasNeighbour', 'segmentCrossesRect',
+            'buildCity', 'updateCity', 'cityWindowTexture', 'buildCityBlock', 'buildCityCar',
+            'houseBounds', 'cityRing', 'ringPoint',
             'collectSolidGeometry',
             'buildRoomFloor', 'buildRoomPiece', 'addRoomBlock',
             'addRoomSolid', 'addRoomVisual', 'addRoomShape',
@@ -365,7 +376,8 @@
             'carriedItem', 'CARRY_REACH', 'CARRY_LIFT', 'CARRY_SHARE', 'CARRY_OUT', 'CARRY_SPEED',
             'ROOMS', 'rooms', 'roomOrder', 'KITCHEN_BOUND', 'SOUTH_EDGE', 'HALL_MID', 'CHEF_BEAT', 'DELIVERY_GAP', 'INGREDIENT_SPEC',
             'STEP_HEIGHT', 'DOOR_W', 'DOOR_H',
-            'worldObstacles', 'worldCollisionMeshes', 'wallBoxes', 'wallMeshes',
+            'worldObstacles', 'worldCollisionMeshes', 'wallBoxes', 'wallMeshes', 'roofMeshes', 'ROOF',
+            'cityGroup', 'cityCars', 'CITY_STREET_OFFSET', 'CITY_ROAD_HALF', 'CITY_LANE',
             'burrowGroup',
             'keyLight', 'chefWaypoints', 'burrowObstacles', 'burrowCollision', 'cameraCollisionMeshes'];
 
@@ -471,11 +483,13 @@
                         updateAreaFromPosition();
                         updateKeyLight(SIM_DT);
                         updateCamera(SIM_DT);
+                        updateRoofs();
                         updateChefAI(SIM_DT, simTime);
                         updateBurrowMice(SIM_DT, simTime);
                         checkBaseDeposit();
                     }
                     updateFridge(SIM_DT);
+                    updateCity(SIM_DT);
                     flushTimers();
                 }
             };
@@ -1144,8 +1158,8 @@
                 const mouth = doorTo('kitchen', 'burrow');
                 const holeGap = Math.hypot(load.group.position.x - mouth.x,
                     load.group.position.z - mouth.z);
-                r.carryClearOfChute = +holeGap.toFixed(2);
-                r.carryStartedOffChute = holeGap > mouth.width;
+                r.carryClearOfHole = +holeGap.toFixed(2);
+                r.carryStartedClearOfHole = holeGap > mouth.width;
                 const newestBefore = stashedIngredients[stashedIngredients.length - 1];
                 pickUp();
                 r.carryLoadedForTrip = carriedItem === load;
@@ -1597,6 +1611,256 @@
                 r.lapCameHome = lapRooms.lastIndexOf('kitchen') > lapRooms.lastIndexOf('dining');
                 r.lapFullLoop = advances >= chefWaypoints.length;
                 r.lapClearOfMasonry = lapMin >= 0.2 && offPlan === 0;
+                next();
+            });
+
+            // 24. The outside, and the glass that keeps it outside. The city is a view the mouse
+            //     can never reach, which is two separate claims: nothing in it is registered as
+            //     anything a body or a ray can hit, and every window is a span the masonry builder
+            //     has sealed shut. So measure both — traffic that moves without once standing on a
+            //     room's floor, and a mouse walked into each pane for a second.
+            steps.push((next) => {
+                parkChef();
+                ['forward', 'backward', 'left', 'right'].forEach(k => keys[k] = false);
+                const ring = cityRing();
+                const radius = 0.46 * mouseGroup.userData.scaleFactor;
+
+                const cityParts = [];
+                cityGroup.traverse(o => { if (o !== cityGroup) cityParts.push(o); });
+                // The obstacle list is still exactly what the rooms and the masonry account for,
+                // and not one city mesh is camera geometry: the backdrop cannot be stood on,
+                // shoved at, or seen through, and the orbit camera is never stopped by it.
+                r.cityParts = cityParts.length;
+                r.cityCameraMeshes = cityParts.filter(o => worldCollisionMeshes.indexOf(o) >= 0).length;
+                r.cityObstacleCount = worldObstacles.length;
+                r.registrySolidCount = wallBoxes.length +
+                    roomOrder.reduce((n, rm) => n + rm.obstacles.length, 0);
+                r.registryMeshCount = wallMeshes.length +
+                    roomOrder.reduce((n, rm) => n + rm.collision.length, 0);
+                r.cityIsNotSolid = r.cityCameraMeshes === 0 &&
+                    r.cityObstacleCount === r.registrySolidCount &&
+                    worldCollisionMeshes.length === r.registryMeshCount;
+
+                const before = cityCars.map(c => ({ s: c.s, p: c.group.position.clone() }));
+                simFrames(60);
+                let moved = 0, ahead = 0, back = 0, offRoad = 0, onPlan = 0;
+                cityCars.forEach((c, i) => {
+                    if (c.group.position.distanceTo(before[i].p) > 1) moved++;
+                    // Measured on the loop, not on the clock: `s` wraps, so the raw difference
+                    // reads as a whole lap backwards to a car that crossed the seam.
+                    let ds = c.s - before[i].s;
+                    if (ds > ring.len / 2) ds -= ring.len;
+                    if (ds < -ring.len / 2) ds += ring.len;
+                    if (ds > 0) ahead++; else if (ds < 0) back++;
+                    // On the road means in the tarmac band and on no room's floor: traffic that
+                    // passes the house, rather than driving through it.
+                    const p = c.group.position, o = CITY_ROAD_HALF;
+                    const inOuter = p.x > ring.x0 - o && p.x < ring.x1 + o && p.z > ring.z0 - o && p.z < ring.z1 + o;
+                    const inInner = p.x > ring.x0 + o && p.x < ring.x1 - o && p.z > ring.z0 + o && p.z < ring.z1 - o;
+                    if (!inOuter || inInner) offRoad++;
+                    if (roomOrder.some(rm => Math.abs(p.x - rm.ox) <= rm.hx && Math.abs(p.z - rm.oz) <= rm.hz)) onPlan++;
+                });
+                r.cityCarCount = cityCars.length;
+                r.cityCarsMoved = moved;
+                r.cityCarsBothWays = ahead > 0 && back > 0;
+                r.cityCarsOnRoad = offRoad === 0;
+                r.cityCarsNeverOnThePlan = onPlan === 0;
+
+                // ---- the glass, on paper and then on foot
+                const lines = houseWallLines();
+                const outwardOf = (l, room) => Math.sign(l.line - (l.axis === 'x' ? room.oz : room.ox));
+                const sealFaults = [], viewFaults = [], escapes = [], areaFaults = [], held = [], camsHeld = [];
+                const walked = houseWindows().map(w => {
+                    const l = lines[w.key], room = roomById(w.room);
+                    const alongX = l.axis === 'x', out = outwardOf(l, room), t = l.spec.thickness;
+                    const cx = alongX ? w.at : l.line, cz = alongX ? l.line : w.at;
+                    if (l.rooms.length !== 1 || l.rooms[0] !== room.id) sealFaults.push(w.id + ': interior wall');
+                    if (Math.min(w.head, l.spec.height - 0.4) - w.sill < 1) sealFaults.push(w.id + ': band under a metre');
+
+                    // One column at the wall's own height, covering the whole span: the view is
+                    // open and the way out is not, and the only way to tell those apart in data is
+                    // that the obstacle is taller than the glass band it hides behind.
+                    const covers = (o) => alongX
+                        ? Math.abs(o.z - l.line) < 1e-6 && o.d >= t - 1e-6 &&
+                          o.x - o.w / 2 <= w.at - w.width / 2 + 1e-6 && o.x + o.w / 2 >= w.at + w.width / 2 - 1e-6
+                        : Math.abs(o.x - l.line) < 1e-6 && o.w >= t - 1e-6 &&
+                          o.z - o.d / 2 <= w.at - w.width / 2 + 1e-6 && o.z + o.d / 2 >= w.at + w.width / 2 - 1e-6;
+                    if (!worldObstacles.some(o => o.h >= l.spec.height - 1e-6 && covers(o))) {
+                        sealFaults.push(w.id + ': span not sealed');
+                    }
+
+                    // A wardrobe in front of a window is a map bug, not a physics one, and it is
+                    // the sill that decides: anything reaching up past it hides the city.
+                    for (let d = 0.8; d <= 1.7; d += 0.45) {
+                        const px = cx - (alongX ? 0 : out * d), pz = cz - (alongX ? out * d : 0);
+                        if (worldObstacles.some(o => o.h > w.sill && Math.abs(px - o.x) < o.w / 2 && Math.abs(pz - o.z) < o.d / 2)) {
+                            viewFaults.push(w.id + ': blocked at ' + d.toFixed(2));
+                            break;
+                        }
+                    }
+
+                    const startX = cx - (alongX ? 0 : out * 1.6), startZ = cz - (alongX ? out * 1.6 : 0);
+                    mouseGroup.position.set(startX, getFloorY(startX, startZ), startZ);
+                    mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                    const dx = alongX ? 0 : out, dz = alongX ? out : 0;
+                    // The camera behind him, so `forward` is straight at the pane.
+                    camYaw = Math.atan2(-dx, -dz);
+                    keys.forward = true;
+                    simFrames(60);
+                    keys.forward = false;
+
+                    const p = mouseGroup.position;
+                    const coord = alongX ? p.z : p.x;
+                    const past = out * (coord - l.line);
+                    if (past > 1e-6) escapes.push(w.id + ': through the wall by ' + past.toFixed(2));
+                    // The face a body is held at, less the mouse's own clearance radius: short of
+                    // it means the pane was never reached, which is a blocked view, not an escape.
+                    const limit = l.line - out * (t / 2 + radius);
+                    if (out * (coord - limit) > -0.3) held.push(w.id);
+                    if (!roomEntered(room, p.x, p.z) || currentArea !== room.id) {
+                        areaFaults.push(w.id + ': ' + currentArea + ' at ' + v3(p).join(','));
+                    }
+
+                    // Now the camera on the wall side: standing at a window, the orbit has to be
+                    // pulled up by the masonry rather than flying 13 units out over the roof and
+                    // into the street. It still comes to rest about a tenth of a unit past the
+                    // outer face, because core/camera.js keeps a 1.5-unit minimum distance however
+                    // close a wall gets — so the give allowed here is that floor, not a guess.
+                    camYaw = Math.atan2(dx, dz);
+                    simFrames(40);
+                    if (out * ((alongX ? camera.position.z : camera.position.x) - l.line) > 2) camsHeld.push(w.id);
+                    return { id: w.id, at: [+cx.toFixed(2), +cz.toFixed(2)], coord: +coord.toFixed(2),
+                        limit: +limit.toFixed(2), cam: +(out * ((alongX ? camera.position.z : camera.position.x) - l.line)).toFixed(2) };
+                });
+                r.windowCount = walked.length;
+                r.windowWalked = walked;
+                r.windowSealFaults = sealFaults;
+                r.windowViewFaults = viewFaults;
+                r.windowEscapes = escapes;
+                r.windowAreaFaults = areaFaults;
+                r.windowSealed = !sealFaults.length && !escapes.length && !areaFaults.length;
+                r.windowAllHeldAtPane = held.length === walked.length;
+                r.windowCamStoppedByMasonry = camsHeld.length === 0;
+                next();
+            });
+
+            // 25. The roofs. A ceiling is the one piece of the house the orbit camera is
+            //     guaranteed to fly through, so this measures the two things that make it safe: a
+            //     slab that is registered as nothing, and a cutaway that drops a slab standing
+            //     between the mouse and a lens that has climbed above it — and keeps the ceiling
+            //     over his head while the lens is still under it. Every angle the player can put
+            //     the camera at, in every roofed room.
+            steps.push((next) => {
+                parkChef();
+                ['forward', 'backward', 'left', 'right'].forEach(k => keys[k] = false);
+                if (carriedItem) toggleCarry();
+
+                const roofed = roomOrder.filter(rm => rm.spec.roof !== false);
+                const slabs = roofed.map(rm => rm.roof);
+                const yTop = rm => rm.spec.wall.height + rm.roof.geometry.parameters.height;
+                r.roofRooms = roofed.map(rm => rm.id).join(',');
+                r.roofOpenRooms = roomOrder.filter(rm => !rm.roof).map(rm => rm.id).join(',');
+                r.roofCount = roofMeshes.length;
+
+                // Drawn and registered nowhere. Not camera geometry, because core/camera.js's
+                // raycast reads the mesh list without skipping what the cutaway has hidden and a
+                // registered roof would go on pulling the lens in after it had vanished from view.
+                // Not an obstacle either: a column has no underside, so a roof registered as one
+                // would fill the room it caps.
+                r.roofsNotCameraMeshes = slabs.every(m => worldCollisionMeshes.indexOf(m) < 0);
+                r.roofsNotObstacles = worldObstacles.length === wallBoxes.length +
+                    roomOrder.reduce((n, rm) => n + rm.obstacles.length, 0);
+
+                const faults = [];
+                roofed.forEach(rm => {
+                    const m = rm.roof;
+                    const y0 = +(m.position.y - m.geometry.parameters.height / 2).toFixed(3);
+                    if (y0 !== rm.spec.wall.height)
+                        faults.push(rm.id + ': ceiling at ' + y0 + ' on walls of ' + rm.spec.wall.height);
+                    const rect = m.userData.rect;
+                    if (rect.x0 > rm.ox - rm.hx || rect.x1 < rm.ox + rm.hx ||
+                        rect.z0 > rm.oz - rm.hz || rect.z1 < rm.oz + rm.hz)
+                        faults.push(rm.id + ': slab does not cover its own room');
+                    (rm.windows || []).forEach(w => {
+                        if (w.head >= y0) faults.push(w.id + ': ceiling at ' + y0 + ' covers the glass');
+                    });
+                });
+                // Two slabs may cross in plan — a taller neighbour's wall comes up through one, and
+                // the garden has no slab to meet — but no two may stand in the same space, which is
+                // what the no-overlap rule buys the second time over.
+                for (let i = 0; i < roofed.length; i++) for (let j = i + 1; j < roofed.length; j++) {
+                    const a = roofed[i], b = roofed[j];
+                    const ra = a.roof.userData.rect, rb = b.roof.userData.rect;
+                    const cross = ra.x0 < rb.x1 && rb.x0 < ra.x1 && ra.z0 < rb.z1 && rb.z0 < ra.z1;
+                    const band = a.spec.wall.height < yTop(b) && b.spec.wall.height < yTop(a);
+                    if (cross && band) faults.push(a.id + '/' + b.id + ': slabs pass through each other');
+                }
+
+                let samples = 0, framesWithRoofOn = 0, ceilingsHeld = 0;
+                const poses = [
+                    { pitch: 0.55, dist: 13 },                 // where the game opens: 7.4 up
+                    { pitch: Math.PI / 2 - 0.05, dist: 24 },   // straight down, zoomed right out
+                    { pitch: 0.1, dist: 24 }                   // as flat as it gets: 2.9 up
+                ];
+                // Deliberately straddling the six ceiling heights (6 to 8), so every sample asks
+                // the cutaway one of its two questions: drop this slab, or keep it.
+                roomOrder.forEach(rm => {
+                    if (!rm.roof) return;
+                    const start = rm.spawn;
+                    poses.forEach(pose => [0, Math.PI / 2, Math.PI, -Math.PI / 2].forEach(yaw => {
+                        mouseGroup.position.set(start.x, getFloorY(start.x, start.z), start.z);
+                        mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                        camYaw = yaw; camPitch = pose.pitch; camDist = camDistTarget = pose.dist;
+                        simFrames(12);
+                        samples++;
+
+                        const c = camera.position, p = mouseGroup.position;
+                        // Point sampling rather than the registry's own clipping maths: the check
+                        // has to fail if that maths is wrong, not agree with it by construction.
+                        const crosses = rect => {
+                            for (let k = 0; k <= 24; k++) {
+                                const t = k / 24;
+                                const sx = p.x + (c.x - p.x) * t, sz = p.z + (c.z - p.z) * t;
+                                if (sx >= rect.x0 && sx <= rect.x1 && sz >= rect.z0 && sz <= rect.z1) return true;
+                            }
+                            return false;
+                        };
+                        let visible = 0;
+                        roofed.forEach(other => {
+                            if (!other.roof.visible) return;
+                            visible++;
+                            const rect = other.roof.userData.rect;
+                            // Only a lens at or above the underside can be occluded from behind it,
+                            // and only then does the slab have to come down. Below that line the
+                            // whole segment is under the slab, so leaving it drawn costs nothing.
+                            if (c.y > other.spec.wall.height && crosses(rect))
+                                faults.push(rm.id + ': ' + other.id + "'s roof stayed on between him and the lens");
+                            if (c.x > rect.x0 && c.x < rect.x1 && c.z > rect.z0 && c.z < rect.z1 &&
+                                c.y > other.spec.wall.height && c.y < yTop(other))
+                                faults.push(rm.id + ': the lens came to rest inside ' + other.id + "'s slab");
+                        });
+                        // The other half of the rule, and the half that only exists to be kept:
+                        // with the lens under his own ceiling, that ceiling is the room's roof and
+                        // it has to still be there, or the house is open-topped again.
+                        const under = c.y <= rm.spec.wall.height;
+                        if (under && !rm.roof.visible)
+                            faults.push(rm.id + ': his own ceiling dropped with the lens under it');
+                        if (!under && rm.roof.visible) faults.push(rm.id + ': his own ceiling stayed on');
+                        if (under && rm.roof.visible) ceilingsHeld++;
+                        if (visible) framesWithRoofOn++;
+                        if (roomAt(p.x, p.z).id !== rm.id) faults.push(rm.id + ': he is standing in ' + roomAt(p.x, p.z).id);
+                        if (p.y > 1) faults.push(rm.id + ': lifted to ' + p.y.toFixed(2) + ' by his own ceiling');
+                    }));
+                });
+                r.roofSweepSamples = samples;
+                r.roofCeilingsHeld = ceilingsHeld;
+                r.roofFaults = faults;
+                // The cutaway has to drop the roofs in the way and not every roof: if a single one
+                // of these samples left the far end of the house capped, the view from the street
+                // is still a house and not a dollhouse with the lid off.
+                r.roofSomeStayOn = framesWithRoofOn === samples;
+                r.roofAllClear = faults.length === 0 && r.roofsNotCameraMeshes && r.roofsNotObstacles
+                    && ceilingsHeld > 0;
                 next();
             });
 

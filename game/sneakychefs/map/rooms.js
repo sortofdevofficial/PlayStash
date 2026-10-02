@@ -17,7 +17,8 @@
  * an edge with no neighbour behind it is simply an exterior wall. Two rules do have to hold,
  * and the ?qa rig checks both:
  *   1. no two rects may OVERLAP. Each room's furniture, lights and loot are placed in its own
- *      local frame, and two floors in the same place fight for the pixels.
+ *      local frame, two floors in the same place fight for the pixels, and every room gets a
+ *      roof slab built from the same rect — so an overlap would drive one through the other.
  *   2. two doors that name each other must land on the SAME point. Each room puts its doors on
  *      its own edge, at `at` along that edge from its centre; a pair only lines up if
  *      ox ± hx (or oz ± hz) coincide and the two `at` values resolve to the same world
@@ -29,7 +30,14 @@
  *   floor     { a, b, tile, rough } — a two-tone checker, `tile` units per tile
  *   wall      { color, height, thickness, trim } — doorways are cut automatically. Where two
  *             rooms share an edge, the taller wall spec wins both sides of it.
+ *   roof      { color?, thickness?, overhang? } — a slab at the top of that wall spec, which is
+ *             also the room's ceiling. `roof: false` leaves the room open to the sky. The eaves
+ *             only reach past an edge no other roofed room abuts, so a party wall stays flush.
  *   furniture pieces, see below
+ *   doors     { side, at, to, gap? } — a real gap cut in the masonry you walk through
+ *   windows   { side, at, width?, sill?, head? } — a band of glass in an EXTERIOR wall. The
+ *             registry cuts the view and leaves the wall standing as far as a body is
+ *             concerned, so a window is something to look at, never something to leave by.
  *   lights    { color, intensity, distance, x, y, z } — only the lit rooms' are on
  *   loot      { type, x, z } — where the hoard starts
  *   restock   { floor, gap } — refill to `floor` live props, one drop every `gap` seconds
@@ -52,7 +60,7 @@
  * kitchenObstacles and cameraCollisionMeshes (core/state.js), which the kitchen hands to the
  * registry as its own obstacle and camera lists. Everything else a spec needs is written here —
  * the den included, now that it is a room in the plan rather than a shell another module draws.
- * The numbers this file defines for itself are all above ROOMS: KITCHEN_BOUND, SOUTH_EDGE,
+ * The numbers this file defines for itself are all above ROOMS: KITCHEN_BOUND, ROOF, SOUTH_EDGE,
  * HALL_MID, DELIVERY_FLOOR and DELIVERY_GAP — plus CHEF_BEAT, the hunter's route, which is the
  * one thing here written in world coordinates.
  */
@@ -60,6 +68,11 @@
 // The kitchen has always been 15.35 half-units; its walls and the mouse hole cut in the north
 // one are all built off this number.
 const KITCHEN_BOUND = 15.35;
+
+// One house, one roof. Every room is capped with the same slab and the registry sets it down on
+// top of that room's own walls, which is why the kitchen's roof stands a floor above the
+// pantry's. The garden opts out with `roof: false` — it is the outside.
+const ROOF = { color: 0x2b2f3a, thickness: 0.8, overhang: 1.2 };
 
 // Restock defaults, quoted by the `restock` rule below. `floor` is how many props a room
 // keeps in play before it starts refilling; `gap` is the seconds between two deliveries.
@@ -114,6 +127,9 @@ const ROOMS = [
         build: 'buildKitchenEnvironment',
         floor: { a: '#454558', b: '#34344a', tile: 4, rough: 0.5 },
         wall: { color: 0x222230, height: 8, thickness: 1, trim: 0x4a5568 },
+        // The tallest walls in the plan, so the kitchen's roof is the high point every other
+        // slab steps down from.
+        roof: ROOF,
         furniture: [
             // The island and the two runs his beat walks a wide circle around.
             { kind: 'counter', w: 8, h: 2.2, d: 3, x: 0, z: 0, color: 0x4a5568 },
@@ -163,6 +179,7 @@ const ROOMS = [
         spawn: { x: 0, z: 8 },
         floor: { a: '#4a4438', b: '#3e382c', tile: 3, rough: 0.85 },
         wall: { color: 0x3a3327, height: 6, thickness: 1, trim: 0x7a5c3a },
+        roof: ROOF,
         lights: [{ color: 0xffd9a0, intensity: 0.9, distance: 24, x: 0, y: 4.2, z: 0 }],
         furniture: [
             // Against the two wall lines it shares with the kitchen and the hall.
@@ -210,6 +227,7 @@ const ROOMS = [
         spawn: { x: 0, z: 0 },
         floor: { a: '#5b4636', b: '#4d3a2b', tile: 4, rough: 0.75 },
         wall: { color: 0x3b2f28, height: 6.5, thickness: 1, trim: 0x8a6a45 },
+        roof: ROOF,
         lights: [
             { color: 0xffc98a, intensity: 0.85, distance: 26, x: -9, y: 4.4, z: 0 },
             { color: 0xffc98a, intensity: 0.85, distance: 26, x: 9, y: 4.4, z: 0 }
@@ -235,6 +253,9 @@ const ROOMS = [
             { side: 'west', at: 0, to: 'dining' },
             { side: 'east', at: 0, to: 'living' }
         ],
+        // The hall's south face is outside — the dining room stops at its west edge and the
+        // sitting room at its east — so this is where the house looks at the street.
+        windows: [{ side: 'south', at: 10, width: 5, sill: 1.5, head: 4.2 }],
         loot: [
             { type: 'banana', x: -11, z: -6.6 },
             { type: 'apple', x: 5, z: 6.6 },
@@ -255,6 +276,7 @@ const ROOMS = [
         spawn: { x: 0, z: 10 },
         floor: { a: '#6a4a30', b: '#5b3f28', tile: 4.5, rough: 0.7 },
         wall: { color: 0x43312a, height: 7, thickness: 1, trim: 0x9a7a4f },
+        roof: ROOF,
         lights: [{ color: 0xffdca8, intensity: 1.0, distance: 30, x: 0, y: 5.0, z: 0 }],
         furniture: [
             { kind: 'deco', w: 17, h: 0.05, d: 9.5, x: 0, y: 0.01, z: 0, color: 0x6d3b3b, rough: 0.95 },
@@ -278,6 +300,12 @@ const ROOMS = [
             { kind: 'solid', w: 1.5, h: 1.15, d: 1.5, x: 13.4, z: 9.2, color: 0x8a6a3a }
         ],
         doors: [{ side: 'east', at: -7, to: 'hall' }],   // -7 puts it on HALL_MID, the hall's line
+        // South and west are both outside here, so the long room gets two looks at the traffic —
+        // one down the west aisle the chef's beat walks, one over the table.
+        windows: [
+            { side: 'south', at: 6, width: 9, sill: 1.4, head: 4.6 },
+            { side: 'west', at: 0, width: 6, sill: 1.4, head: 4.4 }
+        ],
         loot: [
             { type: 'cheese', x: -2.5, z: 0 },      // both of these stand on the table
             { type: 'bread', x: 2.5, z: 0.6 },
@@ -301,6 +329,7 @@ const ROOMS = [
         spawn: { x: 0, z: 0 },
         floor: { a: '#4d4038', b: '#42372f', tile: 4, rough: 0.8 },
         wall: { color: 0x33303f, height: 7, thickness: 1, trim: 0x8a7a5f },
+        roof: ROOF,
         lights: [
             { color: 0xffc98a, intensity: 0.9, distance: 28, x: -4, y: 4.6, z: 2 },
             { color: 0xff9a4a, intensity: 0.8, distance: 14, x: -11.5, y: 1.2, z: -13.6 }
@@ -341,6 +370,13 @@ const ROOMS = [
             { side: 'west', at: 0, to: 'hall' },
             { side: 'east', at: -4, to: 'garden' }
         ],
+        // A pair of front windows either side of the sofa, both onto the same street the
+        // dining room's bay looks down. The room's north face is outside as well, but that is
+        // the fireplace wall, and a hearth with a window through it is a draught.
+        windows: [
+            { side: 'south', at: -8, width: 7, sill: 1.4, head: 4.6 },
+            { side: 'south', at: 8, width: 7, sill: 1.4, head: 4.6 }
+        ],
         loot: [
             { type: 'cheese', x: -11.4, z: -13.9 }, // in the hearth, behind the log
             { type: 'jam', x: -5.4, z: 4 },         // under the draped table
@@ -364,6 +400,9 @@ const ROOMS = [
         floor: { a: '#3c5a30', b: '#354f2a', tile: 2.8, rough: 0.95 },
         // A hedge, not a wall: low enough to read as a boundary from the outside world.
         wall: { color: 0x2c4423, height: 2.6, thickness: 1.4, trim: 0x6b4a2f, rough: 0.95 },
+        // The one room with no slab over it: a hedge is a boundary rather than a wall, and the
+        // garden is the outside the rest of the house is roofed away from.
+        roof: false,
         lights: [
             { color: 0xbfd4ff, intensity: 0.55, distance: 44, x: 0, y: 9, z: 0 },
             { color: 0xffb066, intensity: 0.7, distance: 16, x: 12, y: 2.4, z: -10.4 }
@@ -435,6 +474,9 @@ const ROOMS = [
         build: 'buildBurrow',
         floor: { a: '#5a4535', b: '#634c3b', tile: 2.6, rough: 0.9 },
         wall: { color: 0x4a3728, height: 6, thickness: 1, trim: 0x6e4f30 },
+        // The den gets a ceiling like every other room. It is what makes the base read as
+        // somewhere under the world rather than merely north of it.
+        roof: ROOF,
         // The jar lamp and a warm fill, so the base reads as somewhere safe to stand. The
         // registry switches every room's lamps off except the one the player is in.
         lights: [
@@ -454,6 +496,10 @@ const ROOMS = [
             { kind: 'solid', shape: 'cyl', rt: 0.09, rb: 0.12, h: 3.4, segments: 6, x: -1.5, z: -6, color: 0x5c4326 },
             { kind: 'deco', shape: 'sphere', r: 0.45, x: -1.5, y: 3.05, z: -6, color: 0xffd98a, rough: 0.9 }
         ],
-        doors: [{ side: 'south', at: 0, to: 'kitchen', gap: 2.0 }]
+        doors: [{ side: 'south', at: 0, to: 'kitchen', gap: 2.0 }],
+        // The den's north face is the outside of the house, and the street runs 13 units past
+        // it. One band of glass high in that wall so the base still reads as somewhere under
+        // the world rather than merely north of it.
+        windows: [{ side: 'north', at: 0, width: 4, sill: 2.6, head: 4.4 }]
     }
 ];

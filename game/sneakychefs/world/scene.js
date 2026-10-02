@@ -2,8 +2,11 @@
  * world/scene.js — the THREE.js stage: renderer, scene, fog, lights, resize.
  *
  * The three objects everyone reads (scene / camera / renderer) are declared in
- * core/state.js; this file only creates them. Fog density plus camera.far are what keep
- * the base, parked 400 units along x, out of the kitchen's frame entirely.
+ * core/state.js; this file only creates them. Fog density plus camera.far are what keep the
+ * house a room-scale place rather than a model on a table: the fog finishes anything past about
+ * 70 units, and the far plane is set just wide enough to include the street ring and the near
+ * skyline world/city.js lays around the plan, so the city is a backdrop and the rest of the
+ * world simply stops existing.
  */
 let fillLight = null;
 // The one shadow-casting light in the house. world/rooms.js moves it, its target and its
@@ -17,7 +20,7 @@ function initScene() {
     scene.background = new THREE.Color(0x1a1a24);
     scene.fog = new THREE.FogExp2(0x1a1a24, 0.025);
 
-    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 150);
     camera.position.set(0, 10, 14);
 
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });

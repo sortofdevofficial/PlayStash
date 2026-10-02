@@ -13,6 +13,9 @@ window.addEventListener('load', () => {
     setupSecurityRestrictions();
     initScene();
     buildHouse();
+    // After the house, because the street ring keeps its distance from the plan the registry
+    // just built rather than from a number written down here.
+    buildCity();
 
     const mouseData = createLowPolyMouse();
     mouseGroup = mouseData.mouseGroup;
@@ -59,6 +62,10 @@ function animate(time) {
         // second to slide that rather than teleporting the dark onto the room he just left.
         updateKeyLight(dt);
         updateCamera(dt);
+        // After the camera has settled, because the cutaway asks where the lens ended up: a roof
+        // it has climbed above and passed over is off for this frame, and the ceiling it is still
+        // under is not.
+        updateRoofs();
 
         // Every brain ticks in every room. Each one guards itself: the chef walks his own beat
         // and the masonry decides where that goes, so he is in the hall and the dining room for
@@ -75,6 +82,8 @@ function animate(time) {
     }
 
     updateFridge(dt);
+    // The one thing in the scene that keeps going whether or not anyone is looking at it.
+    updateCity(dt);
     renderer.render(scene, camera);
 }
 

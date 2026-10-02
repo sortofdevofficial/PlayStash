@@ -21,6 +21,20 @@ dining room and back — about a minute round the loop, with the masonry the onl
 where he can go. An open doorway is a line of sight *and* a way to reach you, and the hole is no
 different: nothing in the masonry bars him from following you into the base.
 
+And the house stands in a city. It is a backdrop and not a place: a ring road with traffic
+running both ways, street lamps, and a skyline of lit windows behind them, all of it seen
+through six windows you can walk up to and never out of — the hall's, two in the dining room,
+two in the sitting room, and one high in the den. Every one of them is a hole in the masonry
+that the builder has sealed to a body.
+
+And the house has a roof. Six of the seven rooms are capped at the top of their own walls —
+the garden is the outside and stays open to the sky — so the plan reads as a house from the
+street rather than a pit with walls built around it. The ceilings come off as the camera climbs
+through them: a slab is dropped when the line from the mouse's feet to the lens passes over it
+*and* the lens has risen above its underside. At the pose the game opens at the lens is still
+under the kitchen's ceiling, so you start indoors; pull up and out and the house opens into the
+same look-down view it has always had.
+
 ## Running it
 
 Open `index.html` in a browser. There is no build step, no bundler, and no dependency
@@ -37,7 +51,7 @@ HTML document: the QA rig is a mode of `index.html`, not a second page.
 | --- | --- |
 | `index.html` | DOM, HUD, CSS, the script load order, and the `?qa` rig described below |
 | `main.js` | boot sequence, the frame loop, capture/restart |
-| `map/rooms.js` | the level: every room as plain data — rect, floor, walls, furniture, doors, lights, loot, restock rule — plus the chef's beat |
+| `map/rooms.js` | the level: every room as plain data — rect, floor, walls, roof, furniture, doors, windows, lights, loot, restock rule — plus the chef's beat |
 | `core/state.js` | every shared global: stage objects, actor rigs, geometry registries, game flags |
 | `core/input.js` | keyboard, mouse-drag, wheel and touch buttons → `keys` and camera targets |
 | `core/camera.js` | orbit camera, zoom limits, raycast pull-in so it never clips through walls |
@@ -46,7 +60,8 @@ HTML document: the QA rig is a mode of `index.html`, not a second page.
 | `core/audio.js` | synthesised sfx (jump, collect, alert, door, thud, grab) |
 | `world/scene.js` | renderer, scene, fog, lights, the one key light that follows the player |
 | `world/physics.js` | floor height and obstacle push-out (body and prop variants) against the whole house's merged sets |
-| `world/rooms.js` | the room registry and the generic builder: floors, the house's merged masonry with door gaps cut through it, thresholds, furniture, lights, and the chef's beat turned into waypoints |
+| `world/rooms.js` | the room registry and the generic builder: floors, the house's merged masonry with door gaps and window bands cut through it, thresholds, roofs and the cutaway that drops the ones in the camera's way, furniture, lights, and the chef's beat turned into waypoints |
+| `world/city.js` | the outside: ring road, traffic, street lamps, skyline and moon, laid out around the house's own bounds — drawn, never registered, so nothing in it is solid |
 | `world/kitchen.js` | the kitchen's block helpers and its `build` hook, whose only job is to put the walk-in fridge in the north-west corner |
 | `world/fridge.js` | the fridge: shell with a walk-in cavity, hinged doors, interior lamp, freezer stock, cold mist |
 | `world/ingredients.js` | prop physics (push response, roll, gravity, stash), `stowCarried`, the per-room restock loop; spawns come from each room's authored `loot` |
@@ -67,7 +82,9 @@ depends on its position: `map/rooms.js` quotes other modules' globals while it i
 evaluated — `core/state.js`'s `kitchenObstacles` / `cameraCollisionMeshes` and `world/burrow.js`'s
 `burrowObstacles` / `burrowCollision`, which the kitchen's spec and the den's hand to the registry
 as their own collision arrays — so it has to come after the modules that define them and before
-anything that builds.
+anything that builds. `world/city.js` reads the registry too, but only when `main.js` calls
+`buildCity()` after `buildHouse()`, so nothing about its position matters beyond coming before
+`main.js`.
 
 ## Things worth knowing before editing
 
@@ -93,11 +110,12 @@ anything that builds.
   half a second. Nothing snaps it, because nothing cuts: crossing a doorway is the only way the
   room changes and the mouse is still where he was when it happened.
   Two rules replace the old spacing floor, and the `?qa` rig checks both: no two rects may
-  overlap (abutting is fine, sharing a floor is not), and a pair of doors that name each other
+  overlap (abutting is fine, sharing a floor is not — and now sharing a ceiling too, since every
+  room's roof slab is built from the same rect), and a pair of doors that name each other
   must land on the same point on a wall line each of them actually owns.
 - **The level is data.** `map/rooms.js` is the only file you edit to change the house. A room
-  spec is a rect (`ox`, `oz`, `hx`, `hz`), a `floor` and `wall` palette, a `spawn`, an optional
-  `build` hook, `lights`, `furniture`, `doors`, `loot`
+  spec is a rect (`ox`, `oz`, `hx`, `hz`), a `floor`, `wall` and `roof` palette, a `spawn`, an optional
+  `build` hook, `lights`, `furniture`, `doors`, `windows`, `loot`
   and a `restock` rule — everything but the doors in local coordinates. Furniture kinds are
   `counter` (worktop: blocks bodies and the camera), `solid` (a column from `y` to `y + h`:
   blocks and stops the camera), `visual` (camera geometry only, so the mouse walks under it —
@@ -110,7 +128,13 @@ anything that builds.
   no arrival point, no trigger radius and no fade left anywhere in the registry, and the rig fails
   the map if a portal record grows a field beyond `id, side, to, width, x, z`. Give every door a
   door back or the plan has a cell, because `core/areas.js` only ever reads which rect his feet
-  are in. The kitchen and the base predate the registry and hand their own global obstacle arrays
+  are in. A window is `{ side, at }` with an optional `width`, `sill` and `head`, and it belongs on
+  an exterior wall — the line only one room claims — because it is a view and not a way out.
+  A roof is one shared palette (`ROOF`) quoted by every room but the garden, which says
+  `roof: false` and stays open to the sky; the slab lands on top of that room's own `wall.height`,
+  so a room's ceiling is as high as its walls, and its eaves only reach past an edge no other
+  roofed room abuts.
+  The kitchen and the base predate the registry and hand their own global obstacle arrays
   over instead of being built from data.
 - **The hunter's beat is authored, not solved.** `CHEF_BEAT` in `map/rooms.js` is his route: a
   list of `[x, z]` pairs that `world/rooms.js` turns into `chefWaypoints` once, at the end of
@@ -148,6 +172,37 @@ anything that builds.
   `addKitchenVisualBox` for geometry the mouse should walk through but the camera should
   not, and plain `scene.add` meshes for decoration with no collision at all (that is how the
   fridge doors, lid and shelves coexist with a mouse standing inside).
+- **The city is scenery; the windows are the seal.** `world/city.js` lays a ring road, its
+  traffic, street lamps and a skyline around the house's own bounding box, read from the registry
+  rather than written down — move a room and the street moves with it. None of it reaches
+  `worldObstacles` or `worldCollisionMeshes`, so it cannot be stood on, shoved, blocked against
+  or seen through by anything that reads those lists, and the rig asserts both lists still hold
+  exactly what the rooms and the masonry account for. A window is cut by `buildMasonry()` the way
+  a doorway is — `houseWindows()` folds both halves of a pair onto their wall line — but the band
+  between `sill` and `head` is left open to the eye and closed to a body by one **undrawn
+  full-height column** across the whole span. That is the single deliberate exception to the rule
+  above: an obstacle cannot start at a height, so the only way to keep a window solid is to
+  register all of it. The glass and its mullion *are* camera geometry, which is what stops the
+  orbit following you out through the window — it still clips the outer face by about a tenth of
+  a unit, because `core/camera.js` keeps a 1.5-unit minimum distance however close a wall gets.
+  The rig walks a mouse into every window in the house and fails if one of them lets him past the
+  inner face of its own wall.
+- **A roof is drawn and registered nowhere.** `buildRoofs()` caps every room whose spec does not
+  opt out with a slab set down on top of that room's own walls, so the house is a house when the
+  camera pulls back — and `updateRoofs()` drops a slab when the line from the mouse's feet to the
+  lens passes over it *and* the lens has climbed above that slab's underside, which is the only
+  way a ceiling can coexist with an orbit camera that lives above the wall heads. The height half
+  is what keeps a room a room: a lens below an underside cannot be occluded from behind it, since
+  the segment starts at his feet, so the ceiling stays exactly where it should. Both registration
+  halves matter too: a roof must not be an obstacle (a column has no underside, so registering one
+  would fill the room it caps), and it must not be camera geometry either, because `core/camera.js`
+  raycasts the mesh list and three.js does not skip a mesh that is currently hidden — a registered
+  roof would go on pulling the lens in after the cutaway had already made it invisible. The rig
+  sweeps every roofed room's spawn against three camera poses at four yaws, re-deriving the
+  crossing by sampling points along the segment rather than by calling the registry's own maths,
+  and fails if a slab between him and a lens above it is still on, if the lens comes to rest
+  inside one, if *every* roof went off, or if a ceiling dropped while the lens was still under it
+  — the cutaway takes the lid off a room, it does not remove the roof.
 - **Props roll about their own axle.** Each ingredient is `group → carrier → spinner →
   model`: the carrier yaws to face the direction of travel, the spinner accumulates the
   roll. A model that does not contact the ground at its bounding-box centre publishes
@@ -215,7 +270,7 @@ The game has no test runner — it has one rig inside `index.html`. Opening the 
 plays the game; adding `?qa` runs two phases after the usual boot and prints the result as a
 single `QA{...}` blob into `#qa-out`: an audit of every module (parse errors, expected
 functions, expected globals) and the behavioural checks — the fridge, including walking around
-inside it, push, restart, restock, prop collision and carrying flows, plus three over
+inside it, push, restart, restock, prop collision and carrying flows, plus five over
 the house itself: the map in `map/rooms.js` audited against the rules a connected floorplan has
 to obey (doors resolve both ways, no two rects share a floor, every doorway pair meets on a wall
 line with the gap clear of furniture, every portal record still holds only the fields a walked
@@ -232,7 +287,18 @@ measuring a wall and not a crate; his beat walked on paper at a finer step than 
 that changes rooms is caught if it misses its doorway; and then a lap and a bit of him running
 for real with the mouse parked out of sight in the garden, reporting the rooms he entered in order
 as `lapRooms`, how many waypoints he passed as `lapAdvances`, the tightest clearance he ever
-stood in as `lapMinClearance`, and how many of his samples landed outside the plan at all. It
+stood in as `lapMinClearance`, and how many of his samples landed outside the plan at all; and
+the outside: the city required to be registered as nothing at all, ten cars run for a second and
+required to stay on their own tarmac and off every room's floor, and a mouse walked into each of
+the six windows, which is where `windowSealFaults`, `windowViewFaults` and `windowEscapes` come
+from — the last of them naming any pane that let him past the face of its own wall; and the
+roofs, required to be registered as nothing either, then every roofed room's spawn held while the
+camera is put at three pitches and four yaws — poses chosen because their lens heights straddle the
+six ceiling heights, so the one sweep proves both halves of the cutaway — with the crossing
+re-derived by sampling the segment rather than by trusting `segmentCrossesRect`. That is where
+`roofFaults` comes from, why `roofSomeStayOn` has to be true as well as `roofAllClear`, and what
+`roofCeilingsHeld` counts: how many of those 72 samples left a ceiling standing over his head
+because the lens was still under it. It
 finishes in a few seconds of wall clock and reports `simMs`
 (simulation time the checks consumed) next to `wallMs`, because it does not use the browser's
 clock.
@@ -254,7 +320,7 @@ loop has to be made in both places** or the rig quietly stops testing what ships
 Read `audit.errors` first after moving code between files: a duplicated top-level
 `let`/`const` across two scripts is a `SyntaxError` that silently kills the whole second
 script, and it surfaces there rather than as a missing function later on. `step` is how far
-the checks got (25 means all of them — 23 numbered checks, a few of which settle in a second
+the checks got (27 means all of them — 25 numbered checks, a few of which settle in a second
 step).
 
 Absolute frame rate from a headless or background pane is noise — measure object counts and
