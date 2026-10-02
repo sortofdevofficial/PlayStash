@@ -13,8 +13,8 @@ let scene, camera, renderer;
 let mouseGroup, chefGroup, chefSpotlight;
 
 // Geometry registries. These two are the kitchen's own lists, under the names its bespoke
-// builders (world/kitchen.js, world/fridge.js, world/mousehole.js) have always used; map/rooms.js
-// hands them to the room registry, and world/rooms.js merges them onto the world lists below.
+// builders (world/kitchen.js, world/fridge.js) have always used; map/rooms.js hands them to
+// the room registry, and world/rooms.js merges them onto the world lists below.
 let kitchenObstacles = [];        // { x, z, w, d, h } boxes bodies and props collide with
 let cameraCollisionMeshes = [];   // meshes the orbit camera must not pass through
 
@@ -36,4 +36,3 @@ let carriedItem = null;
 // Game flow — core/areas.js and main.js
 let currentArea = 'kitchen';   // whichever room the mouse is standing in — core/areas.js owns it
 let isGameOver = false;
-let isTraveling = false;

@@ -1,19 +1,19 @@
 /**
  * actors/residents.js — the mice who live in the base.
  *
- * Four rig-built residents that trot between home spots, idle, and scurry back when the
- * player walks in. They are decoration, not threat: the chef cannot follow into the base,
- * so nothing here can hurt the player.
+ * Four rig-built residents that trot between home spots, idle, and scurry about when the player
+ * walks in. They are decoration, not threat: nothing here can hurt the player, and the chef's
+ * beat never goes north of the kitchen, so the den is quiet unless he has followed you home.
  */
 let burrowMice = [];
 function spawnBurrowMice() {
     burrowMice = [];
-    const O = BURROW_ORIGIN_X;
+    const den = roomById('burrow');
     const spots = [
-        { x: O + 4.5, z: 4.5, hat: true },
-        { x: O - 4, z: 1, hat: false },
-        { x: O + 0.5, z: -4.5, hat: false },
-        { x: O - 6, z: -2, hat: false }
+        { x: den.ox + 4.5, z: den.oz + 4.5, hat: true },
+        { x: den.ox - 4, z: den.oz + 1, hat: false },
+        { x: den.ox + 0.5, z: den.oz - 4.5, hat: false },
+        { x: den.ox - 6, z: den.oz - 2, hat: false }
     ];
 
     spots.forEach((spot, i) => {
@@ -44,6 +44,7 @@ function spawnBurrowMice() {
 // competing with the player's own rig.
 function updateBurrowMice(dt, time) {
     if (currentArea !== 'burrow') return;
+    const den = roomById('burrow');
 
     burrowMice.forEach(m => {
         const pos = m.rig.position;
@@ -54,9 +55,9 @@ function updateBurrowMice(dt, time) {
                 const angle = Math.random() * Math.PI * 2;
                 const dist = 1.5 + Math.random() * 3.5;
                 m.target.set(
-                    THREE.MathUtils.clamp(m.home.x + Math.cos(angle) * dist, BURROW_ORIGIN_X - BURROW_BOUND + 1, BURROW_ORIGIN_X + BURROW_BOUND - 1),
+                    THREE.MathUtils.clamp(m.home.x + Math.cos(angle) * dist, den.ox - den.hx + 1, den.ox + den.hx - 1),
                     0,
-                    THREE.MathUtils.clamp(m.home.z + Math.sin(angle) * dist, -BURROW_BOUND + 1, BURROW_BOUND - 1)
+                    THREE.MathUtils.clamp(m.home.z + Math.sin(angle) * dist, den.oz - den.hz + 1, den.oz + den.hz - 1)
                 );
                 m.walking = true;
             }
@@ -116,7 +117,3 @@ function updateBurrowMice(dt, time) {
     });
 }
 
-// The den is 18.8 across and the camera orbits 4-24 units out, so it spends almost all of
-// its time outside the shell. A wall between the camera and the mouse would fill the frame
-// with its back face, so the sides the camera has stepped outside of are dropped and the
-// room reads as an open cutaway; the far sides stay up to keep it feeling like a den.

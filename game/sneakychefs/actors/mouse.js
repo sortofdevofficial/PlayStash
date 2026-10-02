@@ -44,7 +44,6 @@ function updateMouse(dt, time) {
 
     mouseGroup.position.x += mouseVel.x * dt;
     mouseGroup.position.z += mouseVel.z * dt;
-    clampToArea(mouseGroup.position);
 
     if (inputDir.length() > 0.1) {
         // Model's forward (head) axis is -Z at rotation.y = 0, so offset by PI to align
@@ -180,19 +179,18 @@ function nearestCarryable() {
 }
 
 function pickUp() {
-    if (isGameOver || isTraveling) return;
+    if (isGameOver) return;
     // Two arms, one cargo. Refusing here keeps the invariant true for every caller, not just
     // the toggle above — dropping is always a deliberate second press.
-    if (carriedItem) { showToast('Paws are full — ' + carriedItem.label + ' first'); return; }
+    if (carriedItem) return;
     const item = nearestCarryable();
-    if (!item) { showToast('Nothing close enough to hoist'); return; }
+    if (!item) return;
     carriedItem = item;
     item.carried = true;
     item.vel.set(0, 0, 0);
     item.velY = 0;
     item.spinner.rotation.set(0, 0, 0);   // off the floor, so it stops rolling
     playSound('grab');
-    showToast(item.label + ' hoisted — paws carry one at a time');
     updateCarryHud();
 }
 
@@ -232,7 +230,6 @@ function updateCarry(dt, time) {
     // never thrown.
     CARRY_SLIDE.set(0, 0, 0);
     solvePropCollision(hold, CARRY_SLIDE, item.radius);
-    clampToArea(hold);
     // Horizontal is placed, not followed: a lerped hold point trails about half a unit at a
     // run, which is the mouse's own body — the wheel ends up dragging at his feet.
     p.x = hold.x;

@@ -5,33 +5,13 @@
  * solveObstacleCollision min-axis push-out from { x, z, w, d, h } boxes.
  * solvePropCollision     the same push-out for a rolling prop, plus the velocity fix that
  *                        keeps it sliding along a face instead of grinding into it.
- * clampPropToRect/clampToRect the invisible rect that seals one room — only for rooms that
- *                        ask for it, which since the house became walkable is just the base.
  *
- * Everything else is real geometry. The house is one connected floorplan, so a mouse stops
- * at a wall because there is a wall there, not because a clamp said so: world/rooms.js
+ * Everything else is real geometry. The house is one connected floorplan and every room in it is
+ * walled, so a mouse or a wheel stops at a wall because there is a wall there: world/rooms.js
  * merges every room's furniture and the whole house's masonry into `worldObstacles` and its
  * camera-dressing meshes into `worldCollisionMeshes`, and both are the default argument here.
  */
 const STEP_HEIGHT = 0.12;
-
-// A room is the rect (ox ± hx, oz ± hz). Walls straddle the rect edge, so the clamp stops
-// the mouse at the wall's inner face rather than in the middle of the masonry.
-function clampToRect(vec, room) {
-    if (vec.x < room.ox - room.hx) vec.x = room.ox - room.hx;
-    else if (vec.x > room.ox + room.hx) vec.x = room.ox + room.hx;
-    if (vec.z < room.oz - room.hz) vec.z = room.oz - room.hz;
-    else if (vec.z > room.oz + room.hz) vec.z = room.oz + room.hz;
-}
-
-// Most rooms are bounded by real masonry, so there is nothing to clamp: the exception is the
-// base, whose cutaway shell is drawn rather than built, and which therefore has no obstacles
-// to walk into. Rooms declare `clamp: true` in map/rooms.js to opt back in.
-function clampToArea(vec) {
-    const room = activeRoom();
-    if (room.clamp) clampToRect(vec, room);
-}
-
 
 function getFloorY(px, pz, feetY = Infinity, obstacles = worldObstacles) {
     let maxY = 0;
@@ -95,17 +75,6 @@ function solvePropCollision(pos, vel, radius, obstacles = worldObstacles) {
             vel.z -= nz * into * (1 + BODY_BOUNCE);
         }
     }
-}
-
-// The rect bounds for a prop in a clamped room. No rebound here: the base's exit arch is set
-// into the shell, so a load that reaches it has to stay put rather than be thrown back inside.
-function clampPropToRect(pos, vel, room) {
-    const minX = room.ox - room.hx, maxX = room.ox + room.hx;
-    const minZ = room.oz - room.hz, maxZ = room.oz + room.hz;
-    if (pos.x < minX) { pos.x = minX; if (vel.x < 0) vel.x = 0; }
-    else if (pos.x > maxX) { pos.x = maxX; if (vel.x > 0) vel.x = 0; }
-    if (pos.z < minZ) { pos.z = minZ; if (vel.z < 0) vel.z = 0; }
-    else if (pos.z > maxZ) { pos.z = maxZ; if (vel.z > 0) vel.z = 0; }
 }
 
 // Particle dust puffs sharing geometry and material to prevent GC stuttering

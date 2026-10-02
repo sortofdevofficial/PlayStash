@@ -5,16 +5,16 @@
  * loop. Where the goods start is data: map/rooms.js authors each room's `loot` and its
  * `restock` rule. Body-weight pushing and carrying live in actors/mouse.js; everything
  * after the shove happens here — friction, gravity, obstacle collisions, prop-vs-prop
- * contact, rolling, and the drop into the mouse hole.
+ * contact, rolling, and the delivery into the base.
  *
  * The house is one connected floorplan, so a prop is measured against `worldObstacles` —
  * every wall and counter in it — and the room it belongs to is derived from where it is
  * standing each frame rather than from wherever it was spawned. That tag is not containment,
- * it is bookkeeping: it decides which room's restock loop counts it, which floor the HUD and
- * the minimap draw it on, and whose authored spot a restart returns it to. Shove a wheel
- * through a doorway and it becomes that room's problem, walls and all.
+ * it is bookkeeping: it decides which room's restock loop counts it, and whose authored spot a
+ * restart returns it to. Shove a wheel through a doorway and it becomes that room's problem,
+ * walls and all — including the base's, which is the one room a prop disappears into.
  *
- * `stowCarried` is what turns a load carried into the mouse hole into part of the pile.
+ * `stowCarried` is what turns a load carried through the mouse hole into part of the pile.
  */
 const PROP_FRICTION = 1.6;
 const PROP_MAX_SPEED = 9.0;
@@ -122,7 +122,7 @@ function updateIngredientProps(dt) {
         const pos = item.group.position;
 
         if (item.stashing || item.sunk) { animateIngredientStash(item, dt); return; }
-        // In the paws: actors/mouse.js moves it, so no gravity, no contact and no chute.
+        // In the paws: actors/mouse.js moves it, so no gravity, no contact and no stash check.
         if (item.carried) return;
 
         if (item.grounded && item.vel.lengthSq() > 0) {
@@ -135,12 +135,11 @@ function updateIngredientProps(dt) {
         pos.x += item.vel.x * dt;
         pos.z += item.vel.z * dt;
 
-        // Whichever room it has ended up in is the one it belongs to now. The clamp only
-        // exists for the base, whose cutaway shell is drawn rather than built; everywhere
-        // else in the house the masonry is the thing that stops a wheel.
-        const room = roomAt(pos.x, pos.z);
-        if (room.clamp) clampPropToRect(pos, item.vel, room);
+        // Whichever room it has ended up in is the one it belongs to now, and the masonry is
+        // the only thing that stops it: every room in the plan is walled, so a wheel cannot
+        // leave the house through a wall, only through a doorway.
         solvePropCollision(pos, item.vel, item.radius);
+        const room = roomAt(pos.x, pos.z);
         item.room = room.id;
 
         const restY = getFloorY(pos.x, pos.z, pos.y + 0.05);
@@ -172,11 +171,16 @@ function updateIngredientProps(dt) {
             }
         }
 
-        if (item.grounded && kitchenHoleDistance(pos.x, pos.z) < MOUSE_HOLE.radius) {
+        // Through the hole and into the pile: the base is the one room that is the score rather
+        // than the supply, so a prop that gets in there is delivered and leaves the floor.
+        if (item.grounded && item.room === 'burrow') {
             item.stashing = true;
             item.stashT = 0;
             item.vel.set(0, 0, 0);
             item.stashFrom.copy(pos);
+            // Back to the room it grew in: a delivery is picked out of the sunk props standing in
+            // the room being refilled, so a wheel that stayed "in the base" would never return.
+            item.room = item.home.room;
             onIngredientStashed(item);
         }
     });
@@ -270,7 +274,6 @@ function deliver(item) {
     item.vel.set(0, 0, 0);
     item.velY = 0;
     item.grounded = false;
-    showToast(item.label + ' restocked in the ' + roomById(item.room).label.toLowerCase());
 }
 
 function animateIngredientStash(item, dt) {
@@ -278,8 +281,7 @@ function animateIngredientStash(item, dt) {
     item.stashT += dt;
     const k = Math.min(1, item.stashT / PROP_STASH_TIME);
     const pos = item.group.position;
-    pos.x = THREE.MathUtils.lerp(item.stashFrom.x, MOUSE_HOLE.x, k * k);
-    pos.z = THREE.MathUtils.lerp(item.stashFrom.z, MOUSE_HOLE.z, k * k);
+    // Sinks where it stopped — the clone in the base's pile is what represents it now.
     pos.y = THREE.MathUtils.lerp(item.stashFrom.y, -item.height, k);
     const s = 1 - k;
     item.group.scale.set(s, s, s);
@@ -340,12 +342,10 @@ function onIngredientStashed(item) {
     addToStash(item);
     updateStashHud();
     playSound('collect');
-    showToast(item.label + ' stashed (' + stashedIngredients.length + ') — it is waiting in the base');
 }
 
-// Called by the portal when the mouse walks home carrying something. The load goes straight
-// into the pile — that is the payoff for the trip, and the reason to hoist a wheel that was
-// too wedged to roll.
+// Called when the mouse stands in the hole's mouth with a load. It goes straight into the pile —
+// that is the payoff for the hoist, and the reason to lift a wheel that was too wedged to roll.
 function stowCarried() {
     const item = carriedItem;
     if (!item) return;

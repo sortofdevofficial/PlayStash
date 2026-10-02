@@ -10,11 +10,12 @@
  * house is these rectangles tiled edge to edge — rooms share their walls, and a wall between
  * two of them is drawn and collision-tested once, not twice, because world/rooms.js merges
  * every room edge that falls on the same line. So placing a room is placing a tile, and the
- * plan as it stands is: the pantry is west of the kitchen, the hall runs along the south side
- * of both of them, the dining room is west of the hall, the sitting room east
- * of it, and the garden east of the sitting room. Nothing here is a grid: the rooms are all
- * different sizes, they do not have to line up, and an edge with no neighbour behind it is
- * simply an exterior wall. Two rules do have to hold, and the ?qa rig checks both:
+ * plan as it stands is: the base is north of the kitchen behind the mouse hole, the pantry is
+ * west of the kitchen, the hall runs along the south side of both of them, the dining room is
+ * west of the hall, the sitting room east of it, and the garden east of the sitting room.
+ * Nothing here is a grid: the rooms are all different sizes, they do not have to line up, and
+ * an edge with no neighbour behind it is simply an exterior wall. Two rules do have to hold,
+ * and the ?qa rig checks both:
  *   1. no two rects may OVERLAP. Each room's furniture, lights and loot are placed in its own
  *      local frame, and two floors in the same place fight for the pixels.
  *   2. two doors that name each other must land on the SAME point. Each room puts its doors on
@@ -23,11 +24,8 @@
  *      coordinate. That is the doorway the wall builder cuts a single gap in.
  *
  * Everything except doors is in LOCAL coordinates, relative to the room's centre:
- *   spawn     where a restart or a room with no door back drops the player
- *   arrive    the toast shown when you walk in through a doorway
- *   build     a global function for the parts only this room has (fridge, burrow shell)
- *   clamp     seal the rect with an invisible wall as well as masonry. Only the base sets this:
- *             its cutaway shell is drawn by world/burrow.js and is not a registry obstacle.
+ *   spawn     where a restart drops the player
+ *   build     a global function for the parts only this room has (fridge, stash pile)
  *   floor     { a, b, tile, rough } — a two-tone checker, `tile` units per tile
  *   wall      { color, height, thickness, trim } — doorways are cut automatically. Where two
  *             rooms share an edge, the taller wall spec wins both sides of it.
@@ -51,11 +49,12 @@
  * steal must rest below y = 1.6 for the same reason.
  *
  * This file is evaluated after the world modules, because a spec quotes their globals:
- * kitchenObstacles and cameraCollisionMeshes (core/state.js), MOUSE_HOLE (world/mousehole.js),
- * and burrowObstacles, burrowCollision, BURROW_ORIGIN_X, BURROW_BOUND and BURROW_EXIT
- * (world/burrow.js). The numbers this file defines for itself are all above ROOMS:
- * KITCHEN_BOUND, SOUTH_EDGE, HALL_MID, DELIVERY_FLOOR and DELIVERY_GAP — plus CHEF_BEAT, the
- * hunter's route, which is the one thing here written in world coordinates.
+ * kitchenObstacles and cameraCollisionMeshes (core/state.js), which the kitchen hands to the
+ * registry as its own obstacle and camera lists. Everything else a spec needs is written here —
+ * the den included, now that it is a room in the plan rather than a shell another module draws.
+ * The numbers this file defines for itself are all above ROOMS: KITCHEN_BOUND, SOUTH_EDGE,
+ * HALL_MID, DELIVERY_FLOOR and DELIVERY_GAP — plus CHEF_BEAT, the hunter's route, which is the
+ * one thing here written in world coordinates.
  */
 
 // The kitchen has always been 15.35 half-units; its walls and the mouse hole cut in the north
@@ -83,8 +82,7 @@ const HALL_MID = SOUTH_EDGE + 8;
 // takes his own south door into the hall, goes west to the dining room, pokes down its west
 // aisle and back, and comes home through the same two gaps. About 65 seconds round the loop at
 // his walking pace, so roughly a third of it is spent out of the kitchen — which is the window
-// the hall and dining room loot exist to be taken in, and the reason the minimap has to show
-// where he actually is.
+// the hall and dining room loot exist to be taken in.
 //
 // World coordinates rather than the local ones everything else here uses, because a route that
 // crosses three rooms does not belong to any one of them. Two rules hold it together, and the
@@ -113,7 +111,6 @@ const ROOMS = [
         obstacles: kitchenObstacles,
         collision: cameraCollisionMeshes,
         spawn: { x: 0, z: 9 },
-        arrive: 'Back to the kitchen — keep foraging',
         build: 'buildKitchenEnvironment',
         floor: { a: '#454558', b: '#34344a', tile: 4, rough: 0.5 },
         wall: { color: 0x222230, height: 8, thickness: 1, trim: 0x4a5568 },
@@ -129,12 +126,11 @@ const ROOMS = [
             { kind: 'counter', w: 1.6, h: 1.6, d: 1.6, x: 1.8, z: 3.5, color: 0x8b5a2b }
         ],
         doors: [
-            // The mouse hole is the one gate left that still jumps: it is a chute through the
-            // north wall into the base, which stays 400 units away in the same scene. `hole`
-            // hands its position and trigger radius to world/mousehole.js, and `gap` cuts the
-            // opening the arch is painted in, so a wheel can roll into the mouth instead of
-            // bouncing off the masonry. Every other door here is just a hole in the wall.
-            { side: 'north', at: 0, to: 'burrow', hole: MOUSE_HOLE, gap: MOUSE_HOLE.arch * 2 },
+            // The mouse hole: a gap in the kitchen's north wall with the den on the other side of
+            // it, so you cross it on foot like any other doorway. `gap` keeps it narrower than a
+            // door because it is a hole in a wall rather than a door frame — and anything rolled
+            // or carried through it gets into the base, which is where the hoard is counted.
+            { side: 'north', at: 0, to: 'burrow', gap: 2.0 },
             { side: 'south', at: -3, to: 'hall' },
             { side: 'west', at: 4, to: 'pantry' }
         ],
@@ -165,7 +161,6 @@ const ROOMS = [
         // continuous outside wall along the top and one internal wall along the bottom.
         ox: -(KITCHEN_BOUND + 10), oz: 0, hx: 10, hz: KITCHEN_BOUND,
         spawn: { x: 0, z: 8 },
-        arrive: 'The pantry — shelves, sacks and a crate staircase',
         floor: { a: '#4a4438', b: '#3e382c', tile: 3, rough: 0.85 },
         wall: { color: 0x3a3327, height: 6, thickness: 1, trim: 0x7a5c3a },
         lights: [{ color: 0xffd9a0, intensity: 0.9, distance: 24, x: 0, y: 4.2, z: 0 }],
@@ -213,7 +208,6 @@ const ROOMS = [
         // South of the kitchen and the pantry, wide enough to reach past both of them.
         ox: 0, oz: HALL_MID, hx: 20, hz: 8,
         spawn: { x: 0, z: 0 },
-        arrive: 'The hall — three doors and a long runner',
         floor: { a: '#5b4636', b: '#4d3a2b', tile: 4, rough: 0.75 },
         wall: { color: 0x3b2f28, height: 6.5, thickness: 1, trim: 0x8a6a45 },
         lights: [
@@ -259,7 +253,6 @@ const ROOMS = [
         // pantry's, so the whole south face of that band is one continuous internal wall.
         ox: -(20 + 16), oz: SOUTH_EDGE + 15, hx: 16, hz: 15,
         spawn: { x: 0, z: 10 },
-        arrive: 'The dining room — eight chairs and one long table',
         floor: { a: '#6a4a30', b: '#5b3f28', tile: 4.5, rough: 0.7 },
         wall: { color: 0x43312a, height: 7, thickness: 1, trim: 0x9a7a4f },
         lights: [{ color: 0xffdca8, intensity: 1.0, distance: 30, x: 0, y: 5.0, z: 0 }],
@@ -306,7 +299,6 @@ const ROOMS = [
         // south face sticks out below the hall's north wall: the house is an L here, not a grid.
         ox: 20 + 17, oz: SOUTH_EDGE + 8, hx: 17, hz: 16,
         spawn: { x: 0, z: 0 },
-        arrive: 'The sitting room — check the hearth and under the drape',
         floor: { a: '#4d4038', b: '#42372f', tile: 4, rough: 0.8 },
         wall: { color: 0x33303f, height: 7, thickness: 1, trim: 0x8a7a5f },
         lights: [
@@ -369,7 +361,6 @@ const ROOMS = [
         // sitting room's full width, then half of this one.
         ox: 20 + 17 * 2 + 22, oz: SOUTH_EDGE + 8, hx: 22, hz: 20,
         spawn: { x: -14, z: 0 },
-        arrive: 'The garden — a shed, a pond and somewhere to hide',
         floor: { a: '#3c5a30', b: '#354f2a', tile: 2.8, rough: 0.95 },
         // A hedge, not a wall: low enough to read as a boundary from the outside world.
         wall: { color: 0x2c4423, height: 2.6, thickness: 1.4, trim: 0x6b4a2f, rough: 0.95 },
@@ -430,18 +421,39 @@ const ROOMS = [
     {
         id: 'burrow',
         label: 'MOUSE BASE',
-        ox: BURROW_ORIGIN_X, oz: 0, hx: BURROW_BOUND, hz: BURROW_BOUND,
+        // The den sits north of the kitchen with its south edge on the kitchen's north wall line,
+        // which is what makes the mouse hole an ordinary doorway: two rooms, one gap in the
+        // masonry between them, and you walk through it. Being in the plan rather than parked
+        // elsewhere means the registry builds its floor and walls like everyone else's, so the
+        // chef's line of sight stops at them and the orbit camera stops at them too — no
+        // cutaway shell and no invisible rect to keep a body in.
+        ox: 0, oz: -(KITCHEN_BOUND + 9.4), hx: 9.4, hz: 9.4,
         obstacles: burrowObstacles,
         collision: burrowCollision,
-        spawn: { x: 0, z: BURROW_BOUND - 2.2 },
-        arrive: 'Home sweet home — the chef cannot follow in here',
+        // Just inside the hole, so a restart never drops the mouse into the kitchen's wall.
+        spawn: { x: 0, z: 7.2 },
         build: 'buildBurrow',
-        // The base is the only room that still has an invisible rect clamp. Its cutaway shell is
-        // drawn by world/burrow.js rather than built from this spec, so those meshes are not
-        // registry obstacles — without the clamp the mouse would simply walk out of the den.
-        clamp: true,
-        // The whole den — floor, walls, props, residents — is bespoke, so this spec carries
-        // no floor, wall or furniture of its own; only the exit arch is registered here.
-        doors: [{ side: 'south', at: 0, to: 'kitchen', exit: BURROW_EXIT }]
+        floor: { a: '#5a4535', b: '#634c3b', tile: 2.6, rough: 0.9 },
+        wall: { color: 0x4a3728, height: 6, thickness: 1, trim: 0x6e4f30 },
+        // The jar lamp and a warm fill, so the base reads as somewhere safe to stand. The
+        // registry switches every room's lamps off except the one the player is in.
+        lights: [
+            { color: 0xffc178, intensity: 1.15, distance: 26, x: -1.5, y: 3.4, z: -5 },
+            { color: 0xffb066, intensity: 0.55, distance: 30, x: 3, y: 4.5, z: 4 }
+        ],
+        furniture: [
+            { kind: 'deco', w: 9, h: 0.05, d: 6.5, x: 0, y: 0.01, z: 1, color: 0x6a4038, rough: 0.95 },
+            // A cheese wheel pressed into service as the family table
+            { kind: 'solid', shape: 'cyl', rt: 1.5, rb: 1.5, h: 0.7, segments: 8, x: 3.5, z: 2.5, color: 0xffbe00, rough: 0.45 },
+            // Matchbox bed with a crumb pillow
+            { kind: 'solid', w: 2.4, h: 0.5, d: 1.5, x: -5.5, z: 4, color: 0xb5651d },
+            { kind: 'solid', w: 0.7, h: 0.28, d: 1.1, x: -6.3, z: 4, color: 0xf0e2c0 },
+            // Acorn stool
+            { kind: 'solid', shape: 'sphere', r: 0.6, x: 1, z: -1.5, color: 0x8b6b3d, rough: 0.6 },
+            // The post the jar lamp hangs from; the jar itself is lit by the room's own lamps.
+            { kind: 'solid', shape: 'cyl', rt: 0.09, rb: 0.12, h: 3.4, segments: 6, x: -1.5, z: -6, color: 0x5c4326 },
+            { kind: 'deco', shape: 'sphere', r: 0.45, x: -1.5, y: 3.05, z: -6, color: 0xffd98a, rough: 0.9 }
+        ],
+        doors: [{ side: 'south', at: 0, to: 'kitchen', gap: 2.0 }]
     }
 ];

@@ -3,15 +3,14 @@
  *
  * Every room in the house is one record here: its rect in the shared scene, the obstacles and
  * camera-collision meshes inside it, the doors out of it, its lights and its restock rule.
- * world/physics.js, core/areas.js, world/ingredients.js and core/minimap.js all ask this
- * registry what the room at a given point looks like, and nothing else in the game knows the
- * layout.
+ * world/physics.js, core/areas.js and world/ingredients.js all ask this registry what the room
+ * at a given point looks like, and nothing else in the game knows the layout.
  *
  * buildRoom builds the parts a spec declares on its own — floor, furniture, lights — then calls
- * the spec's own `build` hook for the things only one room has (the kitchen's fridge and mouse
- * hole, the base's cutaway shell). The walls are different: rooms tile edge to edge, so two of
- * them describe the same stretch of masonry from opposite sides, and buildMasonry builds every
- * wall in the house once instead. A doorway is then a real gap cut through the merged run, so
+ * the spec's own `build` hook for the things only one room has (the kitchen's fridge, the base's
+ * stash pile). The walls are different: rooms tile edge to edge, so two of them describe the
+ * same stretch of masonry from opposite sides, and buildMasonry builds every wall in the house
+ * once instead. A doorway is then a real gap cut through the merged run, so
  * the wall is not just how the house looks — it is what stops you, and the two rooms either side
  * of it are the two you can walk between.
  *
@@ -31,15 +30,9 @@
 const rooms = {};
 const roomOrder = [];
 
-const DOOR_W = 2.6;       // the gap a doorway cuts in a wall
+const DOOR_W = 2.6;       // the gap a doorway cuts in a wall, unless its spec asks for a
+                          // narrower one with `gap` — the mouse hole is a hole, not a door
 const DOOR_H = 2.7;       // ... and the lintel that closes the wall off above it
-// Two gates in this house still jump rather than walk — the mouse hole's chute and the base's
-// exit arch, because the den sits 400 units away in the same scene rather than next door. Those
-// are the only portals that need a trigger circle, and the inset has to be wider than the
-// circle plus the margin or arriving would cross you straight back through it.
-const PORTAL_ENTER_MARGIN = 0.4;
-const ARRIVE_INSET = 2.2;
-const INWARD = { north: [0, 1], south: [0, -1], east: [-1, 0], west: [1, 0] };
 
 function roomById(id) {
     return rooms[id];
@@ -74,12 +67,8 @@ function registerRoom(spec) {
         spec,
         ox: spec.ox, oz: spec.oz, hx: spec.hx, hz: spec.hz,
         spawn: { x: spec.ox + spec.spawn.x, z: spec.oz + spec.spawn.z },
-        arrive: spec.arrive,
         restock: spec.restock || null,
         deliveryTimer: 0,
-        // Masonry contains every room in the plan. The base is the exception: its cutaway shell
-        // is drawn by world/burrow.js and never registered, so it keeps the invisible rect.
-        clamp: !!spec.clamp,
         // The kitchen and the base predate the registry and keep their own global arrays,
         // which half the game already reads by name (kitchenObstacles, cameraCollisionMeshes,
         // burrowObstacles, burrowCollision). A spec hands those arrays over so they ARE the
@@ -93,30 +82,20 @@ function registerRoom(spec) {
     room.obstacles.length = 0;
     room.collision.length = 0;
 
-    (spec.doors || []).forEach((d, i) => {
-        const own = d.hole || d.exit;
-        const inward = INWARD[d.side];
+    (spec.doors || []).forEach(d => {
         const alongX = d.side === 'north' || d.side === 'south';
         // A doorway stands on its room's own edge line, at `at` along it from the room's centre.
         // Two rooms that name each other put it on the same point, and the wall builder cuts one
         // gap there — that is the whole trick of tiling rooms instead of parking them apart.
-        const x = own ? own.x : room.ox + (alongX ? (d.at || 0) : (d.side === 'east' ? room.hx : -room.hx));
-        const z = own ? own.z : room.oz + (alongX ? (d.side === 'north' ? -room.hz : room.hz) : (d.at || 0));
         room.portals.push({
             id: room.id + '>' + d.to,
             to: d.to,
             side: d.side,
-            at: d.at || 0,
-            x, z,
-            // Width of the hole in the masonry. A bespoke portal cuts none unless its spec asks
-            // for it: the mouse hole is a chute big enough for a cheese wheel, the base's exit
-            // is an arch world/burrow.js painted into a wall of its own.
-            width: own ? (d.gap || 0) : DOOR_W,
-            radius: own ? own.radius : 0,
-            enter: own ? { x: x + inward[0] * ARRIVE_INSET, z: z + inward[1] * ARRIVE_INSET } : null,
-            bespoke: !!own,
-            glow: null,
-            phase: i * 1.7
+            x: room.ox + (alongX ? (d.at || 0) : (d.side === 'east' ? room.hx : -room.hx)),
+            z: room.oz + (alongX ? (d.side === 'north' ? -room.hz : room.hz) : (d.at || 0)),
+            // Width of the hole in the masonry. A door names the room it joins, so it always cuts
+            // one; `gap` narrows it where the opening should read as a hole rather than a doorway.
+            width: d.gap || DOOR_W
         });
     });
 
@@ -231,15 +210,15 @@ function houseWallLines() {
 function houseDoorways() {
     const doors = [];
     roomOrder.forEach(room => room.portals.forEach(p => {
-        if (!p.width) return;            // an arch another module drew into its own wall
         const alongX = p.side === 'north' || p.side === 'south';
         const axis = alongX ? 'x' : 'z';
         const line = round3(alongX ? p.z : p.x);
         const at = round3(alongX ? p.x : p.z);
         const key = axis + '|' + line;
-        let d = doors.find(o => o.key === key && o.at === at);
-        if (!d) doors.push(d = { key, axis, line, at, width: p.width, bespoke: p.bespoke, sides: [] });
-        d.sides.push({ portal: p, room });
+        // Both halves of a pair land on the same key and the same point, so one opening is cut
+        // once however many rooms name it.
+        if (!doors.find(d => d.key === key && d.at === at))
+            doors.push({ key, axis, line, at, width: p.width });
     }));
     return doors;
 }
@@ -276,7 +255,7 @@ function buildMasonry() {
     doors.forEach(d => {
         const wall = lines[d.key].spec;
         buildThreshold(d, wall);
-        if (!d.bespoke) buildDoorway(d, wall);
+        buildDoorway(d, wall);
     });
 }
 
@@ -320,9 +299,10 @@ function wallPanel(line, from, to, y0, y1, isRun) {
     }
 }
 
-// A doorway's dressing, built once for the pair: a frame around the opening and a floor marker
-// bulging into each of the two rooms it joins. No dark backing panel — with the next room now
-// genuinely on the other side, a panel there would be a wall with a picture of a door on it.
+// A doorway's dressing, built once for the pair: a frame around the opening. No dark backing
+// panel — with the next room genuinely on the other side, a panel there would be a wall with a
+// picture of a door on it — and no marker on the floor, because a doorway is only a hole in the
+// masonry and anything that drew the eye to it would promise a gate that is not there.
 function buildDoorway(d, wall) {
     const alongX = d.axis === 'x';
     const t = wall.thickness;
@@ -351,23 +331,6 @@ function buildDoorway(d, wall) {
         head.castShadow = true;
         houseStructure.add(head);
     }
-
-    d.sides.forEach(({ portal, room }) => {
-        const inward = INWARD[portal.side];
-        const spin = new THREE.Group();
-        spin.position.set(cx, 0.02, cz);
-        spin.rotation.y = Math.atan2(-inward[0], -inward[1]);
-        const glow = new THREE.Mesh(
-            new THREE.RingGeometry(d.width / 2, d.width / 2 + 0.85, 26, 1, 0, Math.PI),
-            new THREE.MeshBasicMaterial({
-                color: portal.glowColor || room.spec.doorGlow || 0x7fd4ff,
-                transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false
-            }));
-        glow.rotation.x = -Math.PI / 2;
-        spin.add(glow);
-        room.group.add(spin);
-        portal.glow = glow;
-    });
 }
 
 // Everything in the house that stops a body or a raycast: every room's own furniture plus the
@@ -470,28 +433,6 @@ function addRoomVisual(room, w, h, d, x, y, z, color) {
     return addRoomShape(room, { kind: 'visual', w, h, d, color, y: y - h / 2 }, x, z, false, true);
 }
 
-// A bespoke portal drew its own floor marker; hand it over so one loop pulses every door.
-function linkPortalGlow(roomId, toId, mesh) {
-    const portal = roomById(roomId).portals.find(p => p.to === toId);
-    if (portal) portal.glow = mesh;
-}
-
-function updatePortalGlows(time) {
-    roomOrder.forEach(room => room.portals.forEach(p => {
-        if (!p.glow) return;
-        p.glow.material.opacity = 0.13 + Math.abs(Math.sin(time * 0.0022 + p.phase)) * 0.16;
-    }));
-}
-
-// Where you appear when a portal that jumps carries you through it: just inside, clear of its
-// own trigger circle. Ordinary doorways have no arrival point at all — you walk through those
-// and never leave the floor you were on. Falls back to the room's spawn for anything else,
-// including a restart.
-function arrivalFor(room, fromId) {
-    const back = room.portals.find(p => p.to === fromId);
-    return (back && back.enter) || room.spawn;
-}
-
 // One key light serves the whole house, so it moves with the player: its shadow frustum is
 // only ever as wide as the room being lit, and only that room's own lamps are switched on.
 // Seven rooms of point lights in every fragment shader is the difference between this and a
@@ -501,8 +442,8 @@ function arrivalFor(room, fromId) {
 // other now, so putting the light straight on the new room's centre used to move it 23 units
 // in one frame at a doorway — and everything the frustum left behind stopped casting at all,
 // which read as the room behind you letting go of its shadows. `updateKeyLight` walks it there
-// over about half a second instead, at roughly the pace of the doorway you are crossing. The two
-// gates that fade still snap, because the black cover is what hides the cut there.
+// over about half a second instead, at roughly the pace of the doorway you are crossing. A
+// restart is the one thing that still snaps it, because a restart moves the player outright.
 const keyGoal = { x: 12, y: 20, z: 10, tx: 0, tz: 0, d: 24 };
 
 function lightActiveRoom(snap) {

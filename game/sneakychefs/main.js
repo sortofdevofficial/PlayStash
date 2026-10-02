@@ -2,7 +2,7 @@
  * main.js — boot, the frame loop, and what a game over does. (Load this last.)
  *
  * The load handler builds the house from map/rooms.js and both actors, then animate()
- * drives them: player, camera, every brain that owns a room, portal check, and the ambient
+ * drives them: player, camera, every brain that owns a room, the walk home, and the ambient
  * dressing. Getting caught resets everything except what you already got home.
  */
 let hintHidden = false;
@@ -39,7 +39,6 @@ window.addEventListener('load', () => {
     updateStashHud();
     updateCarryHud();
     setupInputListeners();
-    initMinimap();
     animate(0);
 });
 
@@ -52,8 +51,8 @@ function animate(time) {
 
     if (!isGameOver) {
         updateMouse(dt, time);
-        // Before anything that asks which room he is in: the camera, the chef's lamps, the
-        // minimap and the portals all read the area his feet are actually standing in.
+        // Before anything that asks which room he is in: the camera and the chef's lamps both
+        // read the area his feet are actually standing in.
         updateAreaFromPosition();
         // The key light follows the room he is standing in, and it has to travel there rather
         // than jump: a doorway crossed is 23 units of shadow frustum, and it takes about half a
@@ -67,7 +66,7 @@ function animate(time) {
         updateChefAI(dt, time);
         updateBurrowMice(dt, time);
 
-        checkPortalCrossing();
+        checkBaseDeposit();
 
         if (!hintHidden && time > hintDeadline) {
             hintHidden = true;
@@ -75,10 +74,7 @@ function animate(time) {
         }
     }
 
-    updatePortalGlows(time);
     updateFridge(dt);
-    updateBurrowView();
-    drawMinimap();
     renderer.render(scene, camera);
 }
 
@@ -115,10 +111,9 @@ function restartGame() {
     clearDust();
     resetIngredients();
 
-    // What you already got home stays home
+    // What you already got home stays home. This is the only repositioning left in the game:
+    // every doorway upstairs is walked, so getting caught is the one thing that moves him.
     enterArea('kitchen');
-    isTraveling = false;
-    document.getElementById('fade').classList.remove('on');
     hintHidden = false;
     hintDeadline = performance.now() + HINT_MS;
     document.getElementById('hint').classList.remove('hide');

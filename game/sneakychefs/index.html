@@ -60,39 +60,6 @@
         #hud-area { letter-spacing: 0.06em; font-size: 0.95rem; }
         #carry-name { font-size: 0.95rem; min-width: 8ch; }
 
-        /* House map — seven rooms is too many to hold in your head, so the plan is always up */
-        #map-card {
-            position: absolute;
-            right: 20px;
-            bottom: 20px;
-            z-index: 10;
-            background: rgba(18, 18, 28, 0.75);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 12px;
-            padding: 8px 10px 10px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-            pointer-events: none;
-        }
-        #map-card .hud-label { display: block; margin-bottom: 5px; }
-        /* core/minimap.js sets both the backing store and this element's box size */
-        #minimap { display: block; }
-
-        /* Area change mask — the rooms are nowhere near each other in the shared scene */
-        #fade {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #0b0a10;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.42s ease;
-            z-index: 50;
-        }
-        #fade.on { opacity: 1; }
-
         /* Controls hint — fades out once the player is oriented */
         #hint {
             position: absolute;
@@ -115,29 +82,6 @@
         }
         #hint b { color: #ffbe00; font-weight: 700; }
         #hint.hide { opacity: 0; }
-
-        /* Toast Notifications */
-        #toast {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(20, 20, 30, 0.9);
-            border-left: 5px solid #ffcc00;
-            color: #fff;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-            opacity: 0;
-            transform: translateY(-10px);
-            transition: all 0.3s ease;
-            z-index: 10;
-        }
-        #toast.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
 
         /* Game Over / Win Modal */
         .modal {
@@ -254,14 +198,6 @@
             #touch-controls { display: none; }
         }
         @media (max-width: 767px) {
-            /* The touch buttons own the bottom corners, so the map sits above them and the
-               hint above that — stacking beats squeezing on a phone-wide screen. */
-            #map-card {
-                right: 12px;
-                bottom: 176px;
-                transform: scale(0.7);
-                transform-origin: bottom right;
-            }
             #hint {
                 bottom: 268px;
                 white-space: normal;
@@ -305,22 +241,13 @@
         </div>
     </div>
 
-    <div id="map-card">
-        <span class="hud-label">HOUSE</span>
-        <canvas id="minimap"></canvas>
-    </div>
-
     <div id="hint">
-        The <b>fridge</b> is stocked &mdash; open it and take the good stuff: shove it into
-        the <b>mouse hole</b>, or hoist it with <b>E</b> and carry it home, one at a time.
-        Glowing <b>doorways</b> lead out into the rest of the house, and the <b>map</b> keeps
-        track of where you are.
+        The <b>fridge</b> is stocked &mdash; open it and take the good stuff. Shove it through the
+        <b>mouse hole</b> in the north wall, or hoist it with <b>E</b> and carry it through there
+        yourself: behind that hole is the <b>base</b>, and getting food in there is the whole point.
+        <b>Doorways</b> lead out into the rest of the house &mdash; walk through them.
         WASD move &middot; Space jump &middot; E hoist &middot; Right-drag orbit &middot; Wheel zoom
     </div>
-
-    <div id="fade"></div>
-
-    <div id="toast">Message</div>
 
     <div id="game-over-modal" class="modal">
         <div class="modal-card">
@@ -350,9 +277,10 @@
     <!--
       Modules share one global scope (no bundler, so the game is a folder of text files).
       Load order matters for exactly one reason: map/rooms.js is data, and it reads other
-      modules' globals while it is being evaluated — kitchenObstacles, cameraCollisionMeshes,
-      MOUSE_HOLE, burrowObstacles, burrowCollision, BURROW_ORIGIN_X, BURROW_BOUND and
-      BURROW_EXIT. So it has to come after the files that define them. world/rooms.js only
+      modules' globals while it is being evaluated — kitchenObstacles and
+      cameraCollisionMeshes (core/state.js), plus burrowObstacles and burrowCollision
+      (world/burrow.js), which the den hands to the registry the same way the kitchen does.
+      So it has to come after the files that define them. world/rooms.js only
       reads that array inside buildHouse(), so it is safe anywhere before map/rooms.js.
       Everything else is function declarations plus per-module state, safe in any order.
       See README.md for which file owns what.
@@ -363,7 +291,6 @@
     <script src="models/food.js"></script>
     <script src="world/physics.js"></script>
     <script src="world/dust.js"></script>
-    <script src="world/mousehole.js"></script>
     <script src="world/fridge.js"></script>
     <script src="world/kitchen.js"></script>
     <script src="world/ingredients.js"></script>
@@ -378,7 +305,6 @@
     <script src="core/ui.js"></script>
     <script src="core/input.js"></script>
     <script src="core/camera.js"></script>
-    <script src="core/minimap.js"></script>
     <script src="core/areas.js"></script>
     <script src="main.js"></script>
 
@@ -394,54 +320,53 @@
      * failure mode this split is most likely to hit.
      *
      * Phase 2 drives the real game: the fridge at rest, opening on approach, looting butter
-     * out of the cavity, resealing, a cheese wheel shoved end to end down the hole, wall
-     * containment, moving around inside the fridge — to the back panel, across the width and a
-     * hop — the portal there and back, the cutaway walls, the residents, what a capture resets,
-     * the restock loop that keeps the kitchen supplied (including a chilled good landing back
-     * on the fridge lip), the cap on the hoard pile, two on prop contact — a wheel skidding
-     * along a counter face instead of grinding into it, and two props shoving each other apart
-     * instead of merging — two on hoisting: the paws take one prop only, ride it along at a
-     * slowed pace, and hand it back when told, and a load carried to the arch is stowed in the
-     * base by the portal itself — and three on the house: the map in map/rooms.js audited
-     * against the rules a connected floorplan has to obey, including the hunter's beat walked
-     * on paper before he walks it for real, a walk through four rooms and back
-     * with no fade anywhere in it, and the hunter's own sight ray tested against the masonry
+     * out of the cavity, resealing, a cheese wheel shoved end to end north through the mouse
+     * hole, wall containment, moving around inside the fridge — to the back panel, across the
+     * width and a hop — then the hole itself, walked both ways, with the den's residents and
+     * what a capture resets, the restock loop that keeps the kitchen supplied (including a
+     * chilled good landing back on the fridge lip), the cap on the hoard pile, two on prop
+     * contact — a wheel skidding along a counter face instead of grinding into it, and two
+     * props shoving each other apart instead of merging — two on hoisting: the paws take one
+     * prop only, ride it along at a slowed pace, and hand it back when told, and a load carried
+     * through the hole is stowed in the pile the moment he is standing in the base — and three
+     * on the house: the map in map/rooms.js audited against the rules a connected floorplan has
+     * to obey, including that every door is walked and nothing jumps, the hunter's beat walked
+     * on paper before he walks it for real, a walk through four rooms and back with no
+     * reposition anywhere in it, and the hunter's own sight ray tested against the masonry
      * and through the one gap in it, followed by a full lap of him.
      */
     (function () {
         if (!new URLSearchParams(location.search).has('qa')) return;
 
         const EXPECTED_FUNCTIONS = ['initScene', 'buildKitchenEnvironment', 'buildFridge', 'updateFridge',
-            'buildMouseHole', 'kitchenHoleDistance', 'spawnIngredients', 'updateIngredientProps', 'resetIngredients',
-            'buildBurrow', 'updateBurrowView', 'addToStash', 'updateBurrowMice', 'createLowPolyMouse',
+            'spawnIngredients', 'updateIngredientProps', 'resetIngredients',
+            'buildBurrow', 'addToStash', 'spawnBurrowMice', 'updateBurrowMice', 'createLowPolyMouse',
             'createLowPolyChef', 'createWarningRing', 'updateChefAI', 'updateMouse', 'pushIngredients',
             'animateMouseBody', 'animateMouseTail', 'triggerJump', 'updateCamera', 'setupInputListeners',
-            'enterArea', 'travelTo', 'checkPortalCrossing', 'playSound', 'showToast', 'updateStashHud',
+            'enterArea', 'checkBaseDeposit', 'playSound', 'updateStashHud',
             'getFloorY', 'resetChef', 'resetMouse', 'clearDust', 'buildFreezerGoods', 'fridgeReach',
             'chefHasLineOfSight', 'resumeBeat',
-            'updateDust', 'spawnDust', 'clampToArea', 'clampToRect',
+            'updateDust', 'spawnDust',
             'liveProps', 'updateDeliveries', 'deliver', 'onIngredientStashed',
-            'collideProps', 'solvePropCollision', 'clampPropToRect', 'toggleCarry', 'pickUp',
+            'collideProps', 'solvePropCollision', 'toggleCarry', 'pickUp',
             'dropCarry', 'nearestCarryable', 'updateCarry', 'stowCarried', 'updateCarryHud',
             'rehomeIngredient', 'buildIngredient', 'buildHouse', 'registerRoom', 'buildRoom', 'roomById',
-            'roomAt', 'activeRoom', 'arrivalFor', 'lightActiveRoom', 'updateKeyLight', 'placeKeyLight',
-            'linkPortalGlow', 'updatePortalGlows',
+            'roomAt', 'activeRoom', 'lightActiveRoom', 'updateKeyLight', 'placeKeyLight',
             'buildMasonry', 'houseWallLines', 'houseDoorways', 'wallPanel', 'buildDoorway', 'buildThreshold',
             'collectSolidGeometry',
             'buildRoomFloor', 'buildRoomPiece', 'addRoomBlock',
-            'addRoomSolid', 'addRoomVisual', 'addRoomShape', 'initMinimap', 'drawMinimap', 'houseLinks',
-            'mapPoint', 'setArea', 'roomEntered', 'updateAreaFromPosition'];
+            'addRoomSolid', 'addRoomVisual', 'addRoomShape',
+            'setArea', 'roomEntered', 'updateAreaFromPosition'];
         const EXPECTED_VARS = ['mouseVel', 'keys', 'ingredients', 'burrowMice', 'stashedIngredients', 'FRIDGE',
-            'fridgeLamp', 'coldPuffs', 'camYaw', 'camDist', 'MOUSE_HOLE', 'BURROW_ORIGIN_X', 'BURROW_BOUND',
-            'keyGoal',
+            'fridgeLamp', 'coldPuffs', 'camYaw', 'camDist', 'keyGoal',
             'kitchenObstacles',
-            'GRAVITY', 'MOVE_SPEED', 'isTraveling', 'currentArea', 'DELIVERY_FLOOR', 'DELIVERY_DROP_Y',
+            'GRAVITY', 'MOVE_SPEED', 'currentArea', 'DELIVERY_FLOOR', 'DELIVERY_DROP_Y',
             'STASH_PILE_CAP', 'BODY_BOUNCE', 'MOUSE_PUSH_RADIUS', 'PUSH_FACTOR',
             'carriedItem', 'CARRY_REACH', 'CARRY_LIFT', 'CARRY_SHARE', 'CARRY_OUT', 'CARRY_SPEED',
             'ROOMS', 'rooms', 'roomOrder', 'KITCHEN_BOUND', 'SOUTH_EDGE', 'HALL_MID', 'CHEF_BEAT', 'DELIVERY_GAP', 'INGREDIENT_SPEC',
-            'PORTAL_ENTER_MARGIN', 'ARRIVE_INSET', 'STEP_HEIGHT', 'DOOR_W', 'DOOR_H', 'INWARD',
+            'STEP_HEIGHT', 'DOOR_W', 'DOOR_H',
             'worldObstacles', 'worldCollisionMeshes', 'wallBoxes', 'wallMeshes',
-            'mapView', 'MAP_W', 'MAP_H', 'MAP_PAD',
+            'burrowGroup',
             'keyLight', 'chefWaypoints', 'burrowObstacles', 'burrowCollision', 'cameraCollisionMeshes'];
 
         window.addEventListener('load', () => {
@@ -505,7 +430,7 @@
             // frames at a couple per second, and every check below reads simulation state —
             // positions, door angles, area flags — never pixels. So animate() is stopped from
             // rescheduling, the draw call is stubbed, and setTimeout becomes a queue keyed to
-            // simulated time so the portal fade and the auto-restart fire in that clock too.
+            // simulated time so the auto-restart after a capture fires in that clock too.
             // The whole chain then runs synchronously at a fixed dt. Behaviour is verified;
             // appearance is not — open the page normally to look at it.
             renderer.render = () => {};
@@ -548,11 +473,9 @@
                         updateCamera(SIM_DT);
                         updateChefAI(SIM_DT, simTime);
                         updateBurrowMice(SIM_DT, simTime);
-                        checkPortalCrossing();
+                        checkBaseDeposit();
                     }
-                    updatePortalGlows(simTime);
                     updateFridge(SIM_DT);
-                    updateBurrowView();
                     flushTimers();
                 }
             };
@@ -580,33 +503,26 @@
             };
             r.areaLog = areaLog;
 
-            const crossTo = (area, done) => {
-                wait(() => currentArea === area, 900, done);
-            };
-            const settled = (onDone) => wait(() => !isTraveling && !isGameOver, 900, onDone);
+            const settled = (onDone) => wait(() => !isGameOver, 900, onDone);
 
-            // Stand the mouse in a doorway's trigger circle and let the game take it from there.
-            // That is all walking in does, so the crossing, the fade, the arrival inset and the
-            // toast all run for real rather than being asserted from the map data.
             const doorTo = (roomId, toId) => roomById(roomId).portals.find(p => p.to === toId);
-            const stepThrough = (toId, done) => {
-                const p = doorTo(currentArea, toId);
-                mouseGroup.position.set(p.x, 0, p.z);
-                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
-                crossTo(toId, (ok) => settled(() => done(ok, p)));
-            };
+
+            // Which side of its own gap a room's floor lies on: a hole in the north wall has the
+            // room to the south of it. The game does not need this any more — walking is steering,
+            // and core/areas.js only ever asks which rect his feet are inside — but to drop a
+            // mouse a few units back inside the room he is leaving, the rig has to name it.
+            const INTO_ROOM = { north: [0, 1], south: [0, -1], east: [-1, 0], west: [1, 0] };
 
             // A real doorway, walked through: drop him a few units back along its axis, inside
             // the room he is standing in, hold the key that points at the gap and let him go. The
             // point of the extra assertions is that the area flipped because his feet crossed a
-            // wall line — no fade appeared, isTraveling was never set, and enterArea was never
-            // called — which leaves core/areas.js's position test as the only thing that can
-            // have moved him.
+            // wall line — enterArea was never called, and no frame ever moved him further than he
+            // could have walked — which leaves core/areas.js's position test as the only thing
+            // that can have changed his room out from under him.
             const WALK_BACK = 4.0;
-            const faded = () => document.getElementById('fade').classList.contains('on');
             const walkThrough = (toId, done) => {
                 const p = doorTo(currentArea, toId);
-                const inward = INWARD[p.side];
+                const inward = INTO_ROOM[p.side];
                 const fromId = currentArea;
                 mouseGroup.position.set(p.x + inward[0] * WALK_BACK, 0, p.z + inward[1] * WALK_BACK);
                 mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
@@ -614,30 +530,34 @@
                 const key = inward[1] === 1 ? 'forward' : inward[1] === -1 ? 'backward'
                     : inward[0] === -1 ? 'right' : 'left';
                 const logBefore = areaLog.length;
-                let everFaded = false, everTraveling = false;
+                let maxHop = 0;
+                const last = mouseGroup.position.clone();
                 keys[key] = true;
                 wait(() => {
-                    if (faded()) everFaded = true;
-                    if (isTraveling) everTraveling = true;
+                    maxHop = Math.max(maxHop, last.distanceTo(mouseGroup.position));
+                    last.copy(mouseGroup.position);
                     return currentArea === toId;
                 }, 400, (ok) => {
                     keys[key] = false;
                     const here = roomById(currentArea);
                     const pos = mouseGroup.position;
-                    done(ok && !everFaded && !everTraveling && areaLog.length === logBefore &&
+                    done(ok && maxHop < 0.5 && areaLog.length === logBefore &&
                         here.id === toId && roomEntered(here, pos.x, pos.z), p, fromId);
                 });
             };
 
-            // A prop shoved down the hole drags the player through with it, so steps that assume
-            // kitchen geometry have to let that settle and then put him back.
-            const backToKitchen = (cb) => after(1500, () => {
-                settled(() => {
-                    if (currentArea === 'kitchen') return cb();
-                    travelTo('kitchen');
-                    crossTo('kitchen', () => settled(cb));
-                });
-            });
+            // A prop shoved through the hole walks into the den with it and takes the player
+            // along, so steps that assume kitchen geometry put him back on the kitchen's own
+            // spawn first. This is the rig moving him, on purpose: nothing in the game can.
+            const backToKitchen = (cb) => {
+                if (carriedItem) dropCarry();
+                const k = roomById('kitchen');
+                mouseGroup.position.set(k.spawn.x, getFloorY(k.spawn.x, k.spawn.z), k.spawn.z);
+                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                updateAreaFromPosition();
+                simFrames(2);
+                cb();
+            };
 
             const steps = [];
 
@@ -674,8 +594,10 @@
                 r.propsAllReachable = all.every(p => p.y < 1.6);
                 r.propsAllInOwnRoom = all.every(p => p.inside);
                 r.propsPerRoom = roomOrder.map(rm => rm.id + '=' + liveProps(rm.id)).join(' ');
+                const mouth = doorTo('kitchen', 'burrow');
                 r.propsNonePreStashed = ingredients.filter(i => i.room === 'kitchen')
-                    .every(i => kitchenHoleDistance(i.group.position.x, i.group.position.z) > MOUSE_HOLE.radius);
+                    .every(i => Math.hypot(i.group.position.x - mouth.x,
+                        i.group.position.z - mouth.z) > mouth.width);
                 next();
             });
 
@@ -719,41 +641,52 @@
                 });
             });
 
-            // 6. Body-weight push, end to end: run into a cheese wheel and shove it down the hole,
-            //    checking on the way that it rolls about its axle and never sinks through the floor.
+            // 6. Body-weight push, end to end: run into a cheese wheel and shove it north through
+            //    the mouse hole, checking on the way that it rolls about its axle, never sinks
+            //    through the floor, and is standing in the den on its own feet before the pile
+            //    claims it. That last one is the difference between a hole that hoards anything
+            //    that comes near it and a doorway that leads somewhere.
             steps.push((next) => backToKitchen(() => {
                 const cheese = ingredients.find(i => i.type === 'cheese' && i.room === 'kitchen' &&
                     !i.sunk && i.group.position.z < -5);
                 r.cheeseStart = v3(cheese.group.position);
                 mouseGroup.position.set(cheese.group.position.x, 0, cheese.group.position.z + 2.8);
                 mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
-                let peakZ = cheese.group.position.z, spin = 0, minY = 0;
-                keys.forward = true;       // forward drives -Z, toward the wall hole
+                let peakZ = cheese.group.position.z, spin = 0, minY = 0, reachedDen = false;
+                keys.forward = true;       // forward drives -Z, straight at the gap in the wall
                 wait(() => {
-                    if (!cheese.sunk) {
+                    if (!cheese.sunk && !cheese.stashing) {
                         peakZ = Math.min(peakZ, cheese.group.position.z);
                         spin = Math.max(spin, Math.abs(cheese.spinner.rotation.x));
                         minY = Math.min(minY, cheese.group.position.y);
+                    }
+                    // Read on the stash frame too: the game marks the prop the same frame it
+                    // finds it in the den, and its x/z do not move when the animation starts.
+                    if (!cheese.sunk && roomAt(cheese.group.position.x, cheese.group.position.z).id === 'burrow') {
+                        reachedDen = true;
                     }
                     return stashedIngredients.length >= 1;
                 }, 900, (ok) => {
                     keys.forward = false;
                     r.pushWorked = ok;
+                    r.cheeseReachedDen = reachedDen;
                     r.cheesePeakZ = +peakZ.toFixed(2);
                     r.cheeseRolled = +spin.toFixed(2);
                     r.cheeseStayedAboveFloor = minY >= -0.001;
                     r.stashHud = document.getElementById('stash-count').textContent;
                     r.stashClone = stashedIngredients.length ? v3(stashedIngredients[0].position) : null;
                     r.stashCloneParent = stashedIngredients.length ? stashedIngredients[0].parent === burrowGroup : null;
+                    const den = roomById('burrow');
+                    const c = stashedIngredients.length ? stashedIngredients[0].position : null;
+                    r.stashCloneInDen = !!c && Math.abs(c.x - den.ox) < den.hx && Math.abs(c.z - den.oz) < den.hz;
                     next();
                 });
             }));
 
-            // 7. Wall containment, in the kitchen. The invisible rect used to be what held him,
-            //    exactly on the room's own boundary line; now there is a wall there and the clamp
-            //    does not run outside the base. So the measurement is the masonry's inner face:
-            //    he has to come to rest against it, short of the dead band that would make him a
-            //    guest of two rooms at once, and still count as being in the kitchen.
+            // 7. Wall containment, in the kitchen. There is no invisible rect holding him any
+            //    more, so the measurement is the masonry's inner face: he has to come to rest
+            //    against it, short of the dead band that would make him a guest of two rooms at
+            //    once, and still count as being in the kitchen.
             steps.push((next) => backToKitchen(() => {
                 const k = roomById('kitchen');
                 const face = k.ox + k.hx - k.spec.wall.thickness / 2;
@@ -771,16 +704,15 @@
                     r.stillInKitchen = roomEntered(k, x, mouseGroup.position.z);
                     r.wallAreaHud = document.getElementById('hud-area').textContent === k.label;
 
-                    // The clamp itself, measured rather than inferred: inert for a room built out
-                    // of walls, still the only thing the base's painted shell has.
-                    const free = new THREE.Vector3(k.ox + k.hx + 5, 0, k.oz);
-                    clampToArea(free);
-                    r.clampInertHere = free.x === k.ox + k.hx + 5;
-                    currentArea = 'burrow';
-                    const held = new THREE.Vector3(BURROW_ORIGIN_X + 99, 0, 0);
-                    clampToArea(held);
-                    r.clampHoldsBase = Math.abs(held.x - (BURROW_ORIGIN_X + BURROW_BOUND)) < 1e-6;
-                    currentArea = k.id;
+                    // The same call actors/mouse.js makes every frame, measured rather than
+                    // inferred: drop a body into the wall with nothing holding it and it has to
+                    // come back out on the room side of the face, not the outside of the house.
+                    const buried = new THREE.Vector3(face + 0.5, 0, k.oz + 6);
+                    solveObstacleCollision(buried, radius);
+                    r.wallPushesBodyOut = buried.x <= face + 1e-6;
+                    r.wallIsTallObstacle = worldObstacles.some(o => o.h > STEP_HEIGHT &&
+                        o.x - o.w / 2 <= face + 0.01 && o.x + o.w / 2 >= k.ox + k.hx &&
+                        Math.abs(k.oz + 6 - o.z) <= o.d / 2);
                     next();
                 });
             }));
@@ -856,63 +788,78 @@
                 });
             });
 
-            // 9. Walk into the hole -> the base
-            steps.push((next) => {
-                mouseGroup.position.set(0.2, 0, -14.6);
-                mouseVel.set(0, 0, 0);
-                crossTo('burrow', (ok) => { r.enteredBurrow = ok; next(); });
-            });
+            // 9. Walk north through the mouse hole -> the base. Two rooms and one gap in the
+            //    masonry between them, so he has to be on his own feet the whole way: walkThrough
+            //    fails if any frame ever moved him further than he could have walked.
+            steps.push((next) => walkThrough('burrow', (ok, p) => {
+                r.enteredBurrow = ok;
+                r.holeMouth = v2(p);
+                r.walkedInAt = v3(mouseGroup.position);
+                next();
+            }));
             steps.push((next) => settled(() => {
                 r.mouseInBurrow = v3(mouseGroup.position);
                 r.areaHud = document.getElementById('hud-area').textContent;
-                r.chefFrozen = v3(chefGroup.position);
+                // The registry's own lamp swap, in the den: the room he left goes dark.
+                r.denLampsOn = roomById('burrow').lights.every(l => l.visible) &&
+                    roomById('kitchen').lights.every(l => !l.visible);
                 r.npcStart = burrowMice.map(m => v3(m.rig.position));
                 r.npcHatless = burrowMice.filter(m => m.rig.userData.hatGroup.visible === false).length;
                 next();
             }));
 
-            // 10. Camera cutaway: the den is smaller than the orbit radius, so the shell sides the
-            //     camera stands outside of must drop or they fill the frame with their back faces.
+            // 10. The den is a room, not a diorama. It used to be a painted shell you were held
+            //     inside by an invisible rect while the camera stood outside it; now the registry
+            //     has built it walls, so the measurement is the same one the kitchen gets — walk
+            //     him east and make the masonry stop him before the pile does.
             steps.push((next) => {
-                mouseGroup.position.set(BURROW_ORIGIN_X, 0, 2);
-                camYaw = 0; camPitch = 0.55; camDist = camDistTarget = 13;
-                after(400, () => {
-                    r.camSample = v3(camera.position);
-                    r.hiddenWalls = ['posZ', 'negZ', 'posX', 'negX'].filter(s => burrowWalls[s][0].visible === false);
+                const den = roomById('burrow');
+                const face = den.ox + den.hx - den.spec.wall.thickness / 2;
+                const radius = 0.46 * mouseGroup.userData.scaleFactor;
+                mouseGroup.position.set(den.ox - 4, getFloorY(den.ox - 4, den.oz), den.oz);
+                updateAreaFromPosition();
+                mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
+                camYaw = 0;
+                keys.right = true;
+                wait(() => mouseGroup.position.x >= face - radius - 0.02, 600, (ok) => {
+                    keys.right = false;
+                    r.denFace = +face.toFixed(2);
+                    r.denX = +mouseGroup.position.x.toFixed(2);
+                    r.denStoppedAtFace = ok && mouseGroup.position.x >= face - radius - 0.2;
+                    r.denHeldHim = mouseGroup.position.x <= face && currentArea === 'burrow';
+                    r.denCamClear = camera.position.distanceTo(mouseGroup.position) < 40;
                     next();
                 });
             });
 
             // 11. Residents are alive
             steps.push((next) => {
+                const den = roomById('burrow');
                 wait(() => burrowMice.some(m => Math.hypot(m.rig.position.x - m.home.x, m.rig.position.z - m.home.z) > 0.4), 900, (ok) => {
                     r.npcAlive = ok;
-                    r.npcAllInRoom = burrowMice.every(m =>
-                        m.rig.position.x > BURROW_ORIGIN_X - BURROW_BOUND && m.rig.position.x < BURROW_ORIGIN_X + BURROW_BOUND &&
-                        Math.abs(m.rig.position.z) < BURROW_BOUND);
+                    r.npcAllInRoom = burrowMice.every(m => roomEntered(den, m.rig.position.x, m.rig.position.z));
                     next();
                 });
             });
 
-            // 12. Walk back out -> kitchen, hoard survives, shell restored, fridge still shut
-            steps.push((next) => {
-                mouseGroup.position.set(BURROW_ORIGIN_X + 0.3, 0, BURROW_BOUND - 0.2);
-                mouseVel.set(0, 0, 0);
-                crossTo('kitchen', (ok) => { r.exitedToKitchen = ok; next(); });
-            });
+            // 12. Walk back out the same hole -> kitchen, and the hoard survives the trip. A
+            //     walked doorway has no arrival point, so what is being checked is that he is
+            //     inside the kitchen's dead band with the wall line behind him rather than him
+            //     having been set down on it.
+            steps.push((next) => walkThrough('kitchen', (ok, p) => {
+                r.exitedToKitchen = ok;
+                r.walkedOutAt = v3(mouseGroup.position);
+                next();
+            }));
             steps.push((next) => settled(() => {
-                r.mouseAfterExit = v3(mouseGroup.position);
+                const k = roomById('kitchen');
+                const pos = mouseGroup.position;
+                r.mouseAfterExit = v3(pos);
+                r.landedInKitchen = roomEntered(k, pos.x, pos.z);
+                r.landedSouthOfTheHole = pos.z > -KITCHEN_BOUND;
                 r.stashKept = stashedIngredients.length;
                 r.propsLeftInKitchen = liveProps('kitchen');
                 r.propsLeftInHouse = ingredients.filter(i => !i.sunk && !i.stashing).length;
-                // Coming back through the hole now lands you just inside it rather than on the
-                // kitchen's spawn, so arriving cannot cross you straight back out again.
-                const holeDoor = doorTo('kitchen', 'burrow');
-                r.landedInsideHole = Math.hypot(mouseGroup.position.x - holeDoor.enter.x,
-                    mouseGroup.position.z - holeDoor.enter.z) < 0.05;
-                r.landedClearOfTrigger = kitchenHoleDistance(mouseGroup.position.x,
-                    mouseGroup.position.z) > holeDoor.radius + PORTAL_ENTER_MARGIN;
-                r.wallsRestored = ['posZ', 'negZ', 'posX', 'negX'].every(s => burrowWalls[s].every(m => m.visible));
                 r.fridgeShutWhileAway = +fridgeOpenK.toFixed(2);
                 next();
             }));
@@ -977,7 +924,7 @@
                     // The other rooms are untouched: only the room being stood in pays out.
                     r.restockLeftOtherRoomsAlone = roomOrder.filter(rm => rm.id !== 'kitchen')
                         .every(rm => liveProps(rm.id) === (rm.spec.loot || []).length);
-                    // A delivery must never drop straight into the chute it came from.
+                    // A delivery must never land where the hole takes it straight back.
                     r.restockSelfStashed = stashedIngredients.length - r.pileBeforeRestock;
                     next();
                 });
@@ -1154,7 +1101,7 @@
                     r.carryNotRolling = Math.abs(wheel.spinner.rotation.x) < 0.2;
                     r.carryStayedInRoom = Math.abs(wheel.group.position.x - k.ox) < k.hx &&
                         Math.abs(wheel.group.position.z - k.oz) < k.hz;
-                    r.carryNeverFellDownChute =
+                    r.carryNeverStashedEarly =
                         stashedIngredients[stashedIngredients.length - 1] === newestBefore;
 
                     toggleCarry();
@@ -1174,18 +1121,18 @@
                 });
             }));
 
-            // 20. The reason to hoist anything: the arch stows the load in the base pile as you
-            //     step through, so one trip home brings back what a shove left in the kitchen.
-            //     The prop starts well clear of the chute, so the only way it can get hoarded is
-            //     on his back. Deliveries are parked for the trip: the restock loop reclaims any
-            //     sunk prop at random, and with the floor already thin it would hand this one
-            //     back to the kitchen during the portal fade and make the stow unreadable.
+            // 20. The reason to hoist anything: stepping into the base with a load stows it in the
+            //     pile, so one trip home brings back what a shove left in the kitchen. The prop
+            //     starts well clear of the hole, so the only way it can get hoarded is on his
+            //     back. Deliveries are parked for the trip: the restock loop reclaims any sunk
+            //     prop at random, and with the floor already thin it would hand this one back to
+            //     the kitchen mid-walk and make the stow unreadable.
             steps.push((next) => backToKitchen(() => {
                 const load = ingredients.find(i => !i.sunk && !i.stashing && !i.delivering &&
                     i.room === 'kitchen');
                 roomById('kitchen').deliveryTimer = 1e6;
-                mouseGroup.position.set(0.4, 0, -13.1);   // 2.2 from the arch, outside his own
-                                                          // trigger radius: he has to walk in
+                mouseGroup.position.set(0.3, 0, -12.0);   // clear of the hole by more than its
+                                                          // own width: he has to walk in
                 mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
                 camYaw = 0;
                 simFrames(2);
@@ -1194,17 +1141,22 @@
                     mouseGroup.position.z + fz * 0.8);
                 load.vel.set(0, 0, 0); load.velY = 0; load.grounded = true;
 
-                const chuteGap = kitchenHoleDistance(load.group.position.x, load.group.position.z);
-                r.carryClearOfChute = +chuteGap.toFixed(2);
-                r.carryStartedOffChute = chuteGap > MOUSE_HOLE.radius;
+                const mouth = doorTo('kitchen', 'burrow');
+                const holeGap = Math.hypot(load.group.position.x - mouth.x,
+                    load.group.position.z - mouth.z);
+                r.carryClearOfChute = +holeGap.toFixed(2);
+                r.carryStartedOffChute = holeGap > mouth.width;
                 const newestBefore = stashedIngredients[stashedIngredients.length - 1];
                 pickUp();
                 r.carryLoadedForTrip = carriedItem === load;
 
-                keys.forward = true;                    // straight at the arch
+                keys.forward = true;                    // straight at the hole
                 wait(() => currentArea === 'burrow', 400, (ok) => {
                     keys.forward = false;
                     r.carryCrossedHome = ok;
+                    // Not stowed at the threshold: the den had to claim him first, which is only
+                    // true if his feet crossed the wall line into the room behind it.
+                    r.carryStowedInsideDen = mouseGroup.position.z < -KITCHEN_BOUND;
                     // The pile is already at STASH_PILE_CAP from step 16, so growth here reads
                     // as the newest entry being replaced, not as a longer array.
                     r.carryPushedPileForward = stashedIngredients[stashedIngredients.length - 1] !== newestBefore;
@@ -1222,22 +1174,38 @@
 
             // 21. The house as data. None of this simulates: it reads map/rooms.js through the
             //     registry and checks the rules a level has to obey, because a door to a room
-            //     that was never registered, or an arrival point inside a counter, is the kind of
-            //     bug that only shows up as a mouse stuck in furniture three rooms from here.
+            //     that was never registered or a gap with a counter in front of it is the kind of
+            //     bug that only shows up as a mouse walking into a wall three rooms from here.
             steps.push((next) => {
                 const faults = [];
                 r.mapRooms = roomOrder.map(rm => rm.id);
                 r.mapRoomsMatchSpec = roomOrder.length === ROOMS.length;
 
                 // A door has to lead somewhere that exists, and somewhere that leads back:
-                // arrivalFor() falls back to the room's spawn when it does not, which would
-                // quietly drop the mouse in the middle of a room it just walked into.
+                // area tracking is a position test now, so a one-sided door is a gap in a wall
+                // that opens onto a room which cannot claim you — you walk through it and stay
+                // in the room you came from.
                 roomOrder.forEach(rm => rm.portals.forEach(p => {
                     const far = roomById(p.to);
                     if (!far) { faults.push(rm.id + '>' + p.to + ': no such room'); return; }
                     if (!far.portals.some(q => q.to === rm.id)) faults.push(rm.id + '>' + p.to + ': no door back');
                 }));
                 r.mapDoorsResolve = !faults.length;
+
+                // And the whole house has to be walkable from the kitchen. Nothing teleports any
+                // more, so a room the portal graph cannot reach is dead floor: the den is the case
+                // this catches, since it only became part of the plan when its walls went into the
+                // registry rather than being parked off in the corner of the scene.
+                const reachable = ['kitchen'];
+                for (let grew = true; grew;) {
+                    grew = false;
+                    reachable.slice().forEach(id => roomById(id).portals.forEach(p => {
+                        if (reachable.indexOf(p.to) < 0 && roomById(p.to)) { reachable.push(p.to); grew = true; }
+                    }));
+                }
+                r.mapReachable = reachable.slice().sort().join(',');
+                r.mapAllWalkable = reachable.length === roomOrder.length &&
+                    roomOrder.every(rm => reachable.indexOf(rm.id) >= 0);
 
                 // The house is one floorplan now: rooms abut rather than sit apart, so the fault
                 // to look for is no longer "too close" but two of them claiming the same floor.
@@ -1261,11 +1229,10 @@
                     ? Math.abs(Math.abs(p.x - rm.ox) - rm.hx)
                     : Math.abs(Math.abs(p.z - rm.oz) - rm.hz)) < 0.02;
                 const offsets = (p) => {
-                    const inward = INWARD[p.side], half = p.width / 2 - 0.25;
+                    const inward = INTO_ROOM[p.side], half = p.width / 2 - 0.25;
                     return [-half, 0, half].map(o => [p.x + (inward[1] ? o : 0), p.z + (inward[0] ? o : 0)]);
                 };
                 roomOrder.forEach(rm => rm.portals.forEach(p => {
-                    if (p.bespoke) return;
                     const far = roomById(p.to);
                     const back = far && far.portals.find(q => q.to === rm.id);
                     if (!back) return;                       // faulted already by mapDoorsResolve
@@ -1282,19 +1249,30 @@
                             planFaults.push(key + ': gap blocked');
                         }
                     });
+
+                    // Wider than the body, or it is a carving rather than a door: the masonry is
+                    // pushed out by the mouse's own clearance radius on both sides of the gap.
+                    if (p.width < 2 * (0.46 * mouseGroup.userData.scaleFactor + 0.05)) {
+                        planFaults.push(key + ': too narrow to walk');
+                    }
                 }));
                 r.mapPlanFaults = planFaults;
                 r.mapPlanSound = !planFaults.length;
 
-                // The chute is the last thing in the house that jumps, because the den is not a
-                // room in the plan at all — it is 400 units away with its own shell. If an
-                // ordinary door ever comes back flagged bespoke, the teleportation is back too.
-                r.mapJumpGates = [];
-                roomOrder.forEach(rm => rm.portals.forEach(p => {
-                    if (p.bespoke) r.mapJumpGates.push(rm.id + '>' + p.to);
-                }));
-                r.mapOnlyChuteJumps = r.mapJumpGates.length === 2 && r.mapJumpGates.every(k =>
-                    k.indexOf('burrow') >= 0);
+                // Nothing jumps any more, and this is what keeps it that way. A portal record is a
+                // place in the plan and the width of its gap, nothing else: an enter point, a
+                // trigger radius or a bespoke flag coming back means a teleport has, and the mouse
+                // hole is where it would come back first — the one opening in the house a player
+                // expects to be dropped through.
+                const portalFields = [];
+                roomOrder.forEach(rm => rm.portals.forEach(p => Object.keys(p).forEach(k => {
+                    if (portalFields.indexOf(k) < 0) portalFields.push(k);
+                })));
+                r.mapPortalFields = portalFields.sort().join(',');
+                r.mapNothingJumps = r.mapPortalFields === 'id,side,to,width,x,z';
+                const hole = doorTo('kitchen', 'burrow'), holeBack = doorTo('burrow', 'kitchen');
+                r.mapHoleIsADoor = !!hole && !!holeBack && hole.width === holeBack.width &&
+                    Math.hypot(hole.x, hole.z + KITCHEN_BOUND) < 1e-6;
 
                 const lootFaults = [];
                 roomOrder.forEach(rm => (rm.spec.loot || []).forEach(l => {
@@ -1318,30 +1296,35 @@
                 r.mapRestockFaults = restockFaults;
                 r.mapRestockReachable = !restockFaults.length;
 
-                // Standing points: the room's own spawn and every arrival inset. Each has to be
-                // clear of furniture that would block a body, and outside every door trigger in
-                // that room — or arriving puts you straight back through the door you came in.
+                // Standing points. The only one left is a room's own spawn — the point a restart
+                // drops the mouse on, and the reason it is still worth auditing: it has to sit
+                // inside the dead band core/areas.js needs to claim the room, not merely inside the
+                // rect. A spawn on the wrong side of its own wall line restarts you into a room
+                // that does not have you yet, and nothing moves you any more to correct it.
                 const BODY_PAD = 0.35;
                 const clear = (rm, x, z) => rm.obstacles.every(o => o.h <= STEP_HEIGHT ||
                     Math.abs(x - o.x) >= o.w / 2 + BODY_PAD || Math.abs(z - o.z) >= o.d / 2 + BODY_PAD);
-                const untriggered = (rm, x, z) => rm.portals.every(p =>
-                    Math.hypot(x - p.x, z - p.z) >= p.radius + PORTAL_ENTER_MARGIN);
                 const standFaults = [];
                 roomOrder.forEach(rm => {
-                    const spots = [{ at: 'spawn', p: rm.spawn }]
-                        .concat(rm.portals.filter(q => q.enter).map(q => ({ at: 'from ' + q.to, p: q.enter })));
-                    spots.forEach(s => {
-                        if (!clear(rm, s.p.x, s.p.z)) standFaults.push(rm.id + ' ' + s.at + ': in furniture');
-                        if (!untriggered(rm, s.p.x, s.p.z)) standFaults.push(rm.id + ' ' + s.at + ': in a doorway');
-                        if (Math.abs(s.p.x - rm.ox) > rm.hx || Math.abs(s.p.z - rm.oz) > rm.hz) {
-                            standFaults.push(rm.id + ' ' + s.at + ': outside the room');
+                    const at = rm.spawn;
+                    if (!clear(rm, at.x, at.z)) standFaults.push(rm.id + ' spawn: in furniture');
+                    if (!roomEntered(rm, at.x, at.z)) standFaults.push(rm.id + ' spawn: past its own dead band');
+                    if (Math.abs(at.x - rm.ox) > rm.hx || Math.abs(at.z - rm.oz) > rm.hz) {
+                        standFaults.push(rm.id + ' spawn: outside the room');
+                    }
+                    // Standing on a spawn must not already be inside the room next door, or the
+                    // first frame after a restart relabels the house under you.
+                    rm.portals.forEach(q => {
+                        const far = roomById(q.to);
+                        if (far && roomEntered(far, at.x, at.z)) {
+                            standFaults.push(rm.id + ' spawn: in ' + q.to + "'s doorway");
                         }
                     });
                     // A walked doorway has no arrival point — you step over its threshold — so the
                     // thing to check is the floor just inside it, which is where you end up.
-                    rm.portals.filter(q => !q.bespoke).forEach(q => {
-                        const inward = INWARD[q.side];
-                        const x = q.x - inward[0] * 1.2, z = q.z - inward[1] * 1.2;
+                    rm.portals.forEach(q => {
+                        const inward = INTO_ROOM[q.side];
+                        const x = q.x + inward[0] * 1.2, z = q.z + inward[1] * 1.2;
                         if (!clear(rm, x, z)) standFaults.push(rm.id + '>' + q.to + ': threshold blocked');
                     });
                 });
@@ -1385,7 +1368,7 @@
                         beatFaults.push('leg ' + i + ': diagonal across ' + ra.id + '>' + rb.id);
                         continue;
                     }
-                    const p = ra.portals.find(q => q.to === rb.id && !q.bespoke);
+                    const p = ra.portals.find(q => q.to === rb.id);
                     if (!p) { beatFaults.push('leg ' + i + ': ' + ra.id + '>' + rb.id + ' has no door'); continue; }
                     const miss = ((p.side === 'east' || p.side === 'west')
                         ? Math.abs(a[1] - p.z) : Math.abs(a[0] - p.x)) - (p.width / 2 - CHEF_BODY_R);
@@ -1396,34 +1379,26 @@
                 r.mapBeatRooms = beatRooms.slice().sort();
                 r.mapBeatThreeRooms = r.mapBeatRooms.join(',') === 'dining,hall,kitchen';
 
-                // The card fits itself to the walkable plan at boot; this is the check that the
-                // plan it fitted to is actually inside the card. The base is deliberately not in
-                // the fit — dragging a rect 400 units away into bounds shrinks the house to a
-                // smear — so it is only required to land pinned on an edge, not to be drawn whole.
-                let fits = !!mapView && mapView.scale > 0;
-                if (fits) {
-                    roomOrder.filter(rm => !rm.clamp).forEach(rm => {
-                        [[rm.ox - rm.hx, rm.oz - rm.hz], [rm.ox + rm.hx, rm.oz + rm.hz]].forEach(c => {
-                            const [x, z] = mapPoint(c[0], c[1]);
-                            if (x < MAP_PAD - 1 || x > MAP_W - MAP_PAD + 1 ||
-                                z < MAP_PAD - 1 || z > MAP_H - MAP_PAD + 1) fits = false;
-                        });
-                    });
-                }
-                r.mapScale = mapView ? +mapView.scale.toFixed(4) : null;
-                r.mapFitsCard = fits;
-                const baseCorner = mapPoint(roomById('burrow').ox, roomById('burrow').oz);
-                r.mapBasePinned = baseCorner[0] <= 3.01 || baseCorner[0] >= MAP_W - 3.01 ||
-                    baseCorner[1] <= 3.01 || baseCorner[1] >= MAP_H - 3.01;
+                // The den is in the plan, so the registry has to have built it like a room. Its
+                // masonry being in `worldObstacles` is the whole of what holds a body in there now
+                // the invisible rect is gone, and `roomAt` handing its floor back is what makes the
+                // hole in the kitchen's north wall a doorway rather than a painting of one.
+                const den = roomById('burrow');
+                const denFace = den.ox + den.hx - den.spec.wall.thickness / 2;
+                r.mapDenIsWalled = worldObstacles.some(o => o.h > STEP_HEIGHT &&
+                    o.x - o.w / 2 <= denFace + 0.01 && o.x + o.w / 2 >= den.ox + den.hx &&
+                    Math.abs(den.oz - o.z) <= o.d / 2);
+                r.mapDenClaimsFloor = roomAt(den.ox, den.oz).id === 'burrow' &&
+                    roomAt(den.spawn.x, den.spawn.z).id === 'burrow';
                 r.mapFaults = faults;
                 next();
             });
 
             // 22. A walk through the house, both ways. Everything above is kitchen geometry; this
             //     proves the doors are doors — that a mouse on the far side of a wall line is in
-            //     the next room, with no fade, no travel flag and no arrival point, that a prop
-            //     obeys the room it ended up in, and that a load carried through a doorway is
-            //     still in the paws on the other side and belongs to the floor it is put down on.
+            //     the next room with nothing having moved him there, that a prop obeys the room
+            //     it ended up in, and that a load carried through a doorway is still in the paws
+            //     on the other side and belongs to the floor it is put down on.
             steps.push((next) => {
                 const visited = [];
                 // The chef is parked for the walk, on purpose: the rooms are next door to each
@@ -1432,20 +1407,18 @@
                 // masonry does to his view is its own measurement, in the step after this one.
                 parkChef();
 
-                stepThrough('kitchen', (okHome) => {
+                walkThrough('kitchen', (okHome) => {
                     const k = roomById('kitchen');
                     visited.push(currentArea);
                     r.walkLeftBase = okHome;
                     r.walkHomeAt = v2(mouseGroup.position);
-                    r.walkHomeArrival = v2(doorTo('kitchen', 'burrow').enter);
-                    r.walkHomeLanded = r.walkHomeAt.join() === r.walkHomeArrival.join();
+                    // The den is next door now rather than hundreds of units away, so leaving the
+                    // base is a few steps through the wall line he went in by, and he lands where
+                    // his own feet stopped rather than on an authored arrival point.
+                    r.walkHomeSouthOfTheHole = mouseGroup.position.z > -KITCHEN_BOUND;
                     r.walkHomeHud = document.getElementById('hud-area').textContent === k.label;
-                    // The arch out of the base is one of the two gates that still fade, and the den
-                    // is hundreds of units from his new room: that light has to arrive with him
-                    // rather than start walking after him. Walked doors ease, jumped ones cut.
-                    r.lightSnappedOnJump = Math.abs(keyLight.position.x - keyGoal.x) < 1e-6 &&
-                        Math.abs(keyLight.position.z - keyGoal.z) < 1e-6 &&
-                        Math.abs(keyLight.shadow.camera.right - keyGoal.d) < 1e-6;
+                    r.walkHomeLampsSwapped = k.lights.every(l => l.visible) &&
+                        roomById('burrow').lights.every(l => !l.visible);
 
                     walkThrough('hall', (okHall) => {
                         const hall = roomById('hall');
@@ -1590,10 +1563,11 @@
                 chefGroup.position.copy(chefWaypoints[0]);
                 chefGroup.rotation.y = 0;
                 const gar = roomById('garden');
-                mouseGroup.position.set(gar.ox, 0, gar.oz);
+                mouseGroup.position.set(gar.spawn.x, getFloorY(gar.spawn.x, gar.spawn.z), gar.spawn.z);
                 mouseVel.set(0, 0, 0); jumpVelocity = 0; isGrounded = true;
-                travelTo('garden');
-                simFrames(60);                       // let the fade finish before he starts moving
+                updateAreaFromPosition();
+                r.beatMouseInGarden = currentArea === 'garden';
+                simFrames(60);                       // let the camera and lamps settle first
 
                 const lapRooms = [];
                 let advances = 0, lastIdx = 0, lapMin = Infinity, offPlan = 0;
@@ -1637,15 +1611,10 @@
                     openK: +fridgeOpenK.toFixed(3),
                     reach: fridgeReach(),
                     area: currentArea,
-                    traveling: isTraveling,
                     over: isGameOver,
                     mouse: v3(mouseGroup.position)
                 };
                 out.textContent = 'QA' + JSON.stringify(r);
-                // Once per step rather than once per frame: the map is a full 2D-canvas repaint
-                // of the whole house, and simFrames runs thousands of frames. Drawing it here is
-                // enough to put its errors in the collector and to leave real pixels on screen.
-                drawMinimap();
             };
             const runStep = () => {
                 if (stepIdx >= steps.length) return publish();

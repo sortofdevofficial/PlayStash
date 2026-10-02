@@ -6,9 +6,9 @@
  * connected plan now, so do its walls: he can see you through an open doorway and nowhere
  * else. His beat is the same deal — one walk through several rooms, with the masonry the only
  * thing that decides where he can go, so he takes the doorways and stops at the shut ones.
- * Capture is delegated to main.js through triggerGameOver(), and the only UI this
- * module touches is core/ui.js's toast. main.js never mutates the chef's state directly —
- * it calls resetChef().
+ * Capture is delegated to main.js through triggerGameOver(), and this module draws no UI —
+ * the alert sound and the warning ring are the whole notification. main.js never mutates the
+ * chef's state directly — it calls resetChef().
  */
 let chefWaypoints = [];      // the beat, laid out by world/rooms.js from map/rooms.js
 let chefIsChasing = false;
@@ -114,7 +114,6 @@ function updateChefAI(dt, time) {
         if (!chefIsChasing) {
             chefIsChasing = true;
             playSound('alert');
-            showToast('Spotted! Get a counter between you and him');
         }
     } else if (chefIsChasing) {
         chefLoseTimer += dt;
@@ -123,7 +122,6 @@ function updateChefAI(dt, time) {
             chefLoseTimer = 0;
             chefRealertTimer = CHEF_REALERT_COOLDOWN;
             resumeBeat();
-            showToast('You lost him — keep rolling');
         }
     }
 
