@@ -7,7 +7,7 @@ import {
   initDiscordWidget, sanitizeHTML, toast, ICON_IDS, iconSpan, emptyNote, formatDateDetailed, safeAvatarUrl,
   loadCommunityData, loadModerationData
 } from "./discord.js";
-import { initChat } from "./js/chat.js";
+import { initChat } from "./chat.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",

@@ -1,6 +1,6 @@
 // Website <-> Discord live chat client.
 // Polls the bot (GET /api/chat/messages) and posts with a Firebase ID token (POST /api/chat/send).
-import { BOT_API_BASE, BOT_API_KEY, sanitizeHTML, safeAvatarUrl } from '../discord.js';
+import { BOT_API_BASE, BOT_API_KEY, sanitizeHTML, safeAvatarUrl } from './discord.js';
 
 const NICK_KEY = 'ps_chat_nick';
 const FAST_MS = 2500, IDLE_MS = 15000, MAX_DOM = 150;
