@@ -29,208 +29,7 @@
   <link rel="apple-touch-icon" href="favicon.png" />
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <style>
-    :root {
-      --bg: #030712;
-      --sky: #38bdf8;
-      --sky-deep: #0284c7;
-      --violet: #a78bfa;
-      --amber: #fbbf24;
-      --emerald: #34d399;
-      --discord: #5865f2;
-      --line: rgba(255, 255, 255, 0.08);
-      --ease: cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    * {
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    input, textarea {
-      -webkit-user-select: text;
-      -moz-user-select: text;
-      -ms-user-select: text;
-      user-select: text;
-    }
-
-    ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: #030712; }
-    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #0284c7; }
-
-    body {
-      background-color: var(--bg);
-      color: #f8fafc;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
-      padding-bottom: env(safe-area-inset-bottom);
-    }
-
-    :focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; border-radius: 10px; }
-
-    .bg-aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-    .bg-aurora::before, .bg-aurora::after {
-      content: ""; position: absolute; border-radius: 9999px; filter: blur(90px); opacity: .55;
-    }
-    .bg-aurora::before {
-      width: 620px; height: 620px; top: -220px; left: 50%; margin-left: -380px;
-      background: radial-gradient(circle, rgba(14,165,233,.55), rgba(14,165,233,0) 70%);
-      animation: drift1 22s ease-in-out infinite alternate;
-    }
-    .bg-aurora::after {
-      width: 520px; height: 520px; bottom: -200px; right: -120px;
-      background: radial-gradient(circle, rgba(139,92,246,.40), rgba(139,92,246,0) 70%);
-      animation: drift2 26s ease-in-out infinite alternate;
-    }
-    .bg-grid {
-      position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5;
-      background-image:
-        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
-      background-size: 44px 44px;
-      -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, transparent 70%);
-      mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, transparent 70%);
-    }
-    @keyframes drift1 { to { transform: translate(90px, 60px) scale(1.15); } }
-    @keyframes drift2 { to { transform: translate(-80px, -50px) scale(1.2); } }
-
-    .glass-box {
-      background: rgba(15, 23, 42, 0.68);
-      backdrop-filter: blur(22px) saturate(140%);
-      -webkit-backdrop-filter: blur(22px) saturate(140%);
-      border: 1px solid var(--line);
-    }
-    .card-box {
-      background: linear-gradient(145deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.45) 100%);
-      border: 1px solid var(--line);
-      box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
-      transition: transform .35s var(--ease), border-color .3s, box-shadow .35s var(--ease);
-    }
-    .card-box:hover { border-color: rgba(56,189,248,.45); box-shadow: 0 18px 44px -14px rgba(14,165,233,.35); }
-    .card-box-active { box-shadow: 0 0 40px -8px rgba(56, 189, 248, 0.32); border-color: rgba(56, 189, 248, 0.55); }
-
-    .tag-badge {
-      background: rgba(56, 189, 248, 0.1);
-      border: 1px solid rgba(56, 189, 248, 0.3);
-      color: #38bdf8;
-    }
-
-    .text-gradient {
-      background: linear-gradient(90deg, #7dd3fc, #38bdf8 45%, #a78bfa);
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-    }
-
-    .btn-main {
-      position: relative; overflow: hidden;
-      background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
-      box-shadow: 0 6px 22px rgba(2, 132, 199, 0.45), inset 0 1px 0 rgba(255,255,255,.25);
-      transition: transform .2s var(--ease), box-shadow .25s, filter .25s;
-    }
-    .btn-main:hover { filter: brightness(1.12); box-shadow: 0 10px 30px rgba(2, 132, 199, 0.6), inset 0 1px 0 rgba(255,255,255,.3); }
-    .btn-main::after {
-      content: ""; position: absolute; top: 0; left: -120%; width: 60%; height: 100%;
-      background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent);
-      transform: skewX(-20deg); transition: left .7s var(--ease);
-    }
-    .btn-main:hover::after { left: 140%; }
-    .btn-discord {
-      background: linear-gradient(135deg, #5865f2 0%, #404eed 100%);
-      box-shadow: 0 6px 22px rgba(88, 101, 242, 0.4);
-      transition: transform .2s var(--ease), filter .25s;
-    }
-    .btn-discord:hover { filter: brightness(1.12); }
-    .btn-ghost {
-      background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(148,163,184,.25);
-      transition: background .2s, border-color .2s, transform .2s var(--ease);
-    }
-    .btn-ghost:hover { background: rgba(30, 41, 59, .9); border-color: rgba(56,189,248,.5); }
-
-    .stat-card { position: relative; overflow: hidden; transition: transform .3s var(--ease), border-color .3s, box-shadow .3s var(--ease); }
-    .stat-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent, #38bdf8) 45%, transparent); box-shadow: 0 14px 32px -14px color-mix(in srgb, var(--accent, #38bdf8) 55%, transparent); }
-    .stat-card::before {
-      content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; opacity: .8;
-      background: linear-gradient(90deg, transparent, var(--accent, #38bdf8), transparent);
-    }
-    .icon-tile {
-      width: 2.75rem; height: 2.75rem; border-radius: .9rem; display: flex; align-items: center; justify-content: center;
-      background: color-mix(in srgb, var(--accent, #38bdf8) 16%, transparent);
-      border: 1px solid color-mix(in srgb, var(--accent, #38bdf8) 35%, transparent);
-      color: var(--accent, #38bdf8);
-      transition: transform .3s var(--ease);
-    }
-    .stat-card:hover .icon-tile { transform: scale(1.08) rotate(-4deg); }
-    .bump { animation: bump .5s var(--ease); }
-    @keyframes bump { 0% { transform: scale(1); } 35% { transform: scale(1.28); color: #fff; } 100% { transform: scale(1); } }
-
-    .float-a { animation: floaty 7s ease-in-out infinite; }
-    .float-b { animation: floaty 9s ease-in-out -2s infinite; }
-    .float-c { animation: floaty 8s ease-in-out -4s infinite; }
-    @keyframes floaty { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-16px) rotate(4deg); } }
-
-    .fade-in { animation: fadeUp .5s var(--ease) both; }
-    @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-    .stagger > * { animation: fadeUp .5s var(--ease) both; }
-    .stagger > *:nth-child(2) { animation-delay: .05s; } .stagger > *:nth-child(3) { animation-delay: .1s; }
-    .stagger > *:nth-child(4) { animation-delay: .15s; } .stagger > *:nth-child(5) { animation-delay: .2s; }
-    .stagger > *:nth-child(6) { animation-delay: .25s; } .stagger > *:nth-child(n+7) { animation-delay: .3s; }
-
-    .skeleton {
-      background: linear-gradient(100deg, rgba(30,41,59,.5) 30%, rgba(51,65,85,.6) 50%, rgba(30,41,59,.5) 70%);
-      background-size: 200% 100%; animation: shimmer 1.4s linear infinite; border-radius: 16px;
-    }
-    @keyframes shimmer { to { background-position: -200% 0; } }
-
-    .nav-tab { position: relative; }
-    .nav-tab[aria-selected="true"] { box-shadow: 0 0 20px -4px rgba(56,189,248,.5); }
-
-    .dot-online { position: relative; }
-    .dot-online::after {
-      content: ""; position: absolute; inset: -3px; border-radius: 9999px;
-      border: 2px solid rgba(52,211,153,.55); animation: ping 1.8s cubic-bezier(0,0,.2,1) infinite;
-    }
-    @keyframes ping { 75%,100% { transform: scale(1.6); opacity: 0; } }
-
-    #profile-modal:not(.hidden) { animation: fadeIn .2s ease both; }
-    #profile-modal:not(.hidden) > div { animation: popIn .32s var(--ease) both; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes popIn { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: none; } }
-
-    #toast-container {
-      position: fixed; z-index: 100; left: 50%; transform: translateX(-50%);
-      bottom: calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px;
-      align-items: center; pointer-events: none; width: min(92vw, 380px);
-    }
-    .toast {
-      pointer-events: auto; width: 100%; padding: 12px 16px; border-radius: 14px; font-size: 12px; font-weight: 700;
-      display: flex; align-items: center; gap: 10px; color: #e2e8f0;
-      background: rgba(15,23,42,.92); border: 1px solid var(--line); backdrop-filter: blur(16px);
-      box-shadow: 0 16px 40px -12px rgba(0,0,0,.7); animation: toastIn .4s var(--ease) both;
-    }
-    .toast.success { border-color: rgba(52,211,153,.4); }
-    .toast.error { border-color: rgba(248,113,113,.45); }
-    .toast.out { animation: toastOut .3s ease both; }
-    @keyframes toastIn { from { opacity: 0; transform: translateY(16px) scale(.96); } to { opacity: 1; transform: none; } }
-    @keyframes toastOut { to { opacity: 0; transform: translateY(10px) scale(.96); } }
-
-    .discord-hero {
-      background: linear-gradient(145deg, rgba(88,101,242,0.16) 0%, rgba(15,23,42,0.85) 55%, rgba(30,27,75,0.55) 100%);
-      backdrop-filter: blur(22px) saturate(140%);
-      -webkit-backdrop-filter: blur(22px) saturate(140%);
-    }
-    .discord-blurple-glow {
-      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(88,101,242,.25), transparent 70%);
-    }
-    @keyframes pulseSlow { 0%,100% { opacity: .55; } 50% { opacity: .9; } }
-    .animate-pulse-slow { animation: pulseSlow 5s ease-in-out infinite; }
-
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-    }
-  </style>
+  <link rel="stylesheet" href="css/style.css" />
   <script>
   // Monetag: In-Page Push + Vignette load on every visit, then rest for COOLDOWN_MIN minutes.
   // Cooldown key is shared with the WorldForge page.
@@ -601,6 +400,10 @@
         <svg class="w-3.5 h-3.5 shrink-0" aria-hidden="true"><use href="#ic-villager"></use></svg>
         <span>Profile</span>
       </button>
+      <button id="tab-chat-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer flex items-center justify-center gap-1.5" aria-selected="false">
+        <svg class="w-3.5 h-3.5 shrink-0" aria-hidden="true"><use href="#ic-chat"></use></svg>
+        <span>Chat</span>
+      </button>
       <button id="tab-discord-btn" role="tab" class="nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 border border-transparent transition cursor-pointer flex items-center justify-center gap-1.5" aria-selected="false">
         <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
         <span>Discord</span>
@@ -779,6 +582,45 @@
         </div>
       </section>
 
+    </div>
+
+    <!-- CHAT (bridged with Discord) -->
+    <div id="chat-section" class="hidden space-y-6">
+      <section class="chat-shell glass-box rounded-3xl border border-indigo-500/25 overflow-hidden">
+        <header class="chat-head">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="icon-tile" style="--accent:#5865f2"><svg class="w-5 h-5" aria-hidden="true"><use href="#ic-chat"></use></svg></div>
+            <div class="min-w-0">
+              <h2 class="text-sm font-black text-white uppercase tracking-wider">Live Chat</h2>
+              <p class="text-[11px] text-slate-400 truncate">Bridged with our Discord &mdash; messages appear on both sides</p>
+            </div>
+          </div>
+          <span id="chat-status" class="chat-status" data-state="connecting"><i></i><span>Connecting</span></span>
+        </header>
+
+        <div class="chat-body">
+          <div id="chat-log" role="log" aria-live="polite" aria-label="Chat messages"></div>
+          <button id="chat-jump" type="button" class="chat-jump hidden">New messages &darr;</button>
+        </div>
+
+        <div id="chat-nick" class="chat-nick hidden">
+          <label for="chat-nick-input" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Pick a nickname to chat</label>
+          <div class="flex gap-2">
+            <input id="chat-nick-input" type="text" maxlength="20" placeholder="2&ndash;20 letters or numbers" autocomplete="off" />
+            <button id="chat-nick-save" type="button" class="btn-main text-white font-black px-5 rounded-xl text-xs uppercase tracking-wider">Save</button>
+          </div>
+          <button id="chat-nick-google" type="button" class="chat-link">or sign in with Google</button>
+        </div>
+
+        <form id="chat-form" class="chat-form" autocomplete="off">
+          <div class="chat-input-wrap">
+            <input id="chat-input" type="text" maxlength="300" placeholder="Message #web-chat on Discord&hellip;" aria-label="Message" />
+            <span id="chat-count" class="chat-count">0/300</span>
+          </div>
+          <button id="chat-send" type="submit" class="btn-main text-white font-black px-6 py-3 rounded-xl text-xs uppercase tracking-wider active:scale-95 shrink-0">Send</button>
+        </form>
+        <p id="chat-who" class="chat-who"></p>
+      </section>
     </div>
 
     <!-- DISCORD -->

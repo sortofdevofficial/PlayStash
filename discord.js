@@ -256,3 +256,371 @@ export function initDiscordWidget() {
   refresh();
   setInterval(refresh, 60000);
 }
+
+// ============================================================
+// SHARED HELPERS (toasts, icons, sanitising)
+// ============================================================
+
+export function sanitizeHTML(str) {
+  const temp = document.createElement('div');
+  temp.textContent = str || '';
+  return temp.innerHTML;
+}
+
+const TOAST_ICON = {
+  success: '<svg class="w-4 h-4 shrink-0" aria-hidden="true"><use href="#ic-check"></use></svg>',
+  error: '<svg class="w-4 h-4 shrink-0" aria-hidden="true"><use href="#ic-alert"></use></svg>',
+  info: '<svg class="w-4 h-4 shrink-0" aria-hidden="true"><use href="#ic-info"></use></svg>'
+};
+
+export function toast(msg, type = 'info', action = null) {
+  const box = document.getElementById('toast-container');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icon = document.createElement('span');
+  icon.className = 'flex items-center';
+  icon.innerHTML = TOAST_ICON[type] || TOAST_ICON.info;
+  const text = document.createElement('span');
+  text.className = 'flex-1';
+  text.textContent = msg;
+  el.append(icon, text);
+  if (action && action.href) {
+    const link = document.createElement('a');
+    link.href = action.href;
+    link.textContent = action.label || 'Open';
+    link.className = 'shrink-0 px-3 py-1.5 rounded-full bg-sky-500 hover:bg-sky-400 text-white text-[11px] font-black uppercase tracking-wider transition';
+    el.appendChild(link);
+  }
+  box.appendChild(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => {
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 300);
+  }, action ? 9000 : 3500);
+}
+
+// Icons are <use> references into the low-poly sprite in index.html — the same
+// sheet WorldForge's HUD uses, so a wood log looks identical on either page.
+export const ICON_IDS = {
+  wood: 'ic-wood',
+  water: 'ic-water',
+  wheat: 'ic-food',
+  food: 'ic-food',
+  stone: 'ic-stone',
+  gold: 'ic-gold',
+  iron: 'ic-iron',
+  meat: 'ic-meat',
+  fish: 'ic-fish',
+  box: 'ic-cap',
+  house: 'ic-pop',
+  person: 'ic-folk',
+  medal: 'ic-medal-gold',
+  chat: 'ic-chat',
+  sound: 'ic-sound',
+  clock: 'ic-clock',
+  alert: 'ic-alert',
+  info: 'ic-info',
+  ping: 'ic-ping',
+  eye: 'ic-eye',
+  gamepad: 'ic-gamepad',
+  globe: 'ic-globe'
+};
+
+export function iconSpan(key, extraClass = '') {
+  const id = ICON_IDS[key] || ICON_IDS.box;
+  return `<span class="inline-flex items-center justify-center shrink-0 ${extraClass}"><svg class="w-full h-full" aria-hidden="true"><use href="#${id}"></use></svg></span>`;
+}
+
+// Empty states read as broken panels when they are bare text in an otherwise
+// iconned layout. col-span-full is inert outside a grid, so this serves both.
+export const emptyNote = (text, iconKey = 'info') =>
+  `<div class="col-span-full p-6 text-center text-slate-400 text-xs flex flex-col items-center gap-2">${iconSpan(iconKey, 'w-5 h-5 opacity-70')}<span>${text}</span></div>`;
+
+export function formatDateDetailed(timestamp) {
+  if (!timestamp) return 'N/A';
+  return new Date(timestamp).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+
+export function safeAvatarUrl(url) {
+  if (typeof url !== 'string' || !url) return 'favicon.png';
+  try {
+    const parsed = new URL(url, window.location.href);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : 'favicon.png';
+  } catch {
+    return 'favicon.png';
+  }
+}
+
+// ============================================================
+// COMMUNITY + MODERATION PANELS (live data from the bot HTTP APIs)
+// ============================================================
+
+export const BOT_API_BASE = 'https://72wkgkq29b.apps.bot-hosting.cloud';
+export const BOT_API_KEY = 'sortofdev'; // Public-safe: this key is read-only on the bot's /api endpoints.
+
+let communityLoaded = false;
+
+function escapeHtmlJs(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function fmtDuration(sec) {
+  sec = Number(sec || 0);
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.floor(sec % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function fmtUptime(ms) {
+  const sec = Math.floor(Number(ms || 0) / 1000);
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function communityAvatarImg(user, size = 'w-8 h-8') {
+  const src = user.avatar || 'favicon.png';
+  const name = escapeHtmlJs(user.username || 'User');
+  return `<img src="${src}" class="${size} rounded-full object-cover border border-slate-700/80 shrink-0" alt="${name}" onerror="this.src='favicon.png'" />`;
+}
+
+function renderGiveawayCard(g) {
+  const isDone = g.done;
+  const timeLabel = isDone
+    ? `Ended ${g.endedAt ? new Date(g.endedAt).toLocaleDateString() : ''}`
+    : `Ends ${new Date(g.endsAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+  const winnersLine = isDone
+    ? (g.winners && g.winners.length
+        ? `<div class="flex items-center gap-1.5 flex-wrap mt-2">${g.winners.map((w) => `<span class="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full pl-1 pr-2 py-0.5 text-[10px] text-emerald-300 font-bold">${communityAvatarImg(w, 'w-4 h-4')}${escapeHtmlJs(w.username)}</span>`).join('')}</div>`
+        : `<div class="text-[10px] text-slate-500 mt-2">No valid entries</div>`)
+    : '';
+
+  return `
+    <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 hover:border-amber-500/30 transition">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-xs font-black text-white truncate">${escapeHtmlJs(g.prize)}</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">#${g.gwId} · Hosted by ${escapeHtmlJs(g.host?.username || 'Unknown')}</div>
+        </div>
+        <span class="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full ${isDone ? 'bg-slate-700/50 text-slate-400' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}">${isDone ? 'Ended' : 'Live'}</span>
+      </div>
+      <div class="flex items-center gap-3 mt-3 text-[10px] text-slate-400">
+        <span class="flex items-center gap-1">${iconSpan('person', 'w-3 h-3')}<span>${g.entries} entered</span></span>
+        <span class="flex items-center gap-1">${iconSpan('medal', 'w-3 h-3')}<span>${g.winnersCount} winner${g.winnersCount === 1 ? '' : 's'}</span></span>
+        <span>${timeLabel}</span>
+      </div>
+      ${winnersLine}
+    </div>
+  `;
+}
+
+function renderLeaderboardRow({ rank, user, right, sub }) {
+  const MEDALS = ['ic-medal-gold', 'ic-medal-silver', 'ic-medal-bronze'];
+  const medal = rank >= 1 && rank <= 3
+    ? `<svg class="w-5 h-5 inline-block align-middle" aria-hidden="true"><use href="#${MEDALS[rank - 1]}"></use></svg>`
+    : `#${rank}`;
+  return `
+    <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/90">
+      <span class="w-7 text-center text-xs font-black text-slate-400 shrink-0">${medal}</span>
+      ${communityAvatarImg(user)}
+      <div class="min-w-0 flex-1">
+        <div class="text-xs font-bold text-white truncate">${escapeHtmlJs(user.username)}</div>
+        ${sub ? `<div class="text-[10px] text-slate-500 truncate">${sub}</div>` : ''}
+      </div>
+      <span class="shrink-0 text-xs font-black text-sky-400 font-mono">${right}</span>
+    </div>
+  `;
+}
+
+export async function loadCommunityData() {
+  if (communityLoaded) return;
+  communityLoaded = true;
+
+  const offlineEl = document.getElementById('community-offline');
+  const statPing = document.getElementById('community-stat-ping');
+  const statMembers = document.getElementById('community-stat-members');
+  const statGiveaways = document.getElementById('community-stat-giveaways');
+  const statUptime = document.getElementById('community-stat-uptime');
+  const activeGwEl = document.getElementById('community-active-giveaways');
+  const recentGwEl = document.getElementById('community-recent-giveaways');
+  const msgLbEl = document.getElementById('community-msg-leaderboard');
+  const voiceLbEl = document.getElementById('community-voice-leaderboard');
+  const inviteLbEl = document.getElementById('community-invite-leaderboard');
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${BOT_API_BASE}/api/community`, {
+      headers: { Authorization: `Bearer ${BOT_API_KEY}` },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    offlineEl?.classList.add('hidden');
+
+    if (statPing) statPing.textContent = `${data.stats?.ping ?? '–'}ms`;
+    if (statMembers) statMembers.textContent = data.stats?.members ?? '–';
+    if (statGiveaways) statGiveaways.textContent = data.giveaways?.active?.length ?? 0;
+    if (statUptime) statUptime.textContent = fmtUptime(data.stats?.uptime);
+
+    const active = data.giveaways?.active || [];
+    if (activeGwEl) {
+      activeGwEl.innerHTML = active.length
+        ? active.map(renderGiveawayCard).join('')
+        : emptyNote('No giveaways running right now.', 'box');
+    }
+
+    const recent = data.giveaways?.recent || [];
+    if (recentGwEl) {
+      recentGwEl.innerHTML = recent.length
+        ? recent.map(renderGiveawayCard).join('')
+        : emptyNote('No past giveaways yet.', 'clock');
+    }
+
+    const messages = data.leaderboard?.messages || [];
+    if (msgLbEl) {
+      msgLbEl.innerHTML = messages.length
+        ? messages.map((m) => renderLeaderboardRow({ rank: m.rank, user: m.user, right: `Lv.${m.level}`, sub: `${m.messages.toLocaleString()} messages` })).join('')
+        : emptyNote('No message activity yet.', 'chat');
+    }
+
+    const voice = data.leaderboard?.voice || [];
+    if (voiceLbEl) {
+      voiceLbEl.innerHTML = voice.length
+        ? voice.map((v) => renderLeaderboardRow({ rank: v.rank, user: v.user, right: fmtDuration(v.seconds) })).join('')
+        : emptyNote('No voice activity yet.', 'sound');
+    }
+
+    const invites = data.invites || [];
+    if (inviteLbEl) {
+      inviteLbEl.innerHTML = invites.length
+        ? invites.map((v) => renderLeaderboardRow({ rank: v.rank, user: v.user, right: v.total, sub: `${v.regular} joined · ${v.left} left · ${v.fake} fake` })).join('')
+        : emptyNote('No invite activity yet.', 'person');
+    }
+  } catch (err) {
+    console.warn('Community API fetch failed:', err.message);
+    offlineEl?.classList.remove('hidden');
+    [activeGwEl, recentGwEl].forEach((el) => { if (el) el.innerHTML = emptyNote('Unavailable', 'alert'); });
+    [msgLbEl, voiceLbEl, inviteLbEl].forEach((el) => { if (el) el.innerHTML = emptyNote('Unavailable', 'alert'); });
+    communityLoaded = false; // allow a later manual retry
+  }
+}
+
+// ============================================================
+// MODERATION — live tickets & warns from the moderation bot's API
+// ============================================================
+
+const MOD_API_BASE = 'https://1gkm2xh7wx.apps.bot-hosting.cloud';
+const MOD_API_KEY = 'sortofdev'; // Public-safe: read-only on the mod bot's /api endpoints.
+
+let moderationLoaded = false;
+
+function renderTicketCard(t, isClosed) {
+  const statusLabel = isClosed ? 'Closed' : (t.status === 'claimed' ? 'Claimed' : 'Open');
+  const statusClass = isClosed ? 'bg-slate-700/50 text-slate-400' : (t.status === 'claimed' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30');
+  const timeLabel = isClosed
+    ? `Closed ${new Date(t.closedAt).toLocaleDateString()}`
+    : `Opened ${new Date(t.createdAt).toLocaleDateString()}`;
+
+  return `
+    <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 hover:border-sky-500/30 transition">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-xs font-black text-white truncate">#${t.ticketId} · ${escapeHtmlJs(t.categoryLabel)}</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">Opened by ${escapeHtmlJs(t.opener.username)}</div>
+        </div>
+        <span class="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full ${statusClass}">${statusLabel}</span>
+      </div>
+      ${t.reason ? `<div class="text-[10px] text-slate-500 mt-2 truncate">${escapeHtmlJs(t.reason)}</div>` : ''}
+      <div class="flex items-center gap-3 mt-3 text-[10px] text-slate-400 flex-wrap">
+        ${t.claimedBy ? `<span class="flex items-center gap-1">${iconSpan('person', 'w-3 h-3')}<span>Claimed by ${escapeHtmlJs(t.claimedBy.username)}</span></span>` : ''}
+        ${isClosed && t.closedBy ? `<span class="flex items-center gap-1">${iconSpan('person', 'w-3 h-3')}<span>Closed by ${escapeHtmlJs(t.closedBy.username)}</span></span>` : ''}
+        <span class="flex items-center gap-1">${iconSpan('chat', 'w-3 h-3')}<span>${t.messageCount} messages</span></span>
+        <span>${timeLabel}</span>
+      </div>
+      ${isClosed && t.closeReason ? `<div class="text-[10px] text-slate-500 mt-2 pt-2 border-t border-slate-800/70 truncate">Close reason: ${escapeHtmlJs(t.closeReason)}</div>` : ''}
+    </div>
+  `;
+}
+
+function renderWarnRow(w) {
+  const ts = new Date(w.at).toLocaleDateString();
+  return `
+    <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/90">
+      ${communityAvatarImg(w.user)}
+      <div class="min-w-0 flex-1">
+        <div class="text-xs font-bold text-white truncate">${escapeHtmlJs(w.user.username)} <span class="text-slate-500 font-normal">#${w.id}</span></div>
+        <div class="text-[10px] text-slate-500 truncate">${escapeHtmlJs(w.reason)} · by ${escapeHtmlJs(w.moderator.username)} · ${ts}</div>
+      </div>
+      <span class="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full ${w.active ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-slate-700/50 text-slate-400'}">${w.active ? 'Active' : 'Removed'}</span>
+    </div>
+  `;
+}
+
+export async function loadModerationData() {
+  if (moderationLoaded) return;
+  moderationLoaded = true;
+
+  const offlineEl = document.getElementById('moderation-offline');
+  const statOpen = document.getElementById('moderation-stat-open');
+  const statClosed = document.getElementById('moderation-stat-closed');
+  const statWarns = document.getElementById('moderation-stat-warns');
+  const statPing = document.getElementById('moderation-stat-ping');
+  const openEl = document.getElementById('moderation-open-tickets');
+  const closedEl = document.getElementById('moderation-closed-tickets');
+  const warnsEl = document.getElementById('moderation-warns');
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${MOD_API_BASE}/api/moderation`, {
+      headers: { Authorization: `Bearer ${MOD_API_KEY}` },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    offlineEl?.classList.add('hidden');
+
+    if (statOpen) statOpen.textContent = data.stats?.openTicketCount ?? 0;
+    if (statClosed) statClosed.textContent = data.tickets?.closed?.length ?? 0;
+    if (statWarns) statWarns.textContent = data.stats?.activeWarnCount ?? 0;
+    if (statPing) statPing.textContent = `${data.stats?.ping ?? '–'}ms`;
+
+    const open = data.tickets?.open || [];
+    if (openEl) {
+      openEl.innerHTML = open.length
+        ? open.map((t) => renderTicketCard(t, false)).join('')
+        : emptyNote('No open tickets right now.', 'chat');
+    }
+
+    const closed = data.tickets?.closed || [];
+    if (closedEl) {
+      closedEl.innerHTML = closed.length
+        ? closed.map((t) => renderTicketCard(t, true)).join('')
+        : emptyNote('No closed tickets yet.', 'clock');
+    }
+
+    const warnList = data.warns || [];
+    if (warnsEl) {
+      warnsEl.innerHTML = warnList.length
+        ? warnList.map(renderWarnRow).join('')
+        : emptyNote('No warns on record.', 'alert');
+    }
+  } catch (err) {
+    console.warn('Moderation API fetch failed:', err.message);
+    offlineEl?.classList.remove('hidden');
+    [openEl, closedEl].forEach((el) => { if (el) el.innerHTML = emptyNote('Unavailable', 'alert'); });
+    if (warnsEl) warnsEl.innerHTML = emptyNote('Unavailable', 'alert');
+    moderationLoaded = false;
+  }
+}
