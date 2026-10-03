@@ -55,7 +55,7 @@ export function initChat({ auth, toast, section, loginBtn }) {
     const body = document.createElement('div');
     body.className = 'chat-bubble';
     const badge = m.src === 'discord'
-      ? `<span class="chat-badge discord">${m.staff ? 'Staff' : 'Discord'}</span>`
+      ? `<span class="chat-badge discord${m.badge ? ' special' : ''}">${sanitizeHTML(m.badge || 'Discord')}</span>`
       : '<span class="chat-badge web">Web</span>';
     const imgs = (m.images || []).filter((u) => CDN_OK.test(u))
       .map((u) => `<a href="${u}" target="_blank" rel="noopener noreferrer"><img class="chat-attach" src="${u}" loading="lazy" alt="Attachment" /></a>`).join('');
