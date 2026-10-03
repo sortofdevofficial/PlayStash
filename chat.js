@@ -2,7 +2,6 @@
 // Polls the bot (GET /api/chat/messages) and posts with a Firebase ID token (POST /api/chat/send).
 import { BOT_API_BASE, BOT_API_KEY, sanitizeHTML, safeAvatarUrl } from './discord.js';
 
-const NICK_KEY = 'ps_chat_nick';
 const FAST_MS = 2500, IDLE_MS = 15000, MAX_DOM = 150;
 const CDN_OK = /^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\//;
 
@@ -17,7 +16,8 @@ export function initChat({ auth, toast, section, loginBtn }) {
   const mine = new Set();     // ids this browser sent
   let seq = 0, timer = null, inflight = false, failures = 0, sending = false;
 
-  const getNick = () => { try { return localStorage.getItem(NICK_KEY) || ''; } catch { return ''; } };
+  let nick = ''; // kept in memory only — guests re-enter it each visit
+  const getNick = () => nick;
   const isGuest = () => !auth.currentUser || auth.currentUser.isAnonymous;
   const needsNick = () => isGuest() && getNick().length < 2;
   const visible = () => !section.classList.contains('hidden') && !document.hidden;
@@ -94,10 +94,11 @@ export function initChat({ auth, toast, section, loginBtn }) {
   // ---- polling ----
   async function poll() {
     if (inflight) return;
+    const wait = visible() && seq > 0 && failures === 0 ? 20 : 0; // long-poll while the chat is open
     inflight = true;
     try {
-      const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
-      const res = await fetch(`${BOT_API_BASE}/api/chat/messages?after=${seq}`, { headers: { Authorization: `Bearer ${BOT_API_KEY}` }, signal: ctl.signal });
+      const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), wait ? 30000 : 8000);
+      const res = await fetch(`${BOT_API_BASE}/api/chat/messages?after=${seq}${wait ? `&wait=${wait}` : ''}`, { headers: { Authorization: `Bearer ${BOT_API_KEY}` }, signal: ctl.signal });
       clearTimeout(t);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -112,7 +113,7 @@ export function initChat({ auth, toast, section, loginBtn }) {
 
   function schedule() {
     clearTimeout(timer);
-    const delay = !visible() ? IDLE_MS : Math.min(FAST_MS * (1 + failures), 20000);
+    const delay = !visible() ? IDLE_MS : failures ? Math.min(FAST_MS * (1 + failures), 20000) : 0;
     timer = setTimeout(async () => { if (visible() || !rendered.size) await poll(); schedule(); }, delay);
   }
 
@@ -151,7 +152,7 @@ export function initChat({ auth, toast, section, loginBtn }) {
   const saveNick = () => {
     const v = nickInput.value.normalize('NFKC').replace(/[^\p{L}\p{N} ._'\-]/gu, '').trim().slice(0, 20);
     if (v.length < 2) return toast('Nickname must be 2–20 letters or numbers.', 'error');
-    try { localStorage.setItem(NICK_KEY, v); } catch {}
+    nick = v;
     refreshComposer(); input.focus();
   };
   $('chat-nick-save').addEventListener('click', saveNick);
