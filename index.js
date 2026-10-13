@@ -5,9 +5,8 @@ import {
 import { getDatabase, ref, set, update, onValue, off, onDisconnect, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import {
   initDiscordWidget, sanitizeHTML, toast, ICON_IDS, iconSpan, emptyNote, formatDateDetailed, safeAvatarUrl,
-  loadCommunityData, loadModerationData
+  loadCommunityData, loadModerationData, logWebsiteEvent
 } from "./discord.js";
-import { initChat } from "./chat.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWBT35QNUywT-_RgeqeZXv44Z9frUYZMU",
@@ -110,13 +109,11 @@ const tabGamesBtn = document.getElementById('tab-games-btn');
 const tabPlayersBtn = document.getElementById('tab-players-btn');
 const tabProfileBtn = document.getElementById('tab-profile-btn');
 const tabDiscordBtn = document.getElementById('tab-discord-btn');
-const tabChatBtn = document.getElementById('tab-chat-btn');
 
 const gamesSection = document.getElementById('games-section');
 const playersSection = document.getElementById('players-section');
 const profileSection = document.getElementById('profile-section');
 const discordSection = document.getElementById('discord-section');
-const chatSection = document.getElementById('chat-section');
 const openMyProfileBtn = document.getElementById('open-my-profile-btn');
 
 const profileCardAvatar = document.getElementById('profile-card-avatar');
@@ -168,16 +165,16 @@ const resourceMap = {
 const TAB_BASE = 'nav-tab flex-1 sm:flex-none px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5';
 const TAB_ACTIVE = TAB_BASE + ' text-white bg-sky-500/20 border border-sky-400/40';
 const TAB_INACTIVE = TAB_BASE + ' text-slate-400 hover:text-slate-200 border border-transparent';
-const TAB_NAMES = ['games', 'players', 'profile', 'chat', 'discord'];
+const TAB_NAMES = ['games', 'players', 'profile', 'discord'];
 
 function switchTab(selected, { updateHash = true } = {}) {
-  [[tabGamesBtn, 'games'], [tabPlayersBtn, 'players'], [tabProfileBtn, 'profile'], [tabChatBtn, 'chat'], [tabDiscordBtn, 'discord']].forEach(([btn, name]) => {
+  [[tabGamesBtn, 'games'], [tabPlayersBtn, 'players'], [tabProfileBtn, 'profile'], [tabDiscordBtn, 'discord']].forEach(([btn, name]) => {
     if (!btn) return;
     btn.className = selected === name ? TAB_ACTIVE : TAB_INACTIVE;
     btn.setAttribute('aria-selected', String(selected === name));
   });
 
-  [[gamesSection, 'games'], [playersSection, 'players'], [profileSection, 'profile'], [chatSection, 'chat'], [discordSection, 'discord']].forEach(([el, name]) => {
+  [[gamesSection, 'games'], [playersSection, 'players'], [profileSection, 'profile'], [discordSection, 'discord']].forEach(([el, name]) => {
     if (!el) return;
     const show = selected === name;
     el.classList.toggle('hidden', !show);
@@ -196,7 +193,6 @@ function switchTab(selected, { updateHash = true } = {}) {
 tabGamesBtn?.addEventListener('click', () => switchTab('games'));
 tabPlayersBtn?.addEventListener('click', () => switchTab('players'));
 tabProfileBtn?.addEventListener('click', () => switchTab('profile'));
-tabChatBtn?.addEventListener('click', () => switchTab('chat'));
 tabDiscordBtn?.addEventListener('click', () => switchTab('discord'));
 openMyProfileBtn?.addEventListener('click', () => switchTab('profile'));
 heroPlayersBtn?.addEventListener('click', () => { switchTab('players'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
@@ -215,9 +211,6 @@ window.addEventListener('hashchange', () => {
 // further down the file) has finished initializing.
 queueMicrotask(() => loadCommunityData());
 queueMicrotask(() => loadModerationData());
-
-// Website <-> Discord live chat
-initChat({ auth, toast, section: chatSection, loginBtn });
 
 function renderDetailedResources(resourceObj, containerElement) {
   if (!containerElement) return;
@@ -308,6 +301,8 @@ saveUsernameBtn?.addEventListener('click', async () => {
     return;
   }
 
+  const oldName = currentUser.displayName || currentUser.email?.split('@')[0] || 'Player';
+
   try {
     await updateProfile(currentUser, { displayName: newName });
     await update(ref(db, `u/${currentUser.uid}/i`), { dn: newName });
@@ -317,6 +312,14 @@ saveUsernameBtn?.addEventListener('click', async () => {
     usernameInput.value = '';
 
     showUsernameStatus('Name saved successfully!', true);
+
+    logWebsiteEvent({
+      type: 'username_change',
+      name: newName,
+      oldName: oldName,
+      newName: newName,
+      userId: currentUser.uid
+    });
   } catch (err) {
     showUsernameStatus('Could not save name.', false);
   }
@@ -332,7 +335,14 @@ function showUsernameStatus(msg, isSuccess) {
 
 loginBtn?.addEventListener('click', async () => {
   try {
-    await signInWithPopup(auth, provider);
+    const res = await signInWithPopup(auth, provider);
+    if (res?.user) {
+      logWebsiteEvent({
+        type: 'login',
+        name: res.user.displayName || res.user.email?.split('@')[0] || 'User',
+        userId: res.user.uid
+      });
+    }
   } catch (err) {
     if (err && (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request')) return;
     toast('Sign in failed: ' + (err && err.message ? err.message : 'please try again'), 'error');
@@ -340,7 +350,15 @@ loginBtn?.addEventListener('click', async () => {
 });
 
 logoutBtn?.addEventListener('click', async () => {
+  const currentUser = auth.currentUser;
+  const name = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
+  const uid = currentUser?.uid;
   await signOut(auth);
+  logWebsiteEvent({
+    type: 'logout',
+    name: name,
+    userId: uid
+  });
 });
 
 // PRESENCE
